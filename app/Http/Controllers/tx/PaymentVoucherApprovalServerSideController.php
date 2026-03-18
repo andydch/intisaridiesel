@@ -833,6 +833,7 @@ class PaymentVoucherApprovalServerSideController extends Controller
                             }else{
                                 $yearTemp = date_format(date_create($q->payment_date), "y");
                                 $monthTemp = date_format(date_create($q->payment_date), "m");
+                                $ymTemp = $yearTemp.$monthTemp;
                                 $zero = '';
                                 $YearMonth = '';
                                 $newInc = 1;
@@ -846,7 +847,6 @@ class PaymentVoucherApprovalServerSideController extends Controller
 
                                     $date = date_format(date_create($autoInc->updated_at), "n");
                                     $lastUpdAt = date_format(date_create($autoInc->updated_at), "ym");
-                                    $ymTemp = $yearTemp.$monthTemp;
                                     $dateNow = date("ym");
                                     if (($lastUpdAt <> $ymTemp) || ($lastUpdAt <> $dateNow)) {
                                         // jika bulan di server berbeda dengan bulan jurnal yg dipilih
