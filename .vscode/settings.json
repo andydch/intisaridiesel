@@ -1,0 +1,9 @@
+{
+    "bladeFormatter.format.wrapLineLength": 250,
+    "blade.format.enable": true,
+    "bladeFormatter.format.noMultipleEmptyLines": true,
+    "bladeFormatter.format.noPhpSyntaxCheck": true,
+    "bladeFormatter.format.sortHtmlAttributes": "alphabetical",
+    "bladeFormatter.format.useTabs": true,
+    "debug.console.wordWrap": false
+}
