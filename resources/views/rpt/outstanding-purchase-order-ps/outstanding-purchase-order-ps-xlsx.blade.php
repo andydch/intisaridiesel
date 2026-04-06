@@ -69,6 +69,7 @@
                             'tx_purchase_orders.est_supply_date',
                             'ms_sp.name as supplier_name',
                             'ms_sp.supplier_code',
+                            'ms_sp.supplier_type_id',
                             'ms_gc.string_val as currency_name',
                             'userdetails.initial as user_initial',
                         )
@@ -136,30 +137,32 @@
                                 $purchase_no=$po->purchase_no;
                             @endphp
                         @endforeach
-                        <tr>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td style="text-align: right;font-weight:700;">{!! ($pop->supplier_type_id==10?$po->currency_name:'&nbsp;') !!}</td>
-                            <td style="text-align: right;font-weight:700;">{{ number_format($totDppPerPO,0,'.','') }}</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                        </tr>
-                        <tr>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                        </tr>
+                        @if ($totDppPerPO>0)
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td style="text-align: right;font-weight:700;">{!! ($po->supplier_type_id==10?$po->currency_name:'&nbsp;') !!}</td>
+                                <td style="text-align: right;font-weight:700;">{{ number_format($totDppPerPO,0,'.','') }}</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                            </tr>
+                        @endif
                     @endforeach
 
                     @php
@@ -171,9 +174,10 @@
                             'tx_purchase_memos.id as mo_id',
                             'tx_purchase_memos.memo_no',
                             'tx_purchase_memos.memo_date',
-                            'tx_purchase_memos.supplier_type_id',
+                            // 'tx_purchase_memos.supplier_type_id',
                             'ms_sp.name as supplier_name',
                             'ms_sp.supplier_code',
+                            'ms_sp.supplier_type_id',
                             'ms_gc.string_val as currency_name',
                             'userdetails.initial as user_initial',
                         )
@@ -236,32 +240,33 @@
                                 $memo_no=$po->memo_no;
                             @endphp
                         @endforeach
-                        <tr>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td style="text-align: right;font-weight:700;">{!! ($po->supplier_type_id==10?$po->currency_name:'&nbsp;') !!}</td>
-                            <td style="text-align: right;font-weight:700;">{{ number_format($totDppPerMO,0,'.','') }}</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                        </tr>
-                        <tr>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                            <td style="border-bottom:1px solid black;">&nbsp;</td>
-                        </tr>
+                        @if ($totDppPerMO>0)
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td style="text-align: right;font-weight:700;">{!! ($po->supplier_type_id==10?$po->currency_name:'&nbsp;') !!}</td>
+                                <td style="text-align: right;font-weight:700;">{{ number_format($totDppPerMO,0,'.','') }}</td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                <td style="border-bottom:1px solid black;">&nbsp;</td>
+                            </tr>
+                        @endif
                     @endforeach
-
                 </tbody>
             </table>
         </div>

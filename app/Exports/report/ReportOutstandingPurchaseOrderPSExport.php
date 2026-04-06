@@ -147,7 +147,7 @@ class ReportOutstandingPurchaseOrderPSExport implements FromView, ShouldAutoSize
         return [
             // 'B' => NumberFormat::FORMAT_TEXT,
             'C' => NumberFormat::FORMAT_NUMBER,
-            'D' => NumberFormat::FORMAT_NUMBER,
+            'D' => NumberFormat::FORMAT_TEXT,
             'E' => NumberFormat::FORMAT_NUMBER,
             // 'F' => NumberFormat::FORMAT_NUMBER,
             // 'G' => NumberFormat::FORMAT_NUMBER,
