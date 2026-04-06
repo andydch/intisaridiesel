@@ -181,7 +181,7 @@ class ReceiptOrderServerSideController extends Controller
                             $qPo = Tx_purchase_order::where('purchase_no','=',$po_mo)
                             ->first();
                             if($qPo){
-                                $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$qPo->id).'" target="_new" style="text-decoration: underline;">'.$po_mo.'</a><br/>';
+                                $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$qPo->id).'" target="_new" style="text-decoration: underline;">'.$po_mo.'</a><br/>';
                             }
                         }
                     }
