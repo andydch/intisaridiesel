@@ -91,6 +91,8 @@
                         ->whereRaw('tx_purchase_orders.approved_by IS NOT NULL')
                         ->where([
                             'tx_purchase_orders.active'=>'Y',
+                            'ms_sp.active'=>'Y',
+                            'ms_spb.active'=>'Y',
                         ])
                         ->orderBy('tx_purchase_orders.purchase_date','ASC')
                         ->get();
@@ -198,6 +200,8 @@
                         ->whereRaw('tx_purchase_memos.memo_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                         ->where([
                             'tx_purchase_memos.active'=>'Y',
+                            'ms_sp.active'=>'Y',
+                            'ms_spb.active'=>'Y',
                         ])
                         ->orderBy('tx_purchase_memos.memo_date','ASC')
                         ->get();
