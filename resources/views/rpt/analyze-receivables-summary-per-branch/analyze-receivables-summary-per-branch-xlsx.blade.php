@@ -15,6 +15,10 @@
         <div class="table-responsive">
             <table style="width:1024px;">
                 @php
+                    // keterangan
+                    // secara hitungan harus disamakan dg report sales per customer per year
+                    // notif dari pak sulian di meeting tgl 6 Apr 2026 jam 12 hingga 21
+
                     $dateNow = now();
                     $date = now();
                     $month = date_format($date,"m");
@@ -92,27 +96,41 @@
                             ->selectRaw('IF(ISNULL(ett_type.title_ind),
                                 CONCAT(mst_customers.customer_unique_code,\' - \',mst_customers.name),
                                 CONCAT(mst_customers.customer_unique_code,\' - \',ett_type.title_ind,\' \',mst_customers.name)) as cust_name')
+                            // ->whereIn('mst_customers.customer_unique_code', ['MIL02', 'CSH05'])
                             ->where([
-                                // 'mst_customers.id'=>98,
                                 'mst_customers.active'=>'Y',
                                 'usr_d.branch_id'=>$branch->id,
                             ])
+                            // ->where(function($q){
+                            //     $q->whereIn('mst_customers.id', function($q1){
+                            //         $q1->select('customer_id')
+                            //         ->from('tx_delivery_orders')
+                            //         ->whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                            //         ->where([
+                            //             'active'=>'Y',
+                            //         ]);
+                            //     })
+                            //     ->orWhereIn('mst_customers.id', function($q1){
+                            //         $q1->select('customer_id')
+                            //         ->from('tx_delivery_order_non_taxes')
+                            //         ->whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                            //         ->where([
+                            //             'active'=>'Y',
+                            //         ]);
+                            //     });
+                            // })
                             ->where(function($q){
-                                $q->whereIn('mst_customers.id', function($q1){
-                                    $q1->select('customer_id')
-                                    ->from('tx_delivery_orders')
-                                    ->whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                    ->where([
-                                        'active'=>'Y',
-                                    ]);
+                                $q->whereIn('mst_customers.id', function($q){
+                                    $q->select('customer_id')
+                                    ->from('tx_sales_orders')
+                                    ->whereRaw('sales_order_no NOT LIKE \'%Draft%\'')
+                                    ->where('active', 'Y');
                                 })
-                                ->orWhereIn('mst_customers.id', function($q1){
-                                    $q1->select('customer_id')
-                                    ->from('tx_delivery_order_non_taxes')
-                                    ->whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                    ->where([
-                                        'active'=>'Y',
-                                    ]);
+                                ->orWhereIn('mst_customers.id', function($q){
+                                    $q->select('customer_id')
+                                    ->from('tx_surat_jalans')
+                                    ->whereRaw('surat_jalan_no NOT LIKE \'%Draft%\'')
+                                    ->where('active', 'Y');
                                 });
                             })
                             ->orderBy('mst_customers.name','ASC')
@@ -121,28 +139,60 @@
                         @foreach ($qCusts as $cust)
                             @php
                                 // this month
-                                $qSumFaktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
+                                // $qSum-Faktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_after_vat');
+                                $qSumFaktur = \App\Models\Tx_sales_order::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_orders as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(sales_order_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
                                 ->where([
-                                    'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
                                     'active'=>'Y',
+                                    'customer_id'=>$cust->cust_id,
                                 ])
                                 ->sum('total_after_vat');
 
-                                $qSumNotaPenjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
+                                // $qSumNota-Penjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_price');
+                                $qSumNotaPenjualan = \App\Models\Tx_surat_jalan::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_non_tax_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_order_non_taxes as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(surat_jalan_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
                                 ->where([
+                                    'active' => 'Y',
                                     'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
                                 ])
-                                ->sum('total_price');
+                                ->sum('total');
 
                                 $sumReturPPN = \App\Models\Tx_nota_retur::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -151,7 +201,7 @@
                                 $sumReturNonPPN = \App\Models\Tx_nota_retur_non_tax::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$thismonthYear.'-'.$thismonth.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -193,36 +243,69 @@
                                     $sumPenerimaanCustomer = $qSumPenerimaanCustomer->payment_total_after_vat;
                                 }
 
-                                if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
-                                    $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
-                                }else{
-                                    if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
-                                        $totThisMonth = 0;
-                                    }else{
-                                        $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                    }
-                                }
+                                $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
+                                //     $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // }else{
+                                //     if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
+                                //         $totThisMonth = 0;
+                                //     }else{
+                                //         $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
+                                //     }
+                                // }
                                 $totGrandThisMonth += $totThisMonth;
                                 // this month
 
                                 // last month
-                                $qSumFaktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
+                                // $qSum-Faktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_after_vat');
+                                $qSumFaktur = \App\Models\Tx_sales_order::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_orders as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(sales_order_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
                                 ->where([
-                                    'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
                                     'active'=>'Y',
+                                    'customer_id'=>$cust->cust_id,
                                 ])
                                 ->sum('total_after_vat');
 
-                                $qSumNotaPenjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
+                                // $qSumNota-Penjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_price');
+                                $qSumNotaPenjualan = \App\Models\Tx_surat_jalan::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_non_tax_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_order_non_taxes as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(surat_jalan_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
                                 ->where([
+                                    'active' => 'Y',
                                     'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
                                 ])
-                                ->sum('total_price');
+                                ->sum('total');
 
                                 $sumReturPPN = \App\Models\Tx_nota_retur::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
@@ -236,7 +319,7 @@
                                 $sumReturNonPPN = \App\Models\Tx_nota_retur_non_tax::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next1monthYear.'-'.$next1month.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -278,40 +361,74 @@
                                     $sumPenerimaanCustomer = $qSumPenerimaanCustomer->payment_total_after_vat;
                                 }
 
-                                if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
-                                    $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
-                                }else{
-                                    if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
-                                        $totLastMonth = 0;
-                                    }else{
-                                        $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                    }
-                                }
+                                $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
+                                //     $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // }else{
+                                //     if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
+                                //         $totLastMonth = 0;
+                                //     }else{
+                                //         $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
+                                //     }
+                                // }
                                 $totGrandLastMonth += $totLastMonth;
                                 // last month
 
                                 // last 2 month
-                                $qSumFaktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
+                                // $qSum-Faktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_after_vat');
+                                $qSumFaktur = \App\Models\Tx_sales_order::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_orders as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(sales_order_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
                                 ->where([
-                                    'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
                                     'active'=>'Y',
+                                    'customer_id'=>$cust->cust_id,
                                 ])
                                 ->sum('total_after_vat');
-                                $qSumNotaPenjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
+
+                                // $qSumNota-Penjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_price');
+                                $qSumNotaPenjualan = \App\Models\Tx_surat_jalan::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_non_tax_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_order_non_taxes as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(surat_jalan_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
                                 ->where([
+                                    'active' => 'Y',
                                     'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
                                 ])
-                                ->sum('total_price');
+                                ->sum('total');
 
                                 $sumReturPPN = \App\Models\Tx_nota_retur::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -320,7 +437,7 @@
                                 $sumReturNonPPN = \App\Models\Tx_nota_retur_non_tax::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next2monthYear.'-'.$next2month.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -362,41 +479,74 @@
                                     $sumPenerimaanCustomer = $qSumPenerimaanCustomer->payment_total_after_vat;
                                 }
 
-                                if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
-                                    $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
-                                }else{
-                                    if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
-                                        $totLast2Months = 0;
-                                    }else{
-                                        $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                    }
-                                }
+                                $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
+                                //     $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // }else{
+                                //     if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
+                                //         $totLast2Months = 0;
+                                //     }else{
+                                //         $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
+                                //     }
+                                // }
                                 $totGrandLast2Month += $totLast2Months;
                                 // last 2 month
 
                                 // last 3 month
-                                $qSumFaktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
+                                // $qSum-Faktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_after_vat');
+                                $qSumFaktur = \App\Models\Tx_sales_order::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_orders as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(sales_order_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
                                 ->where([
-                                    'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
                                     'active'=>'Y',
+                                    'customer_id'=>$cust->cust_id,
                                 ])
                                 ->sum('total_after_vat');
 
-                                $qSumNotaPenjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
+                                // $qSumNota-Penjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('DATE_FORMAT(delivery_order_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_price');
+                                $qSumNotaPenjualan = \App\Models\Tx_surat_jalan::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_non_tax_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_order_non_taxes as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('DATE_FORMAT(surat_jalan_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
                                 ->where([
+                                    'active' => 'Y',
                                     'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
                                 ])
-                                ->sum('total_price');
+                                ->sum('total');
 
                                 $sumReturPPN = \App\Models\Tx_nota_retur::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -405,7 +555,7 @@
                                 $sumReturNonPPN = \App\Models\Tx_nota_retur_non_tax::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('DATE_FORMAT(nota_retur_date, "%Y-%m")=\''.$next3monthYear.'-'.$next3month.'\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -447,41 +597,74 @@
                                     $sumPenerimaanCustomer = $qSumPenerimaanCustomer->payment_total_after_vat;
                                 }
 
-                                if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
-                                    $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
-                                }else{
-                                    if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
-                                        $totLast3Months = 0;
-                                    }else{
-                                        $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                    }
-                                }
+                                $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
+                                //     $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // }else{
+                                //     if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
+                                //         $totLast3Months = 0;
+                                //     }else{
+                                //         $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
+                                //     }
+                                // }
                                 $totGrandLast3Month += $totLast3Months;
                                 // last 3 month
 
                                 // last more than 3 month
-                                $qSumFaktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('delivery_order_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
+                                // $qSum-Faktur = \App\Models\Tx_delivery_order::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('delivery_order_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_after_vat');
+                                $qSumFaktur = \App\Models\Tx_sales_order::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_orders as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('sales_order_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
                                 ->where([
-                                    'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
                                     'active'=>'Y',
+                                    'customer_id'=>$cust->cust_id,
                                 ])
                                 ->sum('total_after_vat');
 
-                                $qSumNotaPenjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
-                                ->whereRaw('delivery_order_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
+                                // $qSumNota-Penjualan = \App\Models\Tx_delivery_order_non_tax::whereRaw('delivery_order_no NOT LIKE \'%Draft%\'')
+                                // ->whereRaw('delivery_order_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
+                                // ->where([
+                                //     'customer_id'=>$cust->cust_id,
+                                //     'branch_id'=>$branch->id,
+                                //     'active'=>'Y',
+                                // ])
+                                // ->sum('total_price');
+                                $qSumNotaPenjualan = \App\Models\Tx_surat_jalan::whereIn('id', function($q) {
+                                    $q->select('tx_dop.sales_order_id')
+                                    ->from('tx_delivery_order_non_tax_parts as tx_dop')
+                                    ->leftJoin('tx_delivery_order_non_taxes as tx_do','tx_dop.delivery_order_id','=','tx_do.id')
+                                    ->whereRaw('tx_do.delivery_order_no NOT LIKE \'%Draft%\'')
+                                    ->where([
+                                        'tx_dop.active'=>'Y',
+                                        'tx_do.active'=>'Y',
+                                    ]);
+                                })
+                                ->whereRaw('surat_jalan_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
                                 ->where([
+                                    'active' => 'Y',
                                     'customer_id'=>$cust->cust_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
                                 ])
-                                ->sum('total_price');
+                                ->sum('total');
 
                                 $sumReturPPN = \App\Models\Tx_nota_retur::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('nota_retur_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -490,7 +673,7 @@
                                 $sumReturNonPPN = \App\Models\Tx_nota_retur_non_tax::whereRaw('nota_retur_no NOT LIKE \'%Draft%\'')
                                 ->whereRaw('nota_retur_date<\''.$next3monthYear.'-'.$next3month.'-01\'')
                                 ->where('customer_id','=',$cust->cust_id)
-                                ->where('branch_id','=',$branch->id)
+                                // ->where('branch_id','=',$branch->id)
                                 ->whereRaw('approved_by IS NOT null')
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
@@ -532,15 +715,16 @@
                                     $sumPenerimaanCustomer = $qSumPenerimaanCustomer->payment_total_after_vat;
                                 }
 
-                                if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
-                                    $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
-                                }else{
-                                    if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
-                                        $totLastThan3Months = 0;
-                                    }else{
-                                        $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                    }
-                                }
+                                $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN))<=0){
+                                //     $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN);
+                                // }else{
+                                //     if ((($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer)<=0){
+                                //         $totLastThan3Months = 0;
+                                //     }else{
+                                //         $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
+                                //     }
+                                // }
                                 $totGrandLastThan3Month += $totLastThan3Months;
                                 // last more than 3 month
 
