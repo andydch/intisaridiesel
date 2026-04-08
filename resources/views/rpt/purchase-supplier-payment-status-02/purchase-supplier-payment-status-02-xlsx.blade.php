@@ -140,8 +140,8 @@
                                     <tr>
                                         <td style="border-left:1px solid black;text-align:left;">{{ ($supplier_name!=$supplier->name)?$supplier->supplier_code.' - '.$supplier->name:'' }}</td>
                                         <td style="text-align:left;">{{ ($ts_no!=$ts->tagihan_supplier_no)?$ts->tagihan_supplier_no:'' }}</td>
-                                        <td style="text-align:center;">{{ $ts->invoice_no }}</td>
-                                        <td style="text-align:left;">{{ $ts->receipt_date }}</td>
+                                        <td style="text-align:left;">{{ $ts->invoice_no }}</td>
+                                        <td style="text-align:center;">{{ date_format(date_create($ts->receipt_date),"d/m/Y") }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_before_vat_rp,0,'.',''):number_format($ts->total_before_vat,0,'.','') }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_vat_rp,0,'.',''):number_format($ts->total_vat,0,'.','') }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_after_vat_rp,0,'.',''):number_format($ts->total_after_vat,0,'.','') }}</td>
