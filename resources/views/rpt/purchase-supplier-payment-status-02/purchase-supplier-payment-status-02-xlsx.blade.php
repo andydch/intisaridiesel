@@ -106,6 +106,7 @@
                                     'tx_tagihan_suppliers.tagihan_supplier_no',
                                     'tx_tagihan_suppliers.tagihan_supplier_date',
                                     'tx_tagihan_suppliers.grandtotal_price as ts_grandtotal_price',
+                                    'tx_ro.id as ro_id',
                                     'tx_ro.invoice_no',
                                     'tx_ro.supplier_type_id',
                                     'tx_ro.total_before_vat',
@@ -159,6 +160,28 @@
                                             {{ ($saldo!=$saldo_tmp && $ts_no!=$ts->tagihan_supplier_no)?($saldo>0?number_format($saldo,0,'.',''):''):'' }}
                                         </td>
                                     </tr>
+                                    @php
+                                        $p_retur = \App\Models\Tx_purchase_retur::where('receipt_order_id', $ts->ro_id)
+                                        ->where('active', 'Y')
+                                        // ->whereRaw('tx_pv.approved_by IS NOT null')
+                                        ->get();
+                                    @endphp
+                                    @foreach ($p_retur as $pr)
+                                        <tr>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                            <td style="color: red;">{{ $pr->purchase_retur_no }}</td>
+                                            <td style="text-align:center;color: red;">{{ date_format(date_create($pr->purchase_retur_date),"d/m/Y") }}</td>
+                                            <td style="text-align:right;color: red;">-{{ number_format($pr->total_before_vat,0,'.','') }}</td>
+                                            <td style="text-align:right;color: red;">-{{ number_format($pr->total_after_vat-$pr->total_before_vat,0,'.','') }}</td>
+                                            <td style="text-align:right;color: red;">-{{ number_format($pr->total_after_vat,0,'.','') }}</td>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                            <td style="border-right:1px solid black;">&nbsp;</td>
+                                        </tr>
+                                    @endforeach
+
                                     @php
                                         $totalDPP += ($ts->supplier_type_id==10?$ts->total_before_vat_rp:$ts->total_before_vat);
                                         $totalVAT += ($ts->supplier_type_id==10?$ts->total_vat_rp:$ts->total_vat);
