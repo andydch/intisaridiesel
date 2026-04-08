@@ -244,6 +244,9 @@ class PaymentVoucherServerSideController extends Controller
      */
     public function create()
     {
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
+        ->first();
+
         $qCurrency = Mst_global::where([
             'id' => 3,
             'data_cat' => 'currency',
@@ -332,6 +335,7 @@ class PaymentVoucherServerSideController extends Controller
             'payment_mode_id' => explode("|", $this->payment_mode_id),
             'payment_type' => explode(",", $this->payment_type),
             'qVat' => $qVat,
+            'userLogin' => $userLogin,
         ];
 
         return view('tx.'.$this->folder.'.create', $data);
@@ -759,6 +763,9 @@ class PaymentVoucherServerSideController extends Controller
      */
     public function edit($voucher_no)
     {
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
+        ->first();
+
         $qCurrency = Mst_global::where([
             'id' => 3,
             'data_cat' => 'currency',
@@ -912,6 +919,7 @@ class PaymentVoucherServerSideController extends Controller
                 'payment_mode_id' => explode("|", $this->payment_mode_id),
                 'payment_type' => explode(",", $this->payment_type),
                 'qVat' => $qVat,
+                'userLogin' => $userLogin,
                 'pvId' => $query->id,
             ];
 

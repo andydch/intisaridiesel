@@ -35,7 +35,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_details')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 1)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })                
                 ->where('active', '=', 'Y')
@@ -46,7 +46,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_detail_exts')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 1)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })
                 ->where('active', '=', 'Y')
@@ -59,7 +59,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_details')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 2)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })
                 ->where('active', '=', 'Y')
@@ -70,7 +70,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_detail_exts')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 2)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })
                 ->where('active', '=', 'Y')
@@ -83,7 +83,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_details')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 3)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })                
                 ->where('active', '=', 'Y')
@@ -94,7 +94,7 @@ class DispBankAccNoController extends Controller
                 ->from('mst_automatic_journal_detail_exts')
                 ->where('auto_journal_id', '=', $payment_group)
                 ->where('method_id', '=', 3)
-                ->when(Auth::user()->id!=1, function($q2) use($userLogin){
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q2) use($userLogin){
                     $q2->where('branch_id', '=', ($userLogin?$userLogin->branch_id:0));
                 })
                 ->where('active', '=', 'Y')
