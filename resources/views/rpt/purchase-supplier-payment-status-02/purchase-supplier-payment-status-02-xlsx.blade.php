@@ -17,7 +17,7 @@
                 @php
                     $date = now();
                     $month = date_format($date,"m");
-                    $totCols = 10;
+                    $totCols = 11;
                     $monthNm = '';
                 @endphp
                 <thead>
@@ -40,6 +40,7 @@
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">NAMA SUPPLIER</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">TS NO</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">NO INVOICE</th>
+                        <th style="text-align: center;border:1px solid black;background-color:#daeef3;">INVOICE DATE</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">TOTAL DPP ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">PPN ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">TOTAL ({{ $qCurrency->string_val }})</th>
@@ -68,6 +69,7 @@
                     @foreach ($branches as $branch)
                         <tr>
                             <td style="font-weight:700;border-left:1px solid black;font-weight:700;">{{ $branch->name }}</td>
+                            <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
@@ -112,6 +114,7 @@
                                     'tx_ro.total_vat_rp',
                                     'tx_ro.total_after_vat',
                                     'tx_ro.total_after_vat_rp',
+                                    'tx_ro.receipt_date',
                                     'tx_pv.payment_date',
                                     'tx_pv.payment_total_after_vat as pv_total_payment_after_vat',
                                     'tx_pv.approved_by as pv_approved_by',
@@ -137,7 +140,8 @@
                                     <tr>
                                         <td style="border-left:1px solid black;text-align:left;">{{ ($supplier_name!=$supplier->name)?$supplier->supplier_code.' - '.$supplier->name:'' }}</td>
                                         <td style="text-align:left;">{{ ($ts_no!=$ts->tagihan_supplier_no)?$ts->tagihan_supplier_no:'' }}</td>
-                                        <td style="text-align:left;">{{ $ts->invoice_no }}</td>
+                                        <td style="text-align:center;">{{ $ts->invoice_no }}</td>
+                                        <td style="text-align:left;">{{ $ts->receipt_date }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_before_vat_rp,0,'.',''):number_format($ts->total_before_vat,0,'.','') }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_vat_rp,0,'.',''):number_format($ts->total_vat,0,'.','') }}</td>
                                         <td style="text-align:right;">{{ $ts->supplier_type_id==10?number_format($ts->total_after_vat_rp,0,'.',''):number_format($ts->total_after_vat,0,'.','') }}</td>
@@ -176,6 +180,7 @@
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
                                         <td style="border-right:1px solid black;">&nbsp;</td>
                                     </tr>
                                 @endif
@@ -191,11 +196,13 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
+                            <td>&nbsp;</td>
                             <td style="border-right:1px solid black;">&nbsp;</td>
                         </tr>
                     @endforeach
                     <tr>
                         <td style="text-align: center;font-weight:700;border-left:1px solid black;border-top:1px solid black;border-bottom:1px solid black;">TOTAL</td>
+                        <td style="border-top:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-top:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-top:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                         <td style="text-align:right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalDPP,0,'.','') }}</td>
