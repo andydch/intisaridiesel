@@ -1018,15 +1018,16 @@ Route::group(
 
         // purchase per supplier per parts-no
         Route::resource('/purchase-per-supplier-per-parts-no', ReportPurchasePerSupplierPerPartsNoController::class)->except(['show','edit','update','destroy']);
-        Route::get('/purchase-per-supplier-per-parts-no-xlsx/{date_start}/{date_end}', function (string $date_start,string $date_end) use($date_xls) {
-            return Excel::download(new ReportPurchasePerSupplierPerPartsNoExport($date_start,$date_end),
+        Route::get('/purchase-per-supplier-per-parts-no-xlsx/{branch_id}/{date_start}/{date_end}/{supplier_id}', 
+            function (string $branch_id, string $date_start, string $date_end, string $supplier_id) use($date_xls) {
+            return Excel::download(new ReportPurchasePerSupplierPerPartsNoExport($branch_id, $date_start, $date_end, $supplier_id),
                 'purchase-per-supplier-per-parts-no-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // purchase summary per supplier
         Route::resource('/purchase-summary-per-supplier', ReportPurchaseSummaryPerSupplierController::class)->except(['show','edit','update','destroy']);
         Route::get('/purchase-summary-per-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id,string $date_start,string $date_end) use($date_xls) {
-            return Excel::download(new ReportPurchaseSummaryPerSupplierExport($branch_id,$date_start,$date_end),
+            return Excel::download(new ReportPurchaseSummaryPerSupplierExport($branch_id, $date_start, $date_end, $supplier_id),
                 'purchase-summary-per-supplier-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 

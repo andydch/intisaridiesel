@@ -59,7 +59,10 @@
                         $part_no='';
                         $totHargaAll=0;
 
-                        $suppliers = \App\Models\Mst_supplier::where('active','=','Y')
+                        $suppliers = \App\Models\Mst_supplier::when($supplier_id!=9999, function($q) use($supplier_id){
+                            $q->where('id', $supplier_id);
+                        })
+                        ->where('active','=','Y')
                         ->orderBy('name','ASC')
                         ->get();
                     @endphp
@@ -99,16 +102,15 @@
                             ->selectRaw('IF(ISNULL(ett_type.title_ind),
                                 CONCAT(mssp.supplier_code,\' - \',mssp.name),
                                 CONCAT(mssp.supplier_code,\' - \',ett_type.title_ind,\' \',mssp.name)) as supplier_name')
-                            ->where([
-                                'tx_receipt_order_parts.active'=>'Y',
-                            ])
+                            ->where('tx_receipt_order_parts.active', 'Y')
                             ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
                             ->whereRaw('tx_ro.receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                             ->whereRaw('tx_ro.receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                            ->where([
-                                'tx_ro.supplier_id'=>$supplier->id,
-                                'tx_ro.active'=>'Y',
-                            ])
+                            ->where('tx_ro.supplier_id', $supplier->id)
+                            ->where('tx_ro.active', 'Y')
+                            ->when($branch_id!=9999, function($q) use($branch_id){
+                                $q->where('msb.id', $branch_id);
+                            })
                             ->orderBy('msp.part_number','ASC')
                             ->get();
                         @endphp
@@ -254,6 +256,9 @@
                                 ->whereRaw('tx_pr.purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                                 ->whereRaw('tx_pr.approved_by IS NOT NULL')
                                 ->whereRaw('tx_ro.receipt_date<\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->when($branch_id!=9999, function($q) use($branch_id){
+                                    $q->where('msb.id', $branch_id);
+                                })
                                 ->orderBy('msp.part_number','ASC')
                                 ->get();
                             @endphp

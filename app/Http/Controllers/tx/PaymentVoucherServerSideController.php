@@ -101,6 +101,7 @@ class PaymentVoucherServerSideController extends Controller
                 ->where('usr.branch_id', '=', $userLogin->branch_id);
             })
             ->orderBy('tx_payment_vouchers.payment_voucher_plan_no','DESC')
+            ->orderBy('tx_payment_vouchers.payment_voucher_no','DESC')
             ->orderBy('tx_payment_vouchers.created_at','DESC');
 
             return DataTables::of($query)

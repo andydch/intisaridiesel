@@ -6,6 +6,8 @@ use App\Models\Mst_part;
 use App\Models\Mst_global;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Mst_branch;
+use App\Models\Mst_supplier;
 use Illuminate\Support\Facades\Validator;
 
 class ReportPurchasePerSupplierPerPartsNoController extends Controller
@@ -27,9 +29,19 @@ class ReportPurchasePerSupplierPerPartsNoController extends Controller
         ])
         ->first();
 
+        $branches = Mst_branch::where('active','=','Y')
+        ->orderBy('name','ASC')
+        ->get();
+
+        $suppliers = Mst_supplier::where('active', '=', 'Y')
+        ->orderBy('name', 'ASC')
+        ->get();
+
         $data = [
             'title' => $this->title,
             'folder' => $this->folder,
+            'branches' => $branches,
+            'suppliers' => $suppliers,
             'qCurrency' => $qCurrency,
         ];
         return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
@@ -54,10 +66,16 @@ class ReportPurchasePerSupplierPerPartsNoController extends Controller
     public function store(Request $request)
     {
         $validateInput = [
+            'branch_id' => 'required|numeric',
+            'supplier_id' => 'required|numeric',
             'date_start' => 'required|date',
             'date_end' => 'required|date',
         ];
         $errMsg = [
+            'branch_id.required' => 'Branch is required',
+            'branch_id.numeric' => 'Branch is required',
+            'supplier_id.required' => 'Supplier is required',
+            'supplier_id.numeric' => 'Supplier is required',
             'date_start.required' => 'Period start date is required',
             'date_start.date' => 'Period start date must be date',
             'date_end.required' => 'Period end date is required',
@@ -98,7 +116,7 @@ class ReportPurchasePerSupplierPerPartsNoController extends Controller
             return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
         }
         if($request->view_mode=='P'){
-            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.$request->date_start.'/'.$request->date_end);
+            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.$request->branch_id.'/'.$request->date_start.'/'.$request->date_end.'/'.$request->supplier_id);
         }
     }
 

@@ -6,7 +6,7 @@
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.time.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.date.css') }}" rel="stylesheet" />
 <link rel="stylesheet" href="{{ asset('assets/plugins/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.min.css') }}">
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+{{-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> --}}
 <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
 <style>
@@ -43,17 +43,18 @@
                         <div class="col-xl-6">
                             <div class="row">
                                 <div class="col-xl-12">
-                                    {{-- <div class="row mb-3">
+                                    <div class="row mb-3">
                                         <label for="branch_id" class="col-sm-3 col-form-label">Branch</label>
                                         <div class="col-sm-9">
                                             <select class="form-select single-select @error('branch_id') is-invalid @enderror"
                                                 id="branch_id" name="branch_id">
-                                                <option value="0">Choose...</option>
+                                                <option value="">Choose...</option>
                                                 @php
-                                                    $p_Id = (old('branch_id')?old('branch_id'):(isset($reqs)?$reqs->branch_id:0));
+                                                    $p_Id = (old('branch_id')?old('branch_id'):(isset($reqs)?$reqs->branch_id:''));
                                                 @endphp
+                                                <option @if($p_Id==0){{ 'selected' }}@endif value="9999">All</option>
                                                 @foreach ($branches as $branch)
-                                                    <option @if ($p_Id==$branch->id) {{ 'selected' }} @endif
+                                                    <option @if($p_Id==$branch->id) {{ 'selected' }} @endif
                                                         value="{{ $branch->id }}">{{ $branch->name }}</option>
                                                 @endforeach
                                             </select>
@@ -61,7 +62,28 @@
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
-                                    </div> --}}
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label for="supplier_id" class="col-sm-3 col-form-label">Supplier</label>
+                                        <div class="col-sm-9">
+                                            <select class="form-select single-select @error('supplier_id') is-invalid @enderror"
+                                                id="supplier_id" name="supplier_id">
+                                                <option value="">Choose...</option>
+                                                @php
+                                                    $supplier_id = (old('supplier_id')?old('supplier_id'):(isset($reqs)?$reqs->supplier_id:''));
+                                                @endphp
+                                                <option @if($supplier_id==0){{ 'selected' }}@endif value="9999">All</option>
+                                                @foreach ($suppliers as $supplier)
+                                                    <option @if($supplier_id==$supplier->id) {{ 'selected' }} @endif
+                                                        value="{{ $supplier->id }}">{{ $supplier->supplier_code.' - '.
+                                                        ($supplier->entity_type?$supplier->entity_type->title_ind:'').' '.$supplier->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('supplier_id')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
                                     <div class="row mb-3">
                                         <label for="date_start" class="col-sm-3 col-form-label">Period</label>
                                         <div class="col-sm-3">

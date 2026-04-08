@@ -14,14 +14,18 @@ use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
 class ReportPurchasePerSupplierPerPartsNoExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
+    protected $branch_id;
     protected $date_start;
     protected $date_end;
+    protected $supplier_id;
 
-    public function __construct($date_start,$date_end)
+    public function __construct($branch_id,$date_start,$date_end,$supplier_id)
     {
         // ini_set('memory_limit', '64M');
         // ini_set('max_execution_time', 1800);
 
+        $this->branch_id = $branch_id;
+        $this->supplier_id = $supplier_id;
         $this->date_start = $date_start;
         $this->date_end = $date_end;
     }
@@ -50,6 +54,8 @@ class ReportPurchasePerSupplierPerPartsNoExport implements FromView, ShouldAutoS
         }
 
         $data = [
+            'branch_id' => $this->branch_id,
+            'supplier_id' => $this->supplier_id,
             'date_start' => $this->date_start,
             'date_end' => $this->date_end,
             'qCurrency' => $qCurrency,
