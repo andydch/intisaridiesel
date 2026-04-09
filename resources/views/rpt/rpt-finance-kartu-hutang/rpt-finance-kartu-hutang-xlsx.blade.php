@@ -111,7 +111,7 @@
                             <td style="text-align: right;border:1px solid black;">
                                 @switch($q->order_no)
                                     @case(1)
-                                        {{ number_format($q->total,2,'.',',') }}
+                                        {{ number_format($q->total,0,'','') }}
                                         @php
                                             $lastSaldo += $q->total;
                                         @endphp
@@ -132,13 +132,13 @@
                                         0
                                         @break
                                     @case(2)
-                                        {{ number_format($q->total,2,'.',',') }}
+                                        {{ number_format($q->total,0,'','') }}
                                         @php
                                             $lastSaldo = $lastSaldo-$q->total;
                                         @endphp
                                         @break
                                     @case(3)
-                                        {{ number_format($q->total,2,'.',',') }}
+                                        {{ number_format($q->total,0,'','') }}
                                         @php
                                             $lastSaldo = $lastSaldo-$q->total;
                                         @endphp
@@ -147,7 +147,7 @@
                                         &nbsp;
                                 @endswitch
                             </td>
-                            <td style="text-align:right;border:1px solid black;">{{ number_format($lastSaldo,2,'.',',') }}</td>
+                            <td style="text-align:right;border:1px solid black;">{{ number_format($lastSaldo,0,'','') }}</td>
                         </tr>
                     @endforeach
                 </tbody>
