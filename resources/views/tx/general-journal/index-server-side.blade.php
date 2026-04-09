@@ -128,7 +128,6 @@
 @endsection
 
 @section('script')
-{{-- <script src="https://cdn.datatables.net/2.1.3/js/dataTables.min.js"></script> --}}
 <script src="{{ asset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/datetimepicker/js/legacy.js') }}"></script>
@@ -140,9 +139,6 @@
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 <script>
     $(document).ready(function() {
-        var fnRenderDate = function (data, type, row) {
-            return moment(new Date(data)).locale('en').format('DD/MM/YYYY HH:MM:SS');
-        };
         $('#gj-list').DataTable({
             processing: true,
             paging: true,
@@ -164,7 +160,8 @@
                 cache: true,
                 "data": {
                     "date_begin": $("#date_begin").val(),
-                    "date_ending": $("#date_ending").val()
+                    "date_ending": $("#date_ending").val(),
+                    "branch_id": $("#branch_id").val()
                 },
                 dataType: "json"
             },
@@ -183,7 +180,7 @@
                     data: 'createdat_wformat',
                     name: 'createdat_wformat',
                     orderable: true,
-                    searchable: false,
+                    searchable: true,
                 },
                 {
                     data: 'viewDoc',
@@ -205,7 +202,7 @@
                 },
                 {
                     data: 'initial',
-                    name: 'usr.initial'
+                    name: 'usr.initial',
                 },
                 {
                     data: 'action',
@@ -225,7 +222,7 @@
                     targets: [1,2],
                     className: 'text-center',
                     // render: function(data, type, row, meta) {
-                    //     return moment(data, 'YYYY-MM-DD').format('DD/MM/YYYY');
+                    //     return moment(data).format('DD/MM/YYYY');
                     // },
                 },
                 {

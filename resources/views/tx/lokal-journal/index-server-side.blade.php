@@ -62,7 +62,7 @@
                             </div>
                         </div>
                         <div class="row mb-3">
-                            <label for="branch_id" class="col-sm-3 col-form-label">Branch {{ $requestAll->branch_id }}</label>
+                            <label for="branch_id" class="col-sm-3 col-form-label">Branch</label>
                             <div class="col-sm-9">
                                 <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id">
                                     <option value="#">Choose...</option>
@@ -160,7 +160,8 @@
                 cache: true,
                 "data": {
                     "date_begin": $("#date_begin").val(),
-                    "date_ending": $("#date_ending").val()
+                    "date_ending": $("#date_ending").val(),
+                    "branch_id": $("#branch_id").val()
                 },
                 dataType: "json"
             },

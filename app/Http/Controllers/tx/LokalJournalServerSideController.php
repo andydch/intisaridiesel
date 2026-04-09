@@ -8,7 +8,7 @@ use App\Models\Auto_inc;
 use App\Models\Mst_branch;
 use App\Models\Mst_global;
 use App\Models\Userdetail;
-use App\Rules\IsLJoApproved;
+// use App\Rules\IsLJoApproved;
 use App\Rules\NumericCustom;
 use Illuminate\Http\Request;
 use App\Models\Tx_lokal_journal;
@@ -86,13 +86,41 @@ class LokalJournalServerSideController extends Controller
                 $q->whereRaw('tx_lokal_journals.general_journal_date>=STR_TO_DATE("'.urldecode($request->date_begin).'", "%d/%m/%Y")');
                 $q->whereRaw('tx_lokal_journals.general_journal_date<=STR_TO_DATE("'.urldecode($request->date_ending).'", "%d/%m/%Y")');
             })
-            ->when(request()->has('branch_id') && request()->branch_id!='#', function($q) use($request) {
-                $q->where('usr.branch_id','=',request()->branch_id);
+            ->when($request->branch_id!=='#' && $request->branch_id!==null, function($q) use($request, $userLogin){
+                $q->whereIn('tx_lokal_journals.id', function($q1) use($request, $userLogin){
+                    $q1->select('tx_ljd.lokal_journal_id')
+                    ->from('tx_lokal_journal_details AS tx_ljd')
+                    ->leftJoin('mst_coas AS mst_c', 'tx_ljd.coa_id', '=', 'mst_c.id')
+                    ->where('tx_ljd.active', 'Y')
+                    ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
+                        $q2->where('mst_c.branch_id', $userLogin->branch_id);
+                    })
+                    ->when($userLogin->is_director=='Y', function($q2) use($request){
+                        $q2->where('mst_c.branch_id', (int)$request->branch_id);
+                    })
+                    ->where('mst_c.active', 'Y');
+                });
             })
+            ->when($request->branch_id=='#' || $request->branch_id==null, function($q) use($request, $userLogin){
+                // Log::info('test 3: '.$userLogin->branch_id);
+                $q->whereIn('tx_lokal_journals.id', function($q1) use($request, $userLogin){
+                    $q1->select('tx_ljd.lokal_journal_id')
+                    ->from('tx_lokal_journal_details AS tx_ljd')
+                    ->leftJoin('mst_coas AS mst_c', 'tx_ljd.coa_id', '=', 'mst_c.id')
+                    ->where('tx_ljd.active', 'Y')
+                    ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
+                        $q2->where('mst_c.branch_id', $userLogin->branch_id);
+                    })
+                    ->where('mst_c.active', 'Y');
+                });
+            })
+            // ->when(request()->has('branch_id') && request()->branch_id!='#', function($q) use($request) {
+            //     $q->where('usr.branch_id','=',request()->branch_id);
+            // })
             ->where('tx_lokal_journals.active','=','Y')
-            ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use($userLogin) {
-                $q->where('usr.branch_id','=',$userLogin->branch_id);
-            })
+            // ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use($userLogin) {
+            //     $q->where('usr.branch_id','=',$userLogin->branch_id);
+            // })
             ->orderBy('tx_lokal_journals.created_at','DESC');
 
             return DataTables::of($query)
@@ -911,6 +939,7 @@ class LokalJournalServerSideController extends Controller
                                     'updated_by'=>Auth::user()->id,
                                 ]);
                             }
+
                         } else {
                             $insPart = Tx_lokal_journal_detail::create([
                                 'lokal_journal_id'=>$gjOld->id,

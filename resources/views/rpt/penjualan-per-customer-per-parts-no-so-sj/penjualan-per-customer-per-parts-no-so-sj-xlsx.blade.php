@@ -76,26 +76,62 @@
                             $howManyParts = 0;
 
                             // tampilkan semua part
-                            $qParts = \App\Models\V_sales_per_part_so_sj::select(
-                                'part_id',
+                            $qParts = \App\Models\Mst_part::select(
+                                'id as part_id',
                                 'part_number',
                                 'part_name',
                             )
-                            ->where([
-                                'customer_id'=>$customer->id,
+                            ->addSelect([
+                                'sumQty' => \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty)')
+                                    ->whereColumn('v_sales_per_part_so_sj.part_id', 'mst_parts.id')
+                                    ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                    ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    ->when(strtoupper($lokal_input)=='P', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
+                                    })
                             ])
-                            ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                            ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                            ->when(strtoupper($lokal_input)=='P', function($q) {
-                                $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
+                            ->addSelect([
+                                'sumPrice' => \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty*last_price)')
+                                    ->whereColumn('v_sales_per_part_so_sj.part_id', 'mst_parts.id')
+                                    ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                    ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    ->when(strtoupper($lokal_input)=='P', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
+                                    })
+                            ])
+                            ->addSelect([
+                                'sumAvg' => \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty*last_avg_cost)')
+                                    ->whereColumn('v_sales_per_part_so_sj.part_id', 'mst_parts.id')
+                                    ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                    ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    ->when(strtoupper($lokal_input)=='P', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q) {
+                                        $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
+                                    })
+                            ])
+                            ->whereIn('id', function($q) use($customer, $dt_s, $dt_e, $lokal_input){
+                                $q->select('part_id')
+                                ->from('v_sales_per_part_so_sj')
+                                ->where('customer_id', $customer->id)
+                                ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->when(strtoupper($lokal_input)=='P', function($q) {
+                                    $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q) {
+                                    $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
+                                });
                             })
-                            ->when(strtoupper($lokal_input)=='N', function($q) {
-                                $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
-                            })
-                            ->groupBy('part_id')
-                            ->groupBy('part_number')
-                            ->groupBy('part_name')
-                            ->orderBy('part_name','ASC')
+                            ->where('active', 'Y')
+                            ->orderBy('part_name', 'ASC')
                             ->get();
                         @endphp
                         @foreach ($qParts as $part)
@@ -115,66 +151,12 @@
                                     {{ $partNumber }}
                                 </td>
                                 <td>{{ $part->part_name }}</td>
+                                <td style="text-align: right;">{{ $part->sumQty }}</td>
+                                <td style="text-align: right;">{{ number_format($part->sumPrice,0,'.','') }}</td>
+                                <td style="text-align: right;">{{ number_format($part->sumAvg,0,'.','') }}</td>
                                 <td style="text-align: right;">
                                     @php
-                                        $qQty = \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty) as qty')
-                                        ->where([
-                                            'part_id'=>$part->part_id,
-                                        ])
-                                        ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                        ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                        ->when(strtoupper($lokal_input)=='P', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
-                                        })
-                                        ->when(strtoupper($lokal_input)=='N', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
-                                        })
-                                        ->first();
-                                        $sumQty = $qQty?$qQty->qty:0;
-                                    @endphp
-                                    {{ $sumQty }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $qDpp = \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty*last_price) as price')
-                                        ->where([
-                                            'part_id'=>$part->part_id,
-                                        ])
-                                        ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                        ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                        ->when(strtoupper($lokal_input)=='P', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
-                                        })
-                                        ->when(strtoupper($lokal_input)=='N', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
-                                        })
-                                        ->first();
-                                        $sumPrice = $qDpp?$qDpp->price:0;
-                                    @endphp
-                                    {{ number_format($sumPrice,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $qAvg = \App\Models\V_sales_per_part_so_sj::selectRaw('SUM(qty*last_avg_cost) as avg')
-                                        ->where([
-                                            'part_id'=>$part->part_id,
-                                        ])
-                                        ->whereRaw('sales_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                        ->whereRaw('sales_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                        ->when(strtoupper($lokal_input)=='P', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'P\'');
-                                        })
-                                        ->when(strtoupper($lokal_input)=='N', function($q) {
-                                            $q->whereRaw('CONVERT(tax_code USING utf8)=\'N\'');
-                                        })
-                                        ->first();
-                                        $sumAvg = $qAvg?$qAvg->avg:0;
-                                    @endphp
-                                    {{ number_format($sumAvg,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $gp = $sumPrice!=0?(($sumPrice-$sumAvg)/$sumPrice)*100:0;
+                                        $gp = $part->sumPrice!=0?(($part->sumPrice-$part->sumAvg)/$part->sumPrice)*100:0;
                                     @endphp
                                     {{ number_format($gp,0,'.','') }}%
                                 </td>
@@ -190,8 +172,8 @@
                                 </td>
                             </tr>
                             @php
-                                $totalDPPperCust += $sumPrice;
-                                $totalAVGperCust += $sumAvg;
+                                $totalDPPperCust += $part->sumPrice;
+                                $totalAVGperCust += $part->sumAvg;
                             @endphp
                             @if ($custInit.$custName!=$customer->customer_unique_code.$customer->name)
                                 @php

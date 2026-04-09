@@ -2,31 +2,31 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
-use App\Models\Mst_coa;
+use App\Helpers\GlobalFuncHelper;
+use App\Http\Controllers\Controller;
 use App\Models\Auto_inc;
 use App\Models\Mst_branch;
+use App\Models\Mst_coa;
 use App\Models\Mst_global;
-use App\Models\Userdetail;
-use App\Rules\IsGJoApproved;
-use App\Rules\NumericCustom;
-use Illuminate\Http\Request;
-use App\Models\Tx_receipt_order;
-use App\Helpers\GlobalFuncHelper;
-use App\Models\Tx_delivery_order;
-use App\Models\Tx_stock_transfer;
-use App\Models\Tx_general_journal;
-use Illuminate\Support\Facades\DB;
-use App\Models\Tx_stock_adjustment;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Yajra\DataTables\Facades\DataTables;
-use App\Models\Tx_delivery_order_non_tax;
-use App\Models\Tx_general_journal_detail;
-use App\Models\Tx_purchase_retur;
 use App\Models\Mst_menu_user;
+use App\Models\Tx_delivery_order_non_tax;
+use App\Models\Tx_delivery_order;
+use App\Models\Tx_general_journal_detail;
+use App\Models\Tx_general_journal;
+use App\Models\Tx_purchase_retur;
+use App\Models\Tx_receipt_order;
+use App\Models\Tx_stock_adjustment;
+use App\Models\Tx_stock_transfer;
+use App\Models\Userdetail;
+use App\Rules\NumericCustom;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Yajra\DataTables\Facades\DataTables;
 
 class GeneralJournalServerSideController extends Controller
 {
@@ -54,7 +54,8 @@ class GeneralJournalServerSideController extends Controller
         $branches = Mst_branch::where('active','=','Y')
         ->orderBy('name','ASC')
         ->get();
-
+        
+        // Log::info('test 1: '.$request->branch_id);
         if ($request->ajax()){
             $query = Tx_general_journal::leftJoin('userdetails AS usr','tx_general_journals.created_by','=','usr.user_id')
             ->select(
@@ -69,7 +70,7 @@ class GeneralJournalServerSideController extends Controller
                 'tx_general_journals.active as gj_active',
                 'tx_general_journals.created_by as createdby',
                 'tx_general_journals.created_at as createdat',
-                'usr.initial',
+                'usr.initial as initial',
                 'usr.is_director',
                 'usr.is_branch_head',
             )
@@ -82,17 +83,40 @@ class GeneralJournalServerSideController extends Controller
                 ELSE \'\'
                 END) AS doc_status')
             ->when($request->date_begin!='' && $request->date_ending!='',
-            function($q) use($request) {
+                function($q) use($request) {
                 $q->whereRaw('tx_general_journals.general_journal_date>=STR_TO_DATE("'.urldecode($request->date_begin).'", "%d/%m/%Y")');
                 $q->whereRaw('tx_general_journals.general_journal_date<=STR_TO_DATE("'.urldecode($request->date_ending).'", "%d/%m/%Y")');
             })
-            ->when(request()->has('branch_id') && request()->branch_id!='#', function($q) {
-                $q->where('usr.branch_id','=',request()->branch_id);
+            ->when($request->branch_id!=='#' && $request->branch_id!==null, function($q) use($request, $userLogin){
+                // Log::info('test 2: '.$userLogin->branch_id);
+                $q->whereIn('tx_general_journals.id', function($q1) use($request, $userLogin){
+                    $q1->select('tx_gjd.general_journal_id')
+                    ->from('tx_general_journal_details AS tx_gjd')
+                    ->leftJoin('mst_coas AS mst_c', 'tx_gjd.coa_id', '=', 'mst_c.id')
+                    ->where('tx_gjd.active', 'Y')
+                    ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
+                        $q2->where('mst_c.branch_id', $userLogin->branch_id);
+                    })
+                    ->when($userLogin->is_director=='Y', function($q2) use($request){
+                        $q2->where('mst_c.branch_id', (int)$request->branch_id);
+                    })
+                    ->where('mst_c.active', 'Y');
+                });
+            })
+            ->when($request->branch_id=='#' || $request->branch_id==null, function($q) use($request, $userLogin){
+                // Log::info('test 3: '.$userLogin->branch_id);
+                $q->whereIn('tx_general_journals.id', function($q1) use($request, $userLogin){
+                    $q1->select('tx_gjd.general_journal_id')
+                    ->from('tx_general_journal_details AS tx_gjd')
+                    ->leftJoin('mst_coas AS mst_c', 'tx_gjd.coa_id', '=', 'mst_c.id')
+                    ->where('tx_gjd.active', 'Y')
+                    ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
+                        $q2->where('mst_c.branch_id', $userLogin->branch_id);
+                    })
+                    ->where('mst_c.active', 'Y');
+                });
             })
             ->where('tx_general_journals.active','=','Y')
-            ->when($userLogin->is_director!='Y', function($q) use($userLogin) {
-                $q->where('usr.branch_id','=',$userLogin->branch_id);
-            })
             ->orderBy('tx_general_journals.created_at','DESC');
 
             return DataTables::of($query)
@@ -148,8 +172,9 @@ class GeneralJournalServerSideController extends Controller
             })
             ->addColumn('action', function ($query) use($userLogin) {
                 $links = '';
-                if (($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y') && $query->gj_active=='Y'){
-                    if ((strpos($query->general_journal_no,"Draft")>0 || $query->is_wt_for_appr=='Y' || $userLogin->is_director=='Y' || Auth::user()->id==1) && $query->module_no==null){
+                if (($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y' || Auth::user()->id==1) && $query->gj_active=='Y'){
+                    // if ((strpos($query->general_journal_no,"Draft")>0 || $query->is_wt_for_appr=='Y' || $userLogin->is_director=='Y' || Auth::user()->id==1) && $query->module_no==null){
+                    if ((strpos($query->general_journal_no,"Draft")>0 || $userLogin->is_director=='Y' || Auth::user()->id==1) && $query->module_no==null){
                         $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/general-journal/'.urlencode($query->general_journal_no).'/edit').'" style="text-decoration: underline;">Edit</a>';
                     }
                     if ($links!=''){
@@ -886,6 +911,7 @@ class GeneralJournalServerSideController extends Controller
                                     'updated_by'=>Auth::user()->id,
                                 ]);
                             }
+
                         } else {
                             $insPart = Tx_general_journal_detail::create([
                                 'general_journal_id'=>$gjOld->id,
