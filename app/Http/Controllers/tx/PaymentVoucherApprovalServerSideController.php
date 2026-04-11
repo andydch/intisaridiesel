@@ -77,6 +77,7 @@ class PaymentVoucherApprovalServerSideController extends Controller
                 'tx_payment_vouchers.admin_bank',
                 'tx_payment_vouchers.biaya_asuransi',
                 'tx_payment_vouchers.biaya_kirim',
+                'tx_payment_vouchers.biaya_lainnya',
                 'tx_payment_vouchers.diskon_pembelian',
                 'tx_payment_vouchers.vat_num',
                 'tx_payment_vouchers.pv_created_at',

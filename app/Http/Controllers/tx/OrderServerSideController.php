@@ -2,35 +2,35 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
-use App\Models\Auto_inc;
-use App\Models\Mst_part;
-use App\Models\Mst_branch;
-use App\Models\Mst_global;
-use App\Models\Userdetail;
-use App\Rules\PQnumUnique;
-use App\Models\Tx_qty_part;
-use App\Models\Mst_supplier;
-use App\Rules\NumericCustom;
-use Illuminate\Http\Request;
 use App\Helpers\GlobalFuncHelper;
-use App\Models\Tx_purchase_order;
-use App\Rules\ApprovalCheckingPO;
-use App\Rules\IsPOrderTiedWithRO_Rule;
-use App\Rules\ValidateQtyPOupd_Rule;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Models\Auto_inc;
+use App\Models\Mst_branch;
 use App\Models\Mst_courier;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Tx_purchase_quotation;
-use App\Models\Tx_purchase_order_part;
-use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Facades\Validator;
-use App\Models\Mst_supplier_bank_information;
-use App\Models\Tx_purchase_order_oo_oh_part;
-use App\Models\Tx_receipt_order;
-use App\Models\Tx_receipt_order_part;
+use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
+use App\Models\Mst_part;
+use App\Models\Mst_supplier_bank_information;
+use App\Models\Mst_supplier;
+use App\Models\Tx_purchase_order_oo_oh_part;
+use App\Models\Tx_purchase_order_part;
+use App\Models\Tx_purchase_order;
+use App\Models\Tx_purchase_quotation;
+use App\Models\Tx_qty_part;
+use App\Models\Tx_receipt_order_part;
+use App\Models\Tx_receipt_order;
+use App\Models\Userdetail;
+use App\Rules\ApprovalCheckingPO;
+use App\Rules\NumericCustom;
+use App\Rules\PQnumUnique;
+use App\Rules\ValidateQtyPOupd_Rule;
+use Exception;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -225,7 +225,9 @@ class OrderServerSideController extends Controller
                 ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
                 ->orderBy('tx_ro.updated_at','DESC')
                 ->first();
+                // Log::info('Purchase No: '.$query->purchase_no);
                 if($qROreceived){
+                    // Log::info('Is Partial Received: '.$qROreceived->is_partial_received);
                     $hasRO = true;
                     if($qROreceived->is_partial_received=='N'){
                         $isReceived = true;
