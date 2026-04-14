@@ -724,8 +724,8 @@ Route::group(
         Route::get('/tagihan-supplier/rm', [TagihanSupplierServerSideController::class, 'rmTagihanSupplier']);
         Route::resource('/tagihan-supplier', TagihanSupplierServerSideController::class)->except(['destroy']);
         Route::post('/tagihan-supplier/download-rpt', [TagihanSupplierServerSideController::class, 'downloadRpt']);
-        Route::get('/tagihan-supplier-xlsx/{date_start}/{date_end}', function (string $date_start, string $date_end) {
-            return Excel::download(new TagihanSupplierExport($date_start, $date_end), 'tagihan-supplier.xlsx');
+        Route::get('/tagihan-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id, string $date_start, string $date_end) {
+            return Excel::download(new TagihanSupplierExport($branch_id, $date_start, $date_end), 'tagihan-supplier.xlsx');
         });
 
         // payment voucher

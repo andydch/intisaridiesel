@@ -45,7 +45,22 @@
             <div class="card">
                 <div class="card-body">
                     <div class="row mb-3">
-                        <label for="start_date" class="col-sm-2 col-form-label">Start Date*</label>
+                        <label for="branch_id" class="col-sm-1 col-form-label">Branch</label>
+                        <div class="col-sm-2">
+                            <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id" onchange="dispPoPm('');">
+                                <option value="#">Choose...</option>
+                                @php
+                                    $p_Id = (old('branch_id')?old('branch_id'):0);
+                                @endphp
+                                @foreach ($branches as $branch)
+                                    <option @if ($p_Id==$branch->id) {{ 'selected' }} @endif value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('branch_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <label for="start_date" class="col-sm-1 col-form-label">Start Date*</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('start_date') is-invalid @enderror"
                                 maxlength="10" id="start_date" name="start_date" placeholder="start date"
@@ -54,7 +69,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <label for="end_date" class="col-sm-2 col-form-label">End Date*</label>
+                        <label for="end_date" class="col-sm-1 col-form-label">End Date*</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('end_date') is-invalid @enderror"
                                 maxlength="10" id="end_date" name="end_date" placeholder="end date"
@@ -63,15 +78,10 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col-sm-4 mt-custom">
+                        <div class="col-sm-3 mt-custom">
                             <input type="submit" id="download-btn" class="btn btn-primary px-5" value="Download">
                         </div>
                     </div>
-                    {{-- <div class="row mb-3">
-                        <div class="col-sm-12">
-                            <input type="submit" id="download-btn" class="btn btn-primary px-5" value="Download">
-                        </div>
-                    </div> --}}
                 </div>
             </div>
             <div class="col-12">

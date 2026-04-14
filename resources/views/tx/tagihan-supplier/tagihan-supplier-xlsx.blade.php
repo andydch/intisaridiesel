@@ -77,11 +77,12 @@
                             'coa.coa_name as bank_name',
                         )
                         ->whereBetween(DB::raw('DATE(tts.tagihan_supplier_date)'), [$startDate, $endDate])
-                        ->whereNotIn('tts.id', function($q){
-                            $q->select('tagihan_supplier_id')
-                            ->from('tx_payment_vouchers')
-                            ->whereRaw('tagihan_supplier_id IS NOT null');
-                        })
+                        // ->whereNotIn('tts.id', function($q){
+                        //     $q->select('tagihan_supplier_id')
+                        //     ->from('tx_payment_vouchers')
+                        //     ->whereRaw('tagihan_supplier_id IS NOT null');
+                        // })
+                        ->where('tx_ro.branch_id', $branch_id)
                         ->orderBy('msp.name', 'asc')
                         ->orderBy('tts.tagihan_supplier_no', 'asc')
                         ->orderBy('tts.tagihan_supplier_date', 'asc')

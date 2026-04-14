@@ -15,7 +15,7 @@ use App\Models\Mst_coa;
 use App\Models\Auto_inc;
 use App\Models\Mst_global;
 use App\Models\Userdetail;
-// use App\Models\Mst_courier;
+use App\Models\Mst_branch;
 // use App\Models\Tx_qty_part;
 use App\Models\Mst_supplier;
 use App\Models\Tx_receipt_order;
@@ -45,6 +45,11 @@ class TagihanSupplierServerSideController extends Controller
             'active' => 'Y'
         ])
         ->first();
+
+        // branch
+        $branches = Mst_branch::where('active','=','Y')
+        ->orderBy('name','ASC')
+        ->get();
 
         $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
         ->first();
@@ -260,6 +265,7 @@ class TagihanSupplierServerSideController extends Controller
             'folder' => $this->folder,
             'uri' => $this->uri,
             'qCurrency' => $qCurrency,
+            'branches' => $branches,
             'is_director_now' => $userLogin->is_director,
             'is_branch_head_now' => $userLogin->is_branch_head,
         ];
@@ -1045,10 +1051,13 @@ class TagihanSupplierServerSideController extends Controller
     public function downloadRpt(Request $request)
     {
         $validateInput = [
+            'branch_id' => 'required|numeric',
             'start_date' => 'required',
             'end_date' => 'required',
         ];
         $errMsg = [
+            'branch_id.required' => 'Branch is required',
+            'branch_id.numeric' => 'Branch is required',
             'start_date.required' => 'Start Date is required',
             'end_date.required' => 'End Date is required',
         ];
@@ -1059,7 +1068,10 @@ class TagihanSupplierServerSideController extends Controller
         )
         ->validate();
 
-        return redirect(env('TRANSACTION_FOLDER_NAME').'/tagihan-supplier-xlsx/'.urlencode($request->start_date).'/'.urlencode($request->end_date));
+        return redirect(env('TRANSACTION_FOLDER_NAME').'/tagihan-supplier-xlsx/'.
+            urlencode($request->branch_id).'/'.
+            urlencode($request->start_date).'/'.
+            urlencode($request->end_date));
     }
 
     public function rmTagihanSupplier(Request $request)

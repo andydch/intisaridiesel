@@ -14,14 +14,16 @@ use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
 class TagihanSupplierExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
+    protected $branch_id;
     protected $date_start;
     protected $date_end;
 
-    public function __construct($date_start, $date_end)
+    public function __construct($branch_id, $date_start, $date_end)
     {
         // ini_set('memory_limit', '64M');
         // ini_set('max_execution_time', 1800);
 
+        $this->branch_id = $branch_id;
         $this->date_start = $date_start;
         $this->date_end = $date_end;
     }
@@ -39,6 +41,7 @@ class TagihanSupplierExport implements FromView, ShouldAutoSize, WithStyles, Wit
         ->first();
 
         $data = [
+            'branch_id' => $this->branch_id,
             'date_start' => $this->date_start,
             'date_end' => $this->date_end,
             'qCurrency' => $qCurrency,
