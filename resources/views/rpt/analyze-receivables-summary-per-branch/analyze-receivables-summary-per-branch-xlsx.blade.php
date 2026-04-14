@@ -205,7 +205,7 @@
                                 ->value('grand_total');
 
                                 $totThisMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                $totGrandThisMonth += $totThisMonth;
+                                $totGrandThisMonth += ($totThisMonth>0?$totThisMonth:0);
                                 // this month
 
                                 // last month
@@ -293,7 +293,7 @@
                                 ->value('grand_total');
 
                                 $totLastMonth = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                $totGrandLastMonth += $totLastMonth;
+                                $totGrandLastMonth += ($totLastMonth>0?$totLastMonth:0);
                                 // last month
 
                                 // last 2 month
@@ -381,7 +381,7 @@
                                 ->value('grand_total');
 
                                 $totLast2Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                $totGrandLast2Month += $totLast2Months;
+                                $totGrandLast2Month += ($totLast2Months>0?$totLast2Months:0);
                                 // last 2 month
 
                                 // last 3 month
@@ -469,7 +469,7 @@
                                 ->value('grand_total');
 
                                 $totLast3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                $totGrandLast3Month += $totLast3Months;
+                                $totGrandLast3Month += ($totLast3Months>0?$totLast3Months:0);
                                 // last 3 month
 
                                 // last more than 3 month
@@ -557,11 +557,15 @@
                                 ->value('grand_total');
 
                                 $totLastThan3Months = ($qSumFaktur-$sumReturPPN)+($qSumNotaPenjualan-$sumReturNonPPN)-$sumPenerimaanCustomer;
-                                $totGrandLastThan3Month += $totLastThan3Months;
+                                $totGrandLastThan3Month += ($totLastThan3Months>0?$totLastThan3Months:0);
                                 // last more than 3 month
 
                                 // total
-                                $totalAll = $totThisMonth+$totLastMonth+$totLast2Months+$totLast3Months+$totLastThan3Months;
+                                $totalAll = ($totThisMonth>0?$totThisMonth:0)+
+                                    ($totLastMonth>0?$totLastMonth:0)+
+                                    ($totLast2Months>0?$totLast2Months:0)+
+                                    ($totLast3Months>0?$totLast3Months:0)+
+                                    ($totLastThan3Months>0?$totLastThan3Months:0);
                                 $totGrandAll += $totalAll;
                                 // total
 
@@ -602,12 +606,12 @@
                             @if ($totalAll>0 || $totPayment>0)                                    
                                 <tr>
                                     <td style="border-left:1px solid black;">{{ $cust->cust_name }}</td>
-                                    <td>{{ number_format($totThisMonth,0,'.','') }}</td>
-                                    <td>{{ number_format($totLastMonth,0,'.','') }}</td>
-                                    <td>{{ number_format($totLast2Months,0,'.','') }}</td>
-                                    <td>{{ number_format($totLast3Months,0,'.','') }}</td>
-                                    <td>{{ number_format($totLastThan3Months,0,'.','') }}</td>
-                                    <td>{{ number_format($totalAll,0,'.','') }}</td>
+                                    <td>{{ $totThisMonth>0?number_format($totThisMonth,0,'.',''):0 }}</td>
+                                    <td>{{ $totLastMonth>0?number_format($totLastMonth,0,'.',''):0 }}</td>
+                                    <td>{{ $totLast2Months>0?number_format($totLast2Months,0,'.',''):0 }}</td>
+                                    <td>{{ $totLast3Months>0?number_format($totLast3Months,0,'.',''):0 }}</td>
+                                    <td>{{ $totLastThan3Months>0?number_format($totLastThan3Months,0,'.',''):0 }}</td>
+                                    <td>{{ $totalAll>0?number_format($totalAll,0,'.',''):0 }}</td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($totPayment,0,'.','') }}</td>
                                     {{-- <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($totalAll-$totPayment,0,'.','') }}</td> --}}
                                 </tr>
