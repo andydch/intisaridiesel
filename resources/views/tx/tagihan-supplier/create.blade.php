@@ -73,7 +73,12 @@
                                                             $receipt_order_id = (old('receipt_order_id')?old('receipt_order_id'):0);
                                                         @endphp
                                                         @foreach ($qRO as $ro)
-                                                            <option value="{{ $ro->id }}">{{ $ro->invoice_no.' / '.$ro->receipt_no.' ('.($ro->journal_type_id!='N'?'VAT':'Non VAT').')' }}</option>
+                                                            @php
+                                                                // Formatting a specific past/future date using strtotime()
+                                                                $specificDate = date('d-m-Y', strtotime($ro->receipt_date));
+                                                            @endphp
+
+                                                            <option value="{{ $ro->id }}">{{ $ro->invoice_no.' ('.$specificDate.') / '.$ro->receipt_no.' ('.($ro->journal_type_id!='N'?'VAT':'Non VAT').')' }}</option>
                                                         @endforeach
                                                     </select>
                                                     @error('receipt_order_no_all')
@@ -198,11 +203,12 @@
                                     </tr>
                                 </thead>
                                 <tbody id="new-row">
+                                    @php
+                                        $iRow = 0;
+                                        $lastVatTmp = 0;
+                                        $lastVatVal = 0;
+                                    @endphp
                                     @if (old('receipt_order_no_all'))
-                                        @php
-                                            $iRow = 0;
-                                            $lastVatTmp = 0;
-                                        @endphp
                                         @foreach ($receipt_order_no_all as $sNo)
                                             @if ($sNo!='')
                                                 @php
@@ -379,9 +385,22 @@
                 let o = res[0].receipt_orders;
                 let totOrder = o.length;
                 if (totOrder > 0) {
+                    let date = new Date();
+                    let day = '';
+                    let month = '';
+                    let year = '';
+                    let formattedDate = '';
+
                     for (let i = 0; i < totOrder; i++) {
-                        optionText = o[i].invoice_no+' / '+o[i].receipt_no+' ('+(o[i].journal_type_id=='N'?'Non VAT':'VAT')+')';
-                        // optionText = o[i].invoice_no+' / '+o[i].receipt_no+' ('+(o[i].vat_val>0?'VAT':'Non VAT')+')';
+                        date = new Date(o[i].receipt_date);
+                        // Get the day, month, and year
+                        day = String(date.getDate()).padStart(2, '0');
+                        month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+                        year = date.getFullYear();
+                        // Combine them into your desired format
+                        formattedDate = `${day}-${month}-${year}`;
+
+                        optionText = o[i].invoice_no+' ('+formattedDate+') / '+o[i].receipt_no+' ('+(o[i].journal_type_id=='N'?'Non VAT':'VAT')+')';
                         optionValue = o[i].id;
                         $("#receipt_order_id").append(`<option value="${optionValue}">${optionText}</option>`);                        
                     }

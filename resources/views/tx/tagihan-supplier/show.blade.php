@@ -69,7 +69,10 @@
                                                                         </td>
                                                                         <td>
                                                                             @php
-                                                                                $ro_lbl = $qRO_s->invoice_no.' / '.$qRO_s->receipt_no;
+                                                                                // Formatting a specific past/future date using strtotime()
+                                                                                $specificDate = date('d-m-Y', strtotime($qRO_s->receipt_date));
+
+                                                                                $ro_lbl = $qRO_s->invoice_no.' ('.$specificDate.') / '.$qRO_s->receipt_no.' ('.($qRO_s->journal_type_id=='N'?'Non VAT':'VAT').')';
                                                                             @endphp
                                                                             <label for="" name="receipt_order_no_select{{ $iRow }}" id="receipt_order_no_select{{ $iRow }}"
                                                                                 class="col-form-label">{{ $ro_lbl }}</label>
