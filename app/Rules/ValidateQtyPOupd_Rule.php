@@ -35,6 +35,23 @@ class ValidateQtyPOupd_Rule implements InvokableRule
      */
     public function __invoke($attribute, $value, $fail)
     {
+        // pastikan apakah status di RO adalah partial received atau belum terhubung di RO
+        $isPartialRcv = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) {
+            $q->select('id')
+            ->from('tx_receipt_orders')
+            ->where('active', 'Y');
+        })
+        ->where('po_mo_id', $this->purchase_order_part_id)
+        ->where('part_id', $this->part_id)
+        ->whereRaw('qty<>'.$value)
+        ->where('is_partial_received', 'N')
+        ->where('active', 'Y')
+        ->first();
+        if ($isPartialRcv){
+            $msg = 'Data can no longer be changed';
+            $fail($msg);
+        }
+        
         if ($value == 0){
             // qty tidak boleh diisi 0 jika terhubung ke lebih dari 1 RO
             $countRO = Tx_receipt_order::whereIn('id', function($q) {
