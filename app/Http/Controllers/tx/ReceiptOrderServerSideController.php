@@ -2088,20 +2088,23 @@ class ReceiptOrderServerSideController extends Controller
                         $qtyOnPO = $qQtyOnPO->qty;
                     }
 
-                    $qSumQty = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
-                        $q->select('id')
-                        ->from('tx_receipt_orders')
-                        ->where('supplier_id', $request->supplier_id)
-                        ->where('active', 'Y');
-                    })
-                    ->whereRaw('id<>'.$request['ro_part_id'.$lastIdx])
-                    ->where([
-                        'po_mo_no' => $request['po_mo_no'.$lastIdx],
-                        'po_mo_id' => $request['po_mo_id_'.$lastIdx],
-                        'part_id' => $request['part_id'.$lastIdx],
-                        'active' => 'Y',
-                    ])
-                    ->sum('qty');
+                    $qSumQty = 0;
+                    if ($request['ro_part_id'.$lastIdx]){
+                        $qSumQty = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
+                            $q->select('id')
+                            ->from('tx_receipt_orders')
+                            ->where('supplier_id', $request->supplier_id)
+                            ->where('active', 'Y');
+                        })
+                        ->whereRaw('id<>'.$request['ro_part_id'.$lastIdx])
+                        ->where([
+                            'po_mo_no' => $request['po_mo_no'.$lastIdx],
+                            'po_mo_id' => $request['po_mo_id_'.$lastIdx],
+                            'part_id' => $request['part_id'.$lastIdx],
+                            'active' => 'Y',
+                        ])
+                        ->sum('qty');
+                    }
 
                     $is_partial_received = 'N';
                     if($qtyOnPO>($request['qty'.$lastIdx]+$qSumQty)){

@@ -314,7 +314,7 @@
                                                                 @for ($i=0;$i<count($po_mo_no_arr);$i++)
                                                                     @if ($po_mo_no_arr[$i]!='')
                                                                         <tr id="row_po_mo_{{ $i }}">
-                                                                            <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
+                                                                            <th scope="row" style="text-align:right;"><label id="po_mo_row_number{{ $iRow }}" for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
                                                                             <td scope="row" style="text-align:left;">
                                                                                 <label for="" id="s_po_mo_no{{ $i }}" class="col-form-label">{{ $po_mo_no_arr[$i] }}</label>
                                                                             </td>
@@ -359,7 +359,7 @@
                                                                             @endphp
                                                                         @endif
                                                                         <tr id="row_po_mo_{{ $i }}">
-                                                                            <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
+                                                                            <th scope="row" style="text-align:right;"><label id="po_mo_row_number{{ $iRow }}" for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
                                                                             <td scope="row" style="text-align:left;">
                                                                                 <label for="" id="s_po_mo_no{{ $i }}" class="col-form-label">{{ $po_mo_no_arr[$i] }}</label>
                                                                             </td>
@@ -1027,7 +1027,7 @@
         let rowNo = (parseInt(totalRow)+1);
         let vHtml =
             '<tr id="row'+totalRow+'">'+
-            '<th scope="row" style="text-align:right;"><label for="" id="receipt_order_row_number'+totalRow+'" class="col-form-label">'+rowNo+'.</label></th>'+
+            '<td scope="row" style="text-align:right;"><label for="" id="receipt_order_row_number'+totalRow+'" class="col-form-label">'+rowNo+'.</label></td>'+
             '<td>'+
             '<input type="hidden" name="po_mo_no'+totalRow+'" id="po_mo_no'+totalRow+'">'+
             '<input type="hidden" name="po_mo_id_'+totalRow+'" id="po_mo_id_'+totalRow+'">'+
@@ -1054,6 +1054,16 @@
             '</tr>';
         $("#new-row").append(vHtml);
         $("#totalRow").val(rowNo);
+
+        // reset penomoran - start - detil part
+        let j = 1;
+        for (i = 0; i < $("#totalRow").val(); i++) {
+            if($("#receipt_order_row_number"+i).text()){
+                $("#receipt_order_row_number"+i).text(j+'. ');
+                j++;
+            }
+        }
+        // reset penomoran - end - detil part
     }
 
     function dispPoMo(sPoMo){
@@ -1071,12 +1081,22 @@
 
         let rowPoMoNo = parseInt(totalRowPoMo)+1;
         let vHtml = '<tr id="row_po_mo_'+totalRowPoMo+'">'+
-            '<th scope="row" style="text-align:right;"><label for="" class="col-form-label">'+rowPoMoNo+'.</label></th>'+
+            '<th scope="row" style="text-align:right;"><label id="po_mo_row_number'+(rowPoMoNo-1)+'" for="" class="col-form-label">'+rowPoMoNo+'.</label></th>'+
             '<td scope="row" style="text-align:left;"><label for="" id="s_po_mo_no'+totalRowPoMo+'" class="col-form-label">'+sPoMo+'</label></td>'+
             '<td style="text-align:center;"><input type="checkbox" id="rowPoMoCheck'+totalRowPoMo+'" value="'+totalRowPoMo+'"></td>'+
             '</tr>';
         $("#new-row-po-mo").append(vHtml);
         $("#totalRowPoMo").val(rowPoMoNo);
+
+        // reset penomoran - start - po/mo
+        let j = 1;
+        for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+            if($("#po_mo_row_number"+i).text()){
+                $("#po_mo_row_number"+i).text(j+'. ');
+                j++;
+            }
+        }
+        // reset penomoran - end - po/mo
     }
 
     function calcGrandTotal(){
@@ -1152,7 +1172,8 @@
             $('#last_is_vat').val()=='Y'?parseFloat(vatAmount).numberFormat(0,'.',','):0
         );
 
-        let vatFOBAmount = ($('#last_is_vat').val()=='Y'?vatAmount:0)/(exch_rate_for_vat>0?exch_rate_for_vat:1);
+        let vatFOBAmount = ($('#last_is_vat').val()=='Y'?vatAmount:0)/(vat_import>0?vat_import:1);
+        // let vatFOBAmount = ($('#last_is_vat').val()=='Y'?vatAmount:0)/(exch_rate_for_vat>0?exch_rate_for_vat:1);
         // $("#lblVATFOBAmount").text(
         //     (supplier_type_id==10?$("#currency_fob_tmp").val():'')+
         //     ($('#last_is_vat').val()=='Y'?parseFloat(exch_rate_for_vat>1?vatFOBAmount:0).numberFormat(digitAfterComma,'.',','):0)
@@ -1233,7 +1254,36 @@
                 }
             }
 
-            // reset penomoran
+            for (i = 0; i < $("#totalRowPoMo").val(); i++){
+                if ($("#s_po_mo_no"+i).text()){
+                    let po_mo_no_tmp = $("#s_po_mo_no"+i).text();
+                    let po_mo_no_found = false;
+
+                    for (let j = 0; j < $("#totalRow").val(); j++){
+                        if($("#po_mo_no"+j).val()) {
+                            if ($("#po_mo_no"+j).val()===$("#s_po_mo_no"+i).text()) {
+                                po_mo_no_found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!po_mo_no_found){
+                        // hapus no PO/MO jika sesuai
+                        for (let iDel = 0; iDel < $("#totalRowPoMo").val(); iDel++) {
+                            if ($("#s_po_mo_no"+iDel).text()) {
+                                if ($("#s_po_mo_no"+iDel).text()===po_mo_no_tmp) {
+                                    $("#row_po_mo_"+iDel).remove();
+                                    let po_mo_no = $("#po_pm_no_all").val().replaceAll(po_mo_no_tmp,'');
+                                    po_mo_no = po_mo_no.replaceAll(',,',',');
+                                    $("#po_pm_no_all").val(po_mo_no);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // reset penomoran - start - detil part
             let j = 1;
             for (i = 0; i < $("#totalRow").val(); i++) {
                 if($("#receipt_order_row_number"+i).text()){
@@ -1241,9 +1291,19 @@
                     j++;
                 }
             }
-            // reset penomoran - end
+            // reset penomoran - end - detil part
 
             calcGrandTotal();
+
+            // reset penomoran - start - po/mo
+            j = 1;
+            for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+                if($("#po_mo_row_number"+i).text()){
+                    $("#po_mo_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - po/mo
         });
         $("#rm_po_mo").click(function() {
             let po_mo_no = '';
@@ -1267,6 +1327,26 @@
                 }
             }
             calcGrandTotal();
+
+            // reset penomoran - start - po/mo
+            let j = 1;
+            for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+                if($("#po_mo_row_number"+i).text()){
+                    $("#po_mo_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - po/mo
+
+            // reset penomoran - start - detil part
+            j = 1;
+            for (i = 0; i < $("#totalRow").val(); i++) {
+                if($("#receipt_order_row_number"+i).text()){
+                    $("#receipt_order_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - detil part
         });
 
         $("#exc_rate").change(function() {

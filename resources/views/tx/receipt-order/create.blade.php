@@ -295,7 +295,7 @@
                                                                 @for ($i=0;$i<count($po_mo_no_arr);$i++)
                                                                     @if ($po_mo_no_arr[$i]!='')
                                                                         <tr id="row_po_mo_{{ $i }}">
-                                                                            <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
+                                                                            <th scope="row" style="text-align:right;"><label id="po_mo_row_number{{ $iRow }}" for="" class="col-form-label">{{ $iRow+1 }}.</label></th>
                                                                             <td scope="row" style="text-align:left;">
                                                                                 <label for="" id="s_po_mo_no{{ $i }}" class="col-form-label">{{ $po_mo_no_arr[$i] }}</label>
                                                                             </td>
@@ -870,6 +870,16 @@
         $("#new-row").append(vHtml);
         $("#totalRow").val(rowNo);
         calcGrandTotal();
+
+        // reset penomoran - start - detil part
+        let j = 1;
+        for (i = 0; i < $("#totalRow").val(); i++) {
+            if($("#receipt_order_row_number"+i).text()){
+                $("#receipt_order_row_number"+i).text(j+'. ');
+                j++;
+            }
+        }
+        // reset penomoran - end - detil part
     }
 
     function dispPoMo(sPoMo){
@@ -887,12 +897,22 @@
 
         let rowPoMoNo = parseInt(totalRowPoMo)+1;
         let vHtml = '<tr id="row_po_mo_'+totalRowPoMo+'">'+
-            '<th scope="row" style="text-align:right;"><label for="" class="col-form-label">'+rowPoMoNo+'.</label></th>'+
+            '<th scope="row" style="text-align:right;"><label id="po_mo_row_number'+(rowPoMoNo-1)+'" for="" class="col-form-label">'+rowPoMoNo+'.</label></th>'+
             '<td scope="row" style="text-align:left;"><label for="" id="s_po_mo_no'+totalRowPoMo+'" class="col-form-label">'+sPoMo+'</label></td>'+
             '<td style="text-align:center;"><input type="checkbox" id="rowPoMoCheck'+totalRowPoMo+'" value="'+totalRowPoMo+'"></td>'+
             '</tr>';
         $("#new-row-po-mo").append(vHtml);
         $("#totalRowPoMo").val(rowPoMoNo);
+
+        // reset penomoran - start - po/mo
+        let j = 1;
+        for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+            if($("#po_mo_row_number"+i).text()){
+                $("#po_mo_row_number"+i).text(j+'. ');
+                j++;
+            }
+        }
+        // reset penomoran - end - po/mo
     }
 
     function calcGrandTotal(){
@@ -1053,7 +1073,36 @@
                 }
             }
 
-            // reset penomoran
+            for (i = 0; i < $("#totalRowPoMo").val(); i++){
+                if ($("#s_po_mo_no"+i).text()){
+                    let po_mo_no_tmp = $("#s_po_mo_no"+i).text();
+                    let po_mo_no_found = false;
+
+                    for (let j = 0; j < $("#totalRow").val(); j++){
+                        if($("#po_mo_no"+j).val()) {
+                            if ($("#po_mo_no"+j).val()===$("#s_po_mo_no"+i).text()) {
+                                po_mo_no_found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!po_mo_no_found){
+                        // hapus no PO/MO jika sesuai
+                        for (let iDel = 0; iDel < $("#totalRowPoMo").val(); iDel++) {
+                            if ($("#s_po_mo_no"+iDel).text()) {
+                                if ($("#s_po_mo_no"+iDel).text()===po_mo_no_tmp) {
+                                    $("#row_po_mo_"+iDel).remove();
+                                    let po_mo_no = $("#po_pm_no_all").val().replaceAll(po_mo_no_tmp,'');
+                                    po_mo_no = po_mo_no.replaceAll(',,',',');
+                                    $("#po_pm_no_all").val(po_mo_no);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // reset penomoran - start - detil part
             let j = 1;
             for (i = 0; i < $("#totalRow").val(); i++) {
                 if($("#receipt_order_row_number"+i).text()){
@@ -1061,9 +1110,19 @@
                     j++;
                 }
             }
-            // reset penomoran - end
+            // reset penomoran - end - detil part
 
             calcGrandTotal();
+
+            // reset penomoran - start - po/mo
+            j = 1;
+            for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+                if($("#po_mo_row_number"+i).text()){
+                    $("#po_mo_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - po/mo
         });
         $("#rm_po_mo").click(function() {
             let po_mo_no = '';
@@ -1087,6 +1146,26 @@
                 }
             }
             calcGrandTotal();
+
+            // reset penomoran - start - po/mo
+            let j = 1;
+            for (i = 0; i < $("#totalRowPoMo").val(); i++) {
+                if($("#po_mo_row_number"+i).text()){
+                    $("#po_mo_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - po/mo
+
+            // reset penomoran - start - detil part
+            j = 1;
+            for (i = 0; i < $("#totalRow").val(); i++) {
+                if($("#receipt_order_row_number"+i).text()){
+                    $("#receipt_order_row_number"+i).text(j+'. ');
+                    j++;
+                }
+            }
+            // reset penomoran - end - detil part
         });
 
         $("#exc_rate").change(function() {
@@ -1344,8 +1423,8 @@
                                     $("#part_name"+(totalRow-1)).text(part_no_tmp+' : '+o[i].part_name);
                                     $("#qty"+(totalRow-1)).val(qty);
                                     $("#qty_on_po"+(totalRow-1)).val(qty_on_po);
-                                    console.log('qty: '+qty);
-                                    console.log('qty_on_po: '+qty_on_po);
+                                    // console.log('qty: '+qty);
+                                    // console.log('qty_on_po: '+qty_on_po);
                                     $("#part_id"+(totalRow-1)).val(o[i].part_id);
                                     $("#po_mo_no"+(totalRow-1)).val(o[i].po_mo_no);
                                     $("#po_mo_id_"+(totalRow-1)).val(o[i].pomo_part_id);
@@ -1451,20 +1530,11 @@
                                 $("#lastTotalAmountTmp").val(TotalAmount);
                             }
 
-                            // reset penomoran
-                            let j = 1;
-                            for (i = 0; i < $("#totalRow").val(); i++) {
-                                if($("#receipt_order_row_number"+i).text()){
-                                    $("#receipt_order_row_number"+i).text(j+'. ');
-                                    j++;
-                                }
-                            }
-                            // reset penomoran - end
-
                             calcGrandTotal();
                         }
                     }
                 });
+
             }else{
                 alert('The PO or MO number already exists!');
             }
