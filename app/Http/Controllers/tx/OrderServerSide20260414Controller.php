@@ -34,7 +34,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
-class OrderServerSideController extends Controller
+class OrderServerSide20260414Controller extends Controller
 {
     protected $title = 'Purchase Order';
     protected $folder = 'order';
@@ -191,11 +191,6 @@ class OrderServerSideController extends Controller
                     && $query->order_active=='Y' && is_null($query->canceled_by)){
                     if ((is_null($query->approved_by) && !$hasRO && $userLogin->is_director=='Y') || (!is_null($query->approved_by) && !$isReceived && $userLogin->is_director=='Y') ||
                         (!$isReceived && is_null($query->approved_by) && is_null($query->canceled_by)) || Auth::user()->id==1){
-                        // if (!is_null($query->approved_by) && !$isReceived && $userLogin->is_director=='Y'){
-                        //     Log::info('test 1: '.$query->purchase_no);
-                        // }else{
-                        //     Log::info('test 1: '.$query->purchase_no.' (tidak sesuai)');
-                        // }
                         $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$query->tx_id.'/edit').'" style="text-decoration: underline;">Edit</a> |
                             <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$query->tx_id).'" style="text-decoration: underline;">View</a>';
                             if(!is_null($query->approved_by)){
@@ -218,70 +213,25 @@ class OrderServerSideController extends Controller
             })
             ->addColumn('status', function ($query) {
                 $hasRO = false;
-                $isReceived = false;    // belum terima semua atau terima sebagian
-
-                // query sebelumnya
-                // $qROreceived = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                // ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
-                // ->where([
-                //     'tx_receipt_order_parts.po_mo_no' => $query->purchase_no,
-                //     // 'tx_receipt_order_parts.is_partial_received' => 'N',
-                //     'tx_receipt_order_parts.active' => 'Y',
-                //     'tx_ro.active' => 'Y',
-                // ])
-                // ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
-                // ->orderBy('tx_ro.updated_at','DESC')
-                // ->first();
-                // if($qROreceived){
-                //     $hasRO = true;
-                //     if($qROreceived->is_partial_received==='N'){
-                //         $isReceived = true;
-                //     }
-                //     Log::info('is partial received: '.$qROreceived->is_partial_received);
-                //     Log::info('is Received: '.$isReceived);
-                // }
-                // query sebelumnya
-
-                $qHasRO = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
-                ->where([
-                    'tx_receipt_order_parts.po_mo_no' => $query->purchase_no,
-                    'tx_receipt_order_parts.active' => 'Y',
-                    'tx_ro.active' => 'Y',
-                ])
-                ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
-                ->orderBy('tx_ro.updated_at','DESC')
-                ->first();
-                if ($qHasRO){
-                    $hasRO = true;
-                }
-
-                $is_partial_received = 'N';
+                $isReceived = false;
                 $qROreceived = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
                 ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
                 ->where([
                     'tx_receipt_order_parts.po_mo_no' => $query->purchase_no,
-                    'tx_receipt_order_parts.is_partial_received' => 'Y',
+                    // 'tx_receipt_order_parts.is_partial_received' => 'N',
                     'tx_receipt_order_parts.active' => 'Y',
                     'tx_ro.active' => 'Y',
                 ])
                 ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
                 ->orderBy('tx_ro.updated_at','DESC')
                 ->first();
+                // Log::info('Purchase No: '.$query->purchase_no);
                 if($qROreceived){
-                    // partial payment
-                    $isReceived = false;
-
-                    $is_partial_received = 'Y';
-                    // Log::info('is partial received 1: '.$is_partial_received);
-                    // Log::info('has RO: '.$hasRO);
-                }else{
-                    // full payment
-                    $isReceived = true;
-
-                    // Log::info('is partial received 2: '.$is_partial_received);
-                    // Log::info('has RO: '.$hasRO);
-                    // Log::info('is Received: '.$isReceived);
+                    // Log::info('Is Partial Received: '.$qROreceived->is_partial_received);
+                    $hasRO = true;
+                    if($qROreceived->is_partial_received=='N'){
+                        $isReceived = true;
+                    }
                 }
                 if(strpos($query->purchase_no,"Draft")>0 && $query->order_active=='Y'){
                     return 'Draft';
@@ -289,14 +239,13 @@ class OrderServerSideController extends Controller
                     if($query->order_active=='Y' && $isReceived && $hasRO){
                         return 'Received';
                     }
-                    if($query->order_active=='Y' && !$isReceived && $hasRO && $is_partial_received=='Y'){
+                    if($query->order_active=='Y' && !$isReceived && $hasRO){
                         return 'Partial Received';
                     }
                     if($query->order_active=='Y' && is_null($query->approved_by) && !$hasRO){
                         return 'Waiting For Approval';
                     }
-                    if($query->order_active=='Y' && !is_null($query->approved_by) && !$hasRO &&  $is_partial_received=='N'){
-                    // if($query->order_active=='Y' && !is_null($query->approved_by) && !$isReceived && !$hasRO &&  $is_partial_received=='N'){
+                    if($query->order_active=='Y' && !is_null($query->approved_by) && !$isReceived && !$hasRO){
                         return 'Approved';
                     }
                     if($query->order_active=='N'){
@@ -453,13 +402,12 @@ class OrderServerSideController extends Controller
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric',
-                        'qty'.$i => 'required|numeric|min:0',
+                        'qty'.$i => 'required|numeric',
                         'price_part'.$i => ['required',new NumericCustom('Price')],
                     ];
                     $errShipmentMsg = [
                         'part_id'.$i.'.numeric' => 'Please select a valid part',
                         'qty'.$i.'.numeric' => 'The qty field is required',
-                        'qty'.$i.'.min' => 'The qty field cannot be less than 0',
                         'price_part'.$i.'.required' => 'The price field is required.',
                         'price_part'.$i.'.numeric' => 'The price must be numeric.',
                         'price_part'.$i.'.regex' => 'Must have exacly 2 decimal places (9,99)',
@@ -727,7 +675,7 @@ class OrderServerSideController extends Controller
 
             if ($isThereSomePart<1){
                 DB::rollback();
-                
+
                 return redirect()
                 ->back()
                 ->withInput()
@@ -1013,14 +961,12 @@ class OrderServerSideController extends Controller
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric',
-                        'qty'.$i => ['required', 'numeric', 'min:0', new ValidateQtyPOupd_Rule($id, $request['order_part_id_'.$i], $request['part_id'.$i])],
-                        // 'qty'.$i => ['required', 'numeric', new ValidateQtyPOupd_Rule($id,$request['order_part_id_'.$i],$request['part_id'.$i])],
+                        'qty'.$i => ['required', 'numeric', new ValidateQtyPOupd_Rule($id,$request['order_part_id_'.$i],$request['part_id'.$i])],
                         'price_part'.$i => ['required',new NumericCustom('Price')],
                     ];
                     $errShipmentMsg = [
                         'part_id'.$i.'.numeric' => 'Please select a valid part',
                         'qty'.$i.'.numeric' => 'The qty field is required',
-                        'qty'.$i.'.min' => 'The qty field cannot be less than 0',
                         'price_part'.$i.'.required' => 'The price field is required.',
                         'price_part'.$i.'.numeric' => 'The price must be numeric.',
                     ];
@@ -1122,6 +1068,7 @@ class OrderServerSideController extends Controller
                     'draft_to_created_at' => now(),
                     'updated_by' => Auth::user()->id,
                 ]);
+
             }
 
             if($request->is_draft!='Y' && !$draft){
@@ -1190,7 +1137,7 @@ class OrderServerSideController extends Controller
                 'courier_id' => ($request->courier_type==3?($request->courier_id==''?null:$request->courier_id):null),
                 'courier_type' => $request->courier_type,
                 'is_vat' => $is_vat,
-                'updated_by' => Auth::user()->id,
+                'updated_by' => Auth::user()->id
             ]);
 
             $qIsDirector = Userdetail::where('user_id','=', Auth::user()->id)
@@ -1243,30 +1190,6 @@ class OrderServerSideController extends Controller
                                 'active' => 'Y',
                                 'updated_by' => Auth::user()->id
                             ]);
-
-                            if ($request['qty'.$i]==0){
-                                // qty menjadi = 0
-                                // status partial received = Y
-                                $qROparts = Tx_receipt_order_part::select('id')
-                                ->whereIn('po_mo_no', function($q) use($id){
-                                    $q->select('purchase_no')
-                                    ->from('tx_purchase_orders')
-                                    ->where('id', $id)
-                                    ->where('active', 'Y');
-                                })
-                                ->where('po_mo_id', $request['order_part_id_'.$i])
-                                ->where('is_partial_received', 'Y')
-                                ->where('active', 'Y')
-                                ->first();
-                                if ($qROparts){
-                                    $updROparts = Tx_receipt_order_part::where('id', $qROparts->id)
-                                    ->update([
-                                        'qty' => 0,
-                                        'is_partial_received' => 'N',
-                                        'updated_by' => Auth::user()->id
-                                    ]);
-                                }
-                            }
                         } else {
                             $insPart = Tx_purchase_order_part::create([
                                 'order_id' => $id,
@@ -1298,9 +1221,7 @@ class OrderServerSideController extends Controller
                             ]);
                         }
 
-                        // Log::info('test 1: '.(isset($insPart->id)?$insPart->id:$request['order_part_id_'.$i]));
                         if(strpos($order_no,"Draft")==0){
-                            // Log::info('test 2: '.(isset($insPart->id)?$insPart->id:$request['order_part_id_'.$i]));
                             // simpan OH dan OO jika bukan draft
                             $qOhOo = Tx_purchase_order_oo_oh_part::where([
                                 'purchase_order_id' => $id,
@@ -1327,7 +1248,7 @@ class OrderServerSideController extends Controller
                                     'purchase_order_id' => $id,
                                     'purchase_order_part_id' => (isset($insPart->id)?$insPart->id:$request['order_part_id_'.$i]),
                                     'part_id' => $request['part_id'.$i],
-                                    'branch_id' => ($userLogin->is_director=='Y'?$request->branch_id:$userLogin->branch_id),
+                                    'branch_id' => $userLogin->branch_id,
                                 ])
                                 ->update([
                                     'purchase_order_id' => $id,
@@ -1355,7 +1276,7 @@ class OrderServerSideController extends Controller
 
             if ($isThereSomePart<1){
                 DB::rollback();
-
+                
                 return redirect()
                 ->back()
                 ->withInput()

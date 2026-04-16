@@ -44,7 +44,7 @@ use App\Models\Mst_supplier_bank_information;
 use Illuminate\Validation\ValidationException;
 use App\Rules\ValidateExchangeRateForSupplierType;
 
-class ReceiptOrderServerSideController extends Controller
+class ReceiptOrderServerSide20260415Controller extends Controller
 {
     protected $title = 'Receipt Order';
     protected $folder = 'receipt-order';
@@ -512,7 +512,7 @@ class ReceiptOrderServerSideController extends Controller
         $validateInput = [
             'supplier_id' => 'required|numeric',
             'journal_type_id' => ['required', Rule::in(['P', 'N'])],
-            'invoice_no' => ['required',new CheckDupInvoiceNo($request->supplier_id,str_replace(",","-",$request->invoice_no),0)],
+            'invoice_no' => ['required',new CheckDupInvoiceNo($request->supplier_id, str_replace(",","-",$request->invoice_no),0)],
             'invoice_amount' => ['required', new NumericCustom('Invoice Amount'), new CheckAmountEqualWithTotal($request->lastTotalAmountTmp)],
             'exc_rate' => [new NumericCustom('Exchange Rate'), new ValidateExchangeRateForSupplierType($request->supplier_id),'nullable'],
             'vat_import' => [new NumericCustom('VAT Import'), 'nullable'],
@@ -735,57 +735,10 @@ class ReceiptOrderServerSideController extends Controller
                         $totalPrice += $total_local;
                     }
 
-                    $qtyOnPO = 0;
-                    $qQtyOnPO = Tx_purchase_order_part::where('id', $request['po_mo_id_'.$lastIdx])
-                    ->where('part_id', $request['part_id'.$lastIdx])
-                    ->where('active', 'Y')
-                    ->first();
-                    if($qQtyOnPO){
-                        $qtyOnPO = $qQtyOnPO->qty;
-                    }
-
-                    $qSumQty = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
-                        $q->select('id')
-                        ->from('tx_receipt_orders')
-                        ->where('supplier_id', $request->supplier_id)
-                        ->where('active', 'Y');
-                    })
-                    ->where([
-                        'po_mo_no' => $request['po_mo_no'.$lastIdx],
-                        'po_mo_id' => $request['po_mo_id_'.$lastIdx],
-                        'part_id' => $request['part_id'.$lastIdx],
-                        'active' => 'Y',
-                    ])
-                    ->sum('qty');
-
                     $is_partial_received = 'N';
-                    if($qtyOnPO>($request['qty'.$lastIdx]+$qSumQty)){
-                    // if($request['qty_on_po'.$lastIdx]>($request['qty'.$lastIdx]+$qSumQty)){
+                    if($request['qty_on_po'.$lastIdx]>$request['qty'.$lastIdx]){
                         $is_partial_received = 'Y';
                         $is_partial_received_last = 'Y';
-                    }else{
-                        if($request->is_draft=='Y'){
-                            // status DRAFT maka jangan ubah apapun di status RO yg lain
-                        }else{
-                            // update jika ada RO lain yg terkait dg PO dan part yg sama
-                            // status semuanya full received
-                            $updPartialReceived = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
-                                $q->select('id')
-                                ->from('tx_receipt_orders')
-                                ->where('supplier_id', $request->supplier_id)
-                                ->where('active', 'Y');
-                            })
-                            ->where([
-                                'po_mo_no' => $request['po_mo_no'.$lastIdx],
-                                'po_mo_id' => $request['po_mo_id_'.$lastIdx],
-                                'part_id' => $request['part_id'.$lastIdx],
-                                'active' => 'Y',
-                            ])
-                            ->update([
-                                'is_partial_received' => $is_partial_received,
-                                'updated_by' => Auth::user()->id,
-                            ]);
-                        }
                     }
 
                     $totalQty += $request['qty'.$lastIdx];
@@ -1853,7 +1806,7 @@ class ReceiptOrderServerSideController extends Controller
         $validateInput = [
             'supplier_id' => 'required|numeric',
             'journal_type_id' => ['required', Rule::in(['P', 'N'])],
-            'invoice_no' => ['required',new CheckDupInvoiceNo($request->supplier_id,str_replace(",","-",$request->invoice_no),$id)],
+            'invoice_no' => ['required',new CheckDupInvoiceNo($request->supplier_id, str_replace(",","-",$request->invoice_no),$id)],
             'invoice_amount' => ['required', new NumericCustom('Invoice Amount'), new CheckAmountEqualWithTotal($request->lastTotalAmountTmp)],
             'exc_rate' => [new NumericCustom('Exchange Rate'), new ValidateExchangeRateForSupplierType($request->supplier_id),'nullable'],
             'vat_import' => [new NumericCustom('VAT Import'), 'nullable'],
@@ -2079,60 +2032,10 @@ class ReceiptOrderServerSideController extends Controller
                         $totalPrice += $total_local;
                     }
 
-                    $qtyOnPO = 0;
-                    $qQtyOnPO = Tx_purchase_order_part::where('id', $request['po_mo_id_'.$lastIdx])
-                    ->where('part_id', $request['part_id'.$lastIdx])
-                    ->where('active', 'Y')
-                    ->first();
-                    if($qQtyOnPO){
-                        $qtyOnPO = $qQtyOnPO->qty;
-                    }
-
-                    $qSumQty = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
-                        $q->select('id')
-                        ->from('tx_receipt_orders')
-                        ->where('supplier_id', $request->supplier_id)
-                        ->where('active', 'Y');
-                    })
-                    ->whereRaw('id<>'.$request['ro_part_id'.$lastIdx])
-                    ->where([
-                        'po_mo_no' => $request['po_mo_no'.$lastIdx],
-                        'po_mo_id' => $request['po_mo_id_'.$lastIdx],
-                        'part_id' => $request['part_id'.$lastIdx],
-                        'active' => 'Y',
-                    ])
-                    ->sum('qty');
-
                     $is_partial_received = 'N';
-                    if($qtyOnPO>($request['qty'.$lastIdx]+$qSumQty)){
-                    // if($request['qty_on_po'.$lastIdx]>($request['qty'.$lastIdx]+$qSumQty)){
+                    if($request['qty_on_po'.$lastIdx]>$request['qty'.$lastIdx]){
                         $is_partial_received = 'Y';
                         $is_partial_received_last = 'Y';
-                    }else{
-                        if($request->is_draft=='Y' && $draft){
-                            // still save as draft
-                            // no action to do here
-                        }else{
-                            // update jika ada RO lain yg terkait dg PO dan part yg sama
-                            // status semuanya full received
-                            $updPartialReceived = Tx_receipt_order_part::whereIn('receipt_order_id', function($q) use($request){
-                                $q->select('id')
-                                ->from('tx_receipt_orders')
-                                ->where('supplier_id', $request->supplier_id)
-                                ->where('active', 'Y');
-                            })
-                            ->whereRaw('id<>'.$request['ro_part_id'.$lastIdx])
-                            ->where([
-                                'po_mo_no' => $request['po_mo_no'.$lastIdx],
-                                'po_mo_id' => $request['po_mo_id_'.$lastIdx],
-                                'part_id' => $request['part_id'.$lastIdx],
-                                'active' => 'Y',
-                            ])
-                            ->update([
-                                'is_partial_received' => $is_partial_received,
-                                'updated_by' => Auth::user()->id,
-                            ]);
-                        }
                     }
 
                     $totalQty += $request['qty'.$lastIdx];

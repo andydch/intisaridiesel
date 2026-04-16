@@ -408,7 +408,7 @@
                                                     <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
                                                 </td>
                                                 <td style="text-align: center;">
-                                                    <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">
+                                                    <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
                                                 </td>
                                             </tr>
                                             @php
@@ -624,7 +624,7 @@
             '<label id="oo-'+totalRow+'" for="" class="col-form-label">---</label>'+
             '<input type="hidden" name="oo_'+totalRow+'_tmp" id="oo_'+totalRow+'_tmp" value="0">'+
             '</td>'+
-            '<td style="text-align:center;"><input type="checkbox" id="rowCheck'+totalRow+'" value="'+totalRow+'" style="vertical-align: middle;"></td>'+
+            '<td style="text-align:center;"><input type="checkbox" id="rowCheck'+totalRow+'" value="'+totalRow+'"></td>'+
             '</tr>';
         $("#new-row").append(vHtml);
         $("#totalRow").val(rowNo);

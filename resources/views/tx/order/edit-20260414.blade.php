@@ -306,36 +306,6 @@
                                                             value="@if(old('order_part_id_'.$i)){{ old('order_part_id_'.$i) }}@endif">
                                                     </th>
                                                     @php
-                                                        // tampilkan QTY yg sudah masuk RO dan berstatus active
-                                                        $sumQtyRO = \App\Models\Tx_receipt_order_part::whereIn('receipt_order_id', function($q) {
-                                                            $q->select('id')
-                                                            ->from('tx_receipt_orders')
-                                                            ->where('active', 'Y');
-                                                        })
-                                                        ->where('po_mo_no', $orders->purchase_no)
-                                                        ->where('po_mo_id', old('order_part_id_'.$i))
-                                                        ->where('part_id', old('part_id'.$i) ? old('part_id'.$i) : 0)
-                                                        ->where('active', 'Y')
-                                                        ->sum('qty');
-
-                                                        $is_partial_received = 'Y';
-                                                        $is_part_in_RO = $sumQtyRO>0?'Y':'N';
-                                                        $qIsPartialReceived = \App\Models\Tx_receipt_order_part::select('is_partial_received')
-                                                        ->whereIn('receipt_order_id', function($q) {
-                                                            $q->select('id')
-                                                            ->from('tx_receipt_orders')
-                                                            ->where('active', 'Y');
-                                                        })
-                                                        ->where('po_mo_no', $orders->purchase_no)
-                                                        ->where('po_mo_id', old('order_part_id_'.$i))
-                                                        ->where('part_id', old('part_id'.$i) ? old('part_id'.$i) : 0)
-                                                        ->where('is_partial_received', 'N') // memastikan jika ada status partial received==N
-                                                        ->where('active', 'Y')
-                                                        ->first();
-                                                        if ($qIsPartialReceived){
-                                                            $is_partial_received = $qIsPartialReceived->is_partial_received;
-                                                        }
-
                                                         $q = \App\Models\Mst_part::leftJoin('tx_qty_parts','mst_parts.id','=','tx_qty_parts.part_id')
                                                         ->leftJoin('mst_globals as q_type', 'mst_parts.quantity_type_id', '=', 'q_type.id')
                                                         ->select(
@@ -388,74 +358,46 @@
                                                         ->first();
                                                     @endphp
                                                     <td>
-                                                        @php
-                                                            $partId = old('part_id'.$i) ? old('part_id'.$i) : 0;
-                                                            $partName = '';
-                                                            $partNumber = '';
-                                                        @endphp
-                                                        @if ($is_partial_received=='N' || $is_part_in_RO=='Y')
+                                                        <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
+                                                            id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
+                                                            <option value="#">Choose...</option>
                                                             @php
-                                                                $partOne = \App\Models\Mst_part::where([
+                                                                $partId = old('part_id'.$i) ? old('part_id'.$i) : 0;
+                                                                $partList = \App\Models\Mst_part::where([
                                                                     'id' => $partId,
                                                                 ])
-                                                                ->first();
-                                                                if ($partOne){
-                                                                    $partName = $partOne->part_name;
-                                                                    $partNumber = $partOne->part_number;
+                                                                ->get();
+                                                            @endphp
+                                                            @foreach ($partList as $pr)
+                                                                @php
+                                                                    $partNumber = $pr->part_number;
                                                                     if(strlen($partNumber)<11){
                                                                         $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
                                                                     }else{
                                                                         $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
                                                                     }
-                                                                }
-                                                            @endphp
-                                                            <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
-                                                            <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
-                                                        @else
-                                                            <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
-                                                                id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
-                                                                <option value="#">Choose...</option>
-                                                                @php
-                                                                    $partList = \App\Models\Mst_part::where([
-                                                                        'id' => $partId,
-                                                                    ])
-                                                                    ->get();
                                                                 @endphp
-                                                                @foreach ($partList as $pr)
-                                                                    @php
-                                                                        $partNumber = $pr->part_number;
-                                                                        if(strlen($partNumber)<11){
-                                                                            $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
-                                                                        }else{
-                                                                            $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
-                                                                        }
-                                                                    @endphp
-                                                                    <option @if($partId==$pr->id){{ 'selected' }}@endif value="{{ $pr->id }}">{{ $partNumber.' : '.$pr->part_name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                            @error('part_id'.$i)
-                                                                <div class="invalid-feedback">{{ $message }}</div>
-                                                            @enderror
-                                                        @endif
+                                                                <option @if($partId==$pr->id){{ 'selected' }}@endif value="{{ $pr->id }}">{{ $partNumber.' : '.$pr->part_name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('part_id'.$i)
+                                                            <div class="invalid-feedback">{{ $message }}</div>
+                                                        @enderror
                                                     </td>
                                                     <td>
-                                                        <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif onchange="totalPrice({{ $i }});" type="text" 
-                                                            style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}"
+                                                        <input onchange="totalPrice({{ $i }});" type="text" style="text-align: right;"
                                                             class="form-control @error('qty'.$i) is-invalid @enderror"
                                                             id="qty{{ $i }}" name="qty{{ $i }}" maxlength="6"
-                                                            value="@if(old('qty'.$i)){{ old('qty'.$i) }}@else{{ 0 }}@endif" 
-                                                            {{ $is_partial_received=='N'?'style="text-align: right;background-color:#b8b8b8;"':'' }} />
+                                                            value="@if(old('qty'.$i)){{ old('qty'.$i) }}@else{{ 0 }}@endif" style="text-align: right;" />
                                                         @error('qty'.$i)
                                                             <div class="invalid-feedback">{{ $message }}</div>
                                                         @enderror
                                                     </td>
                                                     <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q->quantity_type }}</label></td>
                                                     <td>
-                                                        <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" 
-                                                            style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}" 
-                                                            onchange="formatPartPrice({{ $i }});"
+                                                        <input type="text" style="text-align: right;" onchange="formatPartPrice({{ $i }});"
                                                             class="form-control @error('price_part'.$i) is-invalid @enderror" id="price_part{{ $i }}" name="price_part{{ $i }}"
-                                                            maxlength="64" value="@if(old('price_part'.$i)){{ old('price_part'.$i) }}@endif" />
+                                                            maxlength="64" value="@if(old('price_part'.$i)){{ old('price_part'.$i) }}@endif" style="text-align: right;" />
                                                         @error('price_part'.$i)
                                                             <div class="invalid-feedback">{{ $message }}</div>
                                                         @enderror
@@ -501,7 +443,7 @@
                                                         <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
                                                     </td>
                                                     <td style="text-align: center;">
-                                                        @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif
+                                                        <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
                                                     </td>
                                                 </tr>
                                                 @php
@@ -516,209 +458,151 @@
                                             $i=0;
                                         @endphp
                                         @foreach($orderParts AS $mp)
-                                            <tr id="row{{ $i }}">
-                                                <th scope="row" style="text-align:right;">
-                                                    <label for="" id="purchase_order_row_number{{ $i }}" class="col-form-label">{{ $i+1 }}.</label>
-                                                    <input type="hidden" name="order_part_id_{{ $i }}" id="order_part_id_{{ $i }}" value="{{ $mp->id }}">
-                                                </th>
-                                                @php
-                                                    // tampilkan QTY yg sudah masuk RO dan berstatus active
-                                                    $sumQtyRO = \App\Models\Tx_receipt_order_part::whereIn('receipt_order_id', function($q) {
-                                                        $q->select('id')
-                                                        ->from('tx_receipt_orders')
-                                                        ->where('active', 'Y');
-                                                    })
-                                                    ->where('po_mo_no', $orders->purchase_no)
-                                                    ->where('po_mo_id', $mp->id)
-                                                    ->where('part_id', $mp->part_id)
-                                                    ->where('active', 'Y')
-                                                    ->sum('qty');
-
-                                                    $is_partial_received = 'Y';
-                                                    $is_part_in_RO = $sumQtyRO>0?'Y':'N';
-                                                    $qIsPartialReceived = \App\Models\Tx_receipt_order_part::select('is_partial_received')
-                                                    ->whereIn('receipt_order_id', function($q) {
-                                                        $q->select('id')
-                                                        ->from('tx_receipt_orders')
-                                                        ->where('active', 'Y');
-                                                    })
-                                                    ->where('po_mo_no', $orders->purchase_no)
-                                                    ->where('po_mo_id', $mp->id)
-                                                    ->where('part_id', $mp->part_id)
-                                                    ->where('is_partial_received', 'N') // memastikan jika ada status partial received==N
-                                                    ->where('active', 'Y')
-                                                    ->first();
-                                                    if ($qIsPartialReceived){
-                                                        $is_partial_received = $qIsPartialReceived->is_partial_received;
-                                                    }
-
-                                                    $q = \App\Models\Mst_part::leftJoin('tx_qty_parts','mst_parts.id','=','tx_qty_parts.part_id')
-                                                    ->leftJoin('mst_globals as q_type', 'mst_parts.quantity_type_id', '=', 'q_type.id')
-                                                    ->select(
-                                                        'mst_parts.*',
-                                                        'tx_qty_parts.qty as total_qty',
-                                                        'q_type.title_ind AS quantity_type',
-                                                    )
-                                                    ->addSelect(['purchase_memo_qty' => \App\Models\Tx_purchase_memo_part::selectRaw('IFNULL(SUM(qty),0)')    // total qty dari memo yg aktif
-                                                        ->leftJoin('tx_purchase_memos as tx_memo','tx_purchase_memo_parts.memo_id','=','tx_memo.id')
-                                                        ->leftJoin('userdetails as usr','tx_memo.created_by','=','usr.user_id')
-                                                        ->whereColumn('tx_purchase_memo_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
-                                                        ->where('tx_purchase_memo_parts.active','=','Y')
-                                                        ->where('tx_memo.memo_no','NOT LIKE','%Draft%')
-                                                        ->where('tx_memo.active','=','Y')
-                                                    ])
-                                                    ->addSelect(['purchase_order_qty' => \App\Models\Tx_purchase_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari po yg aktif
-                                                        ->leftJoin('tx_purchase_orders as tx_order','tx_purchase_order_parts.order_id','=','tx_order.id')
-                                                        ->leftJoin('userdetails as usr','tx_order.created_by','=','usr.user_id')
-                                                        ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
-                                                        ->where('tx_purchase_order_parts.active','=','Y')
-                                                        ->where('tx_order.approved_by','<>',null)
-                                                        ->where('tx_order.active','=','Y')
-                                                    ])
-                                                    ->addSelect(['purchase_ro_qty' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO yg approved
-                                                        ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                        ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
-                                                        ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
-                                                        ->where('tx_receipt_order_parts.is_partial_received','=','Y')
-                                                        ->where('tx_receipt_order_parts.active','=','Y')
-                                                        ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
-                                                        ->where('tx_ro.active','=','Y')
-                                                    ])
-                                                    ->addSelect(['purchase_ro_qty_no_partial' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO dg is_partial_received=N
-                                                        ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                        ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
-                                                        ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
-                                                        ->where('tx_receipt_order_parts.is_partial_received','=','N')
-                                                        ->where('tx_receipt_order_parts.active','=','Y')
-                                                        ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
-                                                        ->where('tx_ro.active','=','Y')
-                                                    ])
-                                                    ->where([
-                                                        'mst_parts.id' => $mp->part_id,
-                                                        'tx_qty_parts.branch_id' => $userLogin->branch_id
-                                                    ])
-                                                    ->first();
-                                                @endphp
-                                                <td>
+                                        <tr id="row{{ $i }}">
+                                            <th scope="row" style="text-align:right;">
+                                                <label for="" id="purchase_order_row_number{{ $i }}" class="col-form-label">{{ $i+1 }}.</label>
+                                                <input type="hidden" name="order_part_id_{{ $i }}" id="order_part_id_{{ $i }}" value="{{ $mp->id }}">
+                                            </th>
+                                            @php
+                                                $q = \App\Models\Mst_part::leftJoin('tx_qty_parts','mst_parts.id','=','tx_qty_parts.part_id')
+                                                ->leftJoin('mst_globals as q_type', 'mst_parts.quantity_type_id', '=', 'q_type.id')
+                                                ->select(
+                                                    'mst_parts.*',
+                                                    'tx_qty_parts.qty as total_qty',
+                                                    'q_type.title_ind AS quantity_type',
+                                                )
+                                                ->addSelect(['purchase_memo_qty' => \App\Models\Tx_purchase_memo_part::selectRaw('IFNULL(SUM(qty),0)')    // total qty dari memo yg aktif
+                                                    ->leftJoin('tx_purchase_memos as tx_memo','tx_purchase_memo_parts.memo_id','=','tx_memo.id')
+                                                    ->leftJoin('userdetails as usr','tx_memo.created_by','=','usr.user_id')
+                                                    ->whereColumn('tx_purchase_memo_parts.part_id','mst_parts.id')
+                                                    ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                    ->where('tx_purchase_memo_parts.active','=','Y')
+                                                    ->where('tx_memo.memo_no','NOT LIKE','%Draft%')
+                                                    ->where('tx_memo.active','=','Y')
+                                                ])
+                                                ->addSelect(['purchase_order_qty' => \App\Models\Tx_purchase_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari po yg aktif
+                                                    ->leftJoin('tx_purchase_orders as tx_order','tx_purchase_order_parts.order_id','=','tx_order.id')
+                                                    ->leftJoin('userdetails as usr','tx_order.created_by','=','usr.user_id')
+                                                    ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
+                                                    ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                    ->where('tx_purchase_order_parts.active','=','Y')
+                                                    ->where('tx_order.approved_by','<>',null)
+                                                    ->where('tx_order.active','=','Y')
+                                                ])
+                                                ->addSelect(['purchase_ro_qty' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO yg approved
+                                                    ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
+                                                    ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
+                                                    ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
+                                                    ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                    ->where('tx_receipt_order_parts.is_partial_received','=','Y')
+                                                    ->where('tx_receipt_order_parts.active','=','Y')
+                                                    ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                                    ->where('tx_ro.active','=','Y')
+                                                ])
+                                                ->addSelect(['purchase_ro_qty_no_partial' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO dg is_partial_received=N
+                                                    ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
+                                                    ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
+                                                    ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
+                                                    ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                    ->where('tx_receipt_order_parts.is_partial_received','=','N')
+                                                    ->where('tx_receipt_order_parts.active','=','Y')
+                                                    ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                                    ->where('tx_ro.active','=','Y')
+                                                ])
+                                                ->where([
+                                                    'mst_parts.id' => $mp->part_id,
+                                                    'tx_qty_parts.branch_id' => $userLogin->branch_id
+                                                ])
+                                                ->first();
+                                            @endphp
+                                            <td>
+                                                <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
+                                                    id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
+                                                    <option value="#">Choose...</option>
                                                     @php
                                                         $partId = $mp->part_id;
-                                                        $partName = '';
-                                                        $partNumber = '';
+                                                        $partList = \App\Models\Mst_part::where([
+                                                            'id' => $partId,
+                                                        ])
+                                                        ->get();
                                                     @endphp
-                                                    @if ($is_partial_received=='N' || $is_part_in_RO=='Y')
+                                                    @foreach ($partList as $pr)
                                                         @php
-                                                            $partOne = \App\Models\Mst_part::where([
-                                                                'id' => $partId,
-                                                            ])
-                                                            ->first();
-                                                            if ($partOne){
-                                                                $partName = $partOne->part_name;
-                                                                $partNumber = $partOne->part_number;
-                                                                if(strlen($partNumber)<11){
-                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
-                                                                }else{
-                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
-                                                                }
+                                                            $partNumber = $pr->part_number;
+                                                            if(strlen($partNumber)<11){
+                                                                $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
+                                                            }else{
+                                                                $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
                                                             }
                                                         @endphp
-                                                        <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
-                                                        <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
-                                                    @else
-                                                        <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
-                                                            id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
-                                                            <option value="#">Choose...</option>
-                                                            @php
-                                                                $partList = \App\Models\Mst_part::where([
-                                                                    'id' => $partId,
-                                                                ])
-                                                                ->get();
-                                                            @endphp
-                                                            @foreach ($partList as $pr)
-                                                                @php
-                                                                    $partNumber = $pr->part_number;
-                                                                    if(strlen($partNumber)<11){
-                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
-                                                                    }else{
-                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
-                                                                    }
-                                                                @endphp
-                                                                <option @if($partId==$pr->id){{ 'selected' }}@endif value="{{ $pr->id }}">{{ $partNumber .' : '.$pr->part_name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        @error('part_id'.$i)
-                                                            <div class="invalid-feedback">{{ $message }}</div>
-                                                        @enderror
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif onchange="totalPrice({{ $i }});" type="text" 
-                                                        class="form-control @error('qty'.$i) is-invalid @enderror"
-                                                        id="qty{{ $i }}" name="qty{{ $i }}" maxlength="6"
-                                                        value="{{ $mp->qty }}" 
-                                                        style="text-align: right;@if($is_partial_received=='N'){!! 'background-color:#b8b8b8;' !!}@endif" />
-                                                        {{-- {{ $sumQtyRO.'::'.$is_partial_received }} --}}
-                                                    @error('qty'.$i)
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q->quantity_type }}</label></td>
-                                                <td>
-                                                    <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" onchange="formatPartPrice({{ $i }});"
-                                                        class="form-control @error('price_part'.$i) is-invalid @enderror"
-                                                        id="price_part{{ $i }}" name="price_part{{ $i }}" maxlength="64"
-                                                        value="@if($orders->supplier_type_id==10){{ number_format($mp->price,2,'.',',') }}@else{{ number_format($mp->price,0,'.',',') }}@endif" 
-                                                        style="text-align: right;@if($is_partial_received=='N'){!! 'background-color:#b8b8b8;' !!}@endif" />
-                                                    @error('price_part'.$i)
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td style="text-align: right;">
-                                                    @php
-                                                        $qty = $mp->qty;
-                                                        $price_part = $mp->price;
-                                                        $totalPrice = 0;
-                                                        if (is_numeric(str_replace(",", "", $qty)) && is_numeric(str_replace(",", "", $price_part))) {
-                                                            $totalPrice = $qty * str_replace(",", "", $price_part);
-                                                        }
-                                                    @endphp
-                                                    <label id="total-price-{{ $i }}" for="" class="col-form-label">{{ number_format($totalPrice,($orders->supplier_type_id==10?2:0),'.',',') }}</label>
-                                                </td>
-                                                <td>
-                                                    <textarea name="desc_part{{ $i }}" id="desc_part{{ $i }}" rows="3" class="form-control @error('desc_part'.$i) is-invalid @enderror"
-                                                        style="width: 100%;">{{ $mp->description }}</textarea>
-                                                    @error('desc_part'.$i)
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td style="text-align: right;">
-                                                    <label id="final-cost-{{ $i }}" for=""
-                                                        class="col-form-label">{{ (!isset($q)?'':number_format($q->final_cost,0,'.',',').' / '.(is_null($q->fobCurr)?'':$q->fobCurr->string_val).number_format($q->final_fob,2,'.',',')) }}</label>
-                                                </td>
-                                                <td style="text-align: right;">
-                                                    <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q->total_qty,0,'.',',') }}</label>
-                                                    <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q->total_qty }}">
-                                                </td>
+                                                        <option @if($partId==$pr->id){{ 'selected' }}@endif value="{{ $pr->id }}">{{ $partNumber .' : '.$pr->part_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('part_id'.$i)
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input onchange="totalPrice({{ $i }});" type="text" class="form-control @error('qty'.$i) is-invalid @enderror"
+                                                    id="qty{{ $i }}" name="qty{{ $i }}" maxlength="6"
+                                                    value="{{ $mp->qty }}" style="text-align: right;" />
+                                                @error('qty'.$i)
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </td>
+                                            <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q->quantity_type }}</label></td>
+                                            <td>
+                                                <input type="text" onchange="formatPartPrice({{ $i }});"
+                                                    class="form-control @error('price_part'.$i) is-invalid @enderror"
+                                                    id="price_part{{ $i }}" name="price_part{{ $i }}" maxlength="64"
+                                                    value="@if($orders->supplier_type_id==10){{ number_format($mp->price,2,'.',',') }}@else{{ number_format($mp->price,0,'.',',') }}@endif" style="text-align: right;" />
+                                                @error('price_part'.$i)
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </td>
+                                            <td style="text-align: right;">
                                                 @php
-                                                    $oo = 0;
-                                                    if(!is_null($q)){
-                                                        $oo = ($q->purchase_memo_qty+$q->purchase_order_qty)-($q->purchase_ro_qty+$q->purchase_ro_qty_no_partial);
+                                                    $qty = $mp->qty;
+                                                    $price_part = $mp->price;
+                                                    $totalPrice = 0;
+                                                    if (is_numeric(str_replace(",", "", $qty)) && is_numeric(str_replace(",", "", $price_part))) {
+                                                        $totalPrice = $qty * str_replace(",", "", $price_part);
                                                     }
                                                 @endphp
-                                                <td style="text-align: right;">
-                                                    <label id="oo-{{ $i }}" for="" class="col-form-label">{{ number_format($oo,0,'.',',') }}</label>
-                                                    <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
-                                                </td>
-                                                <td style="text-align: center;">
-                                                    @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif
-                                                </td>
-                                            </tr>
+                                                <label id="total-price-{{ $i }}" for="" class="col-form-label">{{ number_format($totalPrice,($orders->supplier_type_id==10?2:0),'.',',') }}</label>
+                                            </td>
+                                            <td>
+                                                <textarea name="desc_part{{ $i }}" id="desc_part{{ $i }}" rows="3" class="form-control @error('desc_part'.$i) is-invalid @enderror"
+                                                    style="width: 100%;">{{ $mp->description }}</textarea>
+                                                @error('desc_part'.$i)
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </td>
+                                            <td style="text-align: right;">
+                                                <label id="final-cost-{{ $i }}" for=""
+                                                    class="col-form-label">{{ (!isset($q)?'':number_format($q->final_cost,0,'.',',').' / '.(is_null($q->fobCurr)?'':$q->fobCurr->string_val).number_format($q->final_fob,2,'.',',')) }}</label>
+                                            </td>
+                                            <td style="text-align: right;">
+                                                <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q->total_qty,0,'.',',') }}</label>
+                                                <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q->total_qty }}">
+                                            </td>
                                             @php
-                                                $i+= 1;
+                                                $oo = 0;
+                                                if(!is_null($q)){
+                                                    $oo = ($q->purchase_memo_qty+$q->purchase_order_qty)-($q->purchase_ro_qty+$q->purchase_ro_qty_no_partial);
+                                                }
                                             @endphp
+                                            <td style="text-align: right;">
+                                                <label id="oo-{{ $i }}" for="" class="col-form-label">{{ number_format($oo,0,'.',',') }}</label>
+                                                <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
+                                            </td>
+                                        </tr>
+                                        @php
+                                            $i+= 1;
+                                        @endphp
                                         @endforeach
                                     @endif
                                 </tbody>
@@ -936,7 +820,7 @@
             '<label id="oo-'+totalRow+'" for="" class="col-form-label">---</label>'+
             '<input type="hidden" name="oo_'+totalRow+'_tmp" id="oo_'+totalRow+'_tmp" value="0">'+
             '</td>'+
-            '<td style="text-align:center;"><input type="checkbox" id="rowCheck'+totalRow+'" value="'+totalRow+'" style="vertical-align: middle;"></td>'+
+            '<td style="text-align:center;"><input type="checkbox" id="rowCheck'+totalRow+'" value="'+totalRow+'"></td>'+
             '</tr>';
         $("#new-row").append(vHtml);
         $("#totalRow").val(rowNo);
