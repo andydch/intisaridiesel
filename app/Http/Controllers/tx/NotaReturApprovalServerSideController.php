@@ -390,6 +390,27 @@ class NotaReturApprovalServerSideController extends Controller
                         }
                     }
 
+                    // simpan deskripsi utk jurnal - start
+                    $deskripsi = '';
+                    $getDesc = Tx_nota_retur::leftJoin('mst_customers AS msc', 'tx_nota_returs.customer_id', '=', 'msc.id')
+                    ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+                    ->select(
+                        'tx_nota_returs.nota_retur_no',
+                        'tx_nota_returs.remark',
+                        'msc.name AS cust_name',
+                        'msc.customer_unique_code AS cust_unique_code',
+                        'msg.title_ind AS entity_type',
+                    )
+                    ->where('tx_nota_returs.id', '=', $q->id)
+                    ->first();
+                    if ($getDesc){
+                        $deskripsi = $getDesc->nota_retur_no.', '.
+                            $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                            $getDesc->remark;
+                        $deskripsi = substr($deskripsi, 0, 4096);
+                    }
+                    // simpan deskripsi utk jurnal - end
+
                     // cek apakah fitur automatic journal untuk nota retur sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
                         'auto_journal_id'=>2,
@@ -553,7 +574,7 @@ class NotaReturApprovalServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_sales_retur_pajak->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$q->total_before_vat,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -566,7 +587,7 @@ class NotaReturApprovalServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_ppn_keluaran->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>($q->total_after_vat-$q->total_before_vat),
                             'kredit'=>0,
                             'active'=>'Y',
@@ -579,7 +600,7 @@ class NotaReturApprovalServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_piutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$q->total_after_vat,
                             'active'=>'Y',
@@ -592,7 +613,7 @@ class NotaReturApprovalServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$totallastAVGcost,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -605,7 +626,7 @@ class NotaReturApprovalServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_cogs->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$totallastAVGcost,
                             'active'=>'Y',

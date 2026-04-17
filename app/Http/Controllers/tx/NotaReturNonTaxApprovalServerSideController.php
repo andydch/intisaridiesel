@@ -423,6 +423,27 @@ class NotaReturNonTaxApprovalServerSideController extends Controller
                         }
                     }
 
+                    // simpan deskripsi utk jurnal - start
+                    $deskripsi = '';
+                    $getDesc = Tx_nota_retur_non_tax::leftJoin('mst_customers AS msc', 'tx_nota_retur_non_taxes.customer_id', '=', 'msc.id')
+                    ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+                    ->select(
+                        'tx_nota_retur_non_taxes.nota_retur_no',
+                        'tx_nota_retur_non_taxes.remark',
+                        'msc.name AS cust_name',
+                        'msc.customer_unique_code AS cust_unique_code',
+                        'msg.title_ind AS entity_type',
+                    )
+                    ->where('tx_nota_retur_non_taxes.id', '=', $q->id)
+                    ->first();
+                    if ($getDesc){
+                        $deskripsi = $getDesc->nota_retur_no.', '.
+                            $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                            $getDesc->remark;
+                        $deskripsi = substr($deskripsi, 0, 4096);
+                    }
+                    // simpan deskripsi utk jurnal - end
+
                     // cek apakah fitur automatic journal untuk retur sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
                         'auto_journal_id'=>4,
@@ -580,7 +601,7 @@ class NotaReturNonTaxApprovalServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_sales_retur_non_pajak->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$q->total_price,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -593,7 +614,7 @@ class NotaReturNonTaxApprovalServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_piutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$q->total_price,
                             'active'=>'Y',
@@ -606,7 +627,7 @@ class NotaReturNonTaxApprovalServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$totalLastAvgCost,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -619,7 +640,7 @@ class NotaReturNonTaxApprovalServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_cogs->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$totalLastAvgCost,
                             'active'=>'Y',
