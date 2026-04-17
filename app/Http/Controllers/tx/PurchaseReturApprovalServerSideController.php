@@ -453,6 +453,28 @@ class PurchaseReturApprovalServerSideController extends Controller
                             }
                         }
                     }
+
+                    // simpan deskripsi utk jurnal - start
+                    $deskripsi = '';
+                    $getDesc = Tx_purchase_retur::leftJoin('mst_suppliers AS msp', 'tx_purchase_returs.supplier_id', '=', 'msp.id')
+                    ->leftJoin('mst_globals AS ety_type','msp.entity_type_id', '=', 'ety_type.id')
+                    ->select(
+                        'tx_purchase_returs.purchase_retur_no',
+                        'tx_purchase_returs.remark',
+                        'msp.name as supplier_name',
+                        'msp.supplier_code',
+                        'ety_type.title_ind as ety_type_name',
+                    )
+                    ->where('tx_purchase_returs.id', '=', $id)
+                    ->first();
+                    if ($getDesc){
+                        $deskripsi = $getDesc->purchase_retur_no.', '.
+                            $getDesc->supplier_code.' - '.($getDesc->ety_type_name!=null?$getDesc->ety_type_name.' ':'').$getDesc->supplier_name.', '.
+                            $getDesc->remark;
+                        $deskripsi = substr($deskripsi, 0, 4096);
+                    }
+                    // simpan deskripsi utk jurnal - end
+
                     if ($is_vat=='Y' || $journal_type_id=='P'){
                         // cek apakah fitur automatic journal untuk purchase retur sudah tersedia
                         $qAutJournal = Mst_automatic_journal_detail::where([
@@ -600,7 +622,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>(($is_vat=='N' && $journal_type_id=='P')?$qCheck->total_before_vat:$qCheck->total_after_vat),
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -612,7 +634,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$qCheck->total_before_vat,
                                 'active'=>'Y',
@@ -624,7 +646,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>(($is_vat=='N' && $journal_type_id=='P')?0:($qCheck->total_after_vat-$qCheck->total_before_vat)),
                                 'active'=>'Y',
@@ -773,7 +795,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$qCheck->total_before_vat,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -785,7 +807,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$qCheck->total_before_vat,
                                 'active'=>'Y',
