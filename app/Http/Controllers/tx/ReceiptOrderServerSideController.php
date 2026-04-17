@@ -959,6 +959,27 @@ class ReceiptOrderServerSideController extends Controller
             // buat automatic general journal untuk receipt order
             if($request->is_draft!='Y'){
 
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_receipt_order::leftJoin('mst_suppliers AS msp', 'tx_receipt_orders.supplier_id', '=', 'msp.id')
+                ->leftJoin('mst_globals AS ety_type','msp.entity_type_id', '=', 'ety_type.id')
+                ->select(
+                    'tx_receipt_orders.receipt_no',
+                    'tx_receipt_orders.remark',
+                    'msp.name as supplier_name',
+                    'msp.supplier_code',
+                    'ety_type.title_ind as ety_type_name',
+                )
+                ->where('tx_receipt_orders.id', '=', $maxId)
+                ->first();
+                if ($getDesc){
+                    $deskripsi = $getDesc->receipt_no.', '.
+                        $getDesc->supplier_code.' - '.($getDesc->ety_type_name!=null?$getDesc->ety_type_name.' ':'').$getDesc->supplier_name.', '.
+                        $getDesc->remark;
+                    $deskripsi = substr($deskripsi, 0, 4096);
+                }
+                // simpan deskripsi utk jurnal - end
+
                 if ($is_vat_for_auto_journal=='Y' || $request->journal_type_id=='P'){
                     // cek apakah fitur automatic journal RO PPN sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
@@ -1158,7 +1179,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1171,7 +1192,7 @@ class ReceiptOrderServerSideController extends Controller
                             //     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             //     'coa_id'=>$qAutJournal_bea_masuk_import->coa_code_id,
                             //     'coa_detail_id'=>null,
-                            //     'description'=>null,
+                            //     'description'=>$deskripsi,
                             //     'debit'=>$bea_masuk_val,
                             //     'kredit'=>0,
                             //     'active'=>'Y',
@@ -1184,7 +1205,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$vat_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1197,7 +1218,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$vat_tmp+$totalPrice_tmp,
                                 'active'=>'Y',
@@ -1210,7 +1231,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1223,7 +1244,7 @@ class ReceiptOrderServerSideController extends Controller
                             //     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             //     'coa_id'=>$qAutJournal_bea_masuk_import->coa_code_id,
                             //     'coa_detail_id'=>null,
-                            //     'description'=>null,
+                            //     'description'=>$deskripsi,
                             //     'debit'=>($bea_masuk_val==null?0:$bea_masuk_val),
                             //     'kredit'=>0,
                             //     'active'=>'Y',
@@ -1236,7 +1257,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>($is_vat_for_auto_journal=='N' && $request->journal_type_id=='P')?0:(($totalPrice+$bea_masuk_val)*$vat_val/100),
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1249,7 +1270,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>($is_vat_for_auto_journal=='N' && $request->journal_type_id=='P')?
                                     ($totalPrice):(($totalPrice)+(($totalPrice+$bea_masuk_val)*$vat_val/100)),
@@ -1426,7 +1447,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1439,7 +1460,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$totalPrice_tmp,
                                 'active'=>'Y',
@@ -1452,7 +1473,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -1465,7 +1486,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$totalPrice,
                                 'active'=>'Y',
@@ -2334,6 +2355,27 @@ class ReceiptOrderServerSideController extends Controller
             // buat automatic general journal untuk receipt order
             if($request->is_draft!='Y'){
 
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_receipt_order::leftJoin('mst_suppliers AS msp', 'tx_receipt_orders.supplier_id', '=', 'msp.id')
+                ->leftJoin('mst_globals AS ety_type','msp.entity_type_id', '=', 'ety_type.id')
+                ->select(
+                    'tx_receipt_orders.receipt_no',
+                    'tx_receipt_orders.remark',
+                    'msp.name as supplier_name',
+                    'msp.supplier_code',
+                    'ety_type.title_ind as ety_type_name',
+                )
+                ->where('tx_receipt_orders.id', '=', $id)
+                ->first();
+                if ($getDesc){
+                    $deskripsi = $getDesc->receipt_no.', '.
+                        $getDesc->supplier_code.' - '.($getDesc->ety_type_name!=null?$getDesc->ety_type_name.' ':'').$getDesc->supplier_name.', '.
+                        $getDesc->remark;
+                    $deskripsi = substr($deskripsi, 0, 4096);
+                }
+                // simpan deskripsi utk jurnal - end
+
                 if ($is_vat_for_auto_journal=='Y' || $request->journal_type_id=='P'){
                     // cek apakah fitur automatic journal RO PPN sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
@@ -2534,7 +2576,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -2547,7 +2589,7 @@ class ReceiptOrderServerSideController extends Controller
                             //     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             //     'coa_id'=>$qAutJournal_bea_masuk_import->coa_code_id,
                             //     'coa_detail_id'=>null,
-                            //     'description'=>null,
+                            //     'description'=>$deskripsi,
                             //     'debit'=>$bea_masuk_val,
                             //     'kredit'=>0,
                             //     'active'=>'Y',
@@ -2560,7 +2602,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$vat_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -2573,7 +2615,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$totalPrice_tmp+$vat_tmp,
                                 'active'=>'Y',
@@ -2588,7 +2630,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -2601,7 +2643,7 @@ class ReceiptOrderServerSideController extends Controller
                             //     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             //     'coa_id'=>$qAutJournal_bea_masuk_import->coa_code_id,
                             //     'coa_detail_id'=>null,
-                            //     'description'=>null,
+                            //     'description'=>$deskripsi,
                             //     'debit'=>$bea_masuk_val==null?0:$bea_masuk_val,
                             //     'kredit'=>0,
                             //     'active'=>'Y',
@@ -2614,7 +2656,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>($is_vat_for_auto_journal=='N' && $request->journal_type_id=='P')?
                                     0:
                                     (($totalPrice+$bea_masuk_val)*$vat_val/100),
@@ -2629,7 +2671,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>($is_vat_for_auto_journal=='N' && $request->journal_type_id=='P')?
                                     ($totalPrice):
@@ -2806,7 +2848,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice_tmp,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -2819,7 +2861,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$totalPrice_tmp,
                                 'active'=>'Y',
@@ -2832,7 +2874,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_inventory->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>$totalPrice,
                                 'kredit'=>0,
                                 'active'=>'Y',
@@ -2845,7 +2887,7 @@ class ReceiptOrderServerSideController extends Controller
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_hutang->coa_code_id,
                                 'coa_detail_id'=>null,
-                                'description'=>null,
+                                'description'=>$deskripsi,
                                 'debit'=>0,
                                 'kredit'=>$totalPrice,
                                 'active'=>'Y',
@@ -2999,8 +3041,28 @@ class ReceiptOrderServerSideController extends Controller
                 $vat_val = ($qRO->vat_val==null || $qRO->vat_val==0)?0:$qRO->vat_val;
                 $branch_id = $qRO->branch_id;
 
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_receipt_order::leftJoin('mst_suppliers AS msp', 'tx_receipt_orders.supplier_id', '=', 'msp.id')
+                ->leftJoin('mst_globals AS ety_type','msp.entity_type_id', '=', 'ety_type.id')
+                ->select(
+                    'tx_receipt_orders.receipt_no',
+                    'tx_receipt_orders.remark',
+                    'msp.name as supplier_name',
+                    'msp.supplier_code',
+                    'ety_type.title_ind as ety_type_name',
+                )
+                ->where('tx_receipt_orders.id', '=', $qRO->id)
+                ->first();
+                if ($getDesc){
+                    $deskripsi = $getDesc->receipt_no.', '.
+                        $getDesc->supplier_code.' - '.($getDesc->ety_type_name!=null?$getDesc->ety_type_name.' ':'').$getDesc->supplier_name.', '.
+                        $getDesc->remark;
+                    $deskripsi = substr($deskripsi, 0, 4096);
+                }
+                // simpan deskripsi utk jurnal - end
+
                 if ($request->journal_type_id=='P'){
-                // if ($vat_val>0 || $request->journal_type_id=='P'){
                     // GJ
 
                     // cek apakah fitur automatic journal RO PPN sudah tersedia
@@ -3159,7 +3221,7 @@ class ReceiptOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$total_before_vat,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -3172,7 +3234,7 @@ class ReceiptOrderServerSideController extends Controller
                         //     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         //     'coa_id'=>$qAutJournal_bea_masuk_import->coa_code_id,
                         //     'coa_detail_id'=>null,
-                        //     'description'=>null,
+                        //     'description'=>$deskripsi,
                         //     'debit'=>$bea_masuk_val,
                         //     'kredit'=>0,
                         //     'active'=>'Y',
@@ -3185,7 +3247,7 @@ class ReceiptOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_ppn_masukan->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$total_vat,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -3198,7 +3260,7 @@ class ReceiptOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_hutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$total_after_vat,
                             'active'=>'Y',
@@ -3208,7 +3270,6 @@ class ReceiptOrderServerSideController extends Controller
                     }
                 }
                 if ($request->journal_type_id=='N' || $request->journal_type_id=='' || $request->journal_type_id==null){
-                // if ($vat_val==0 && ($request->journal_type_id=='N' || $request->journal_type_id=='' || $request->journal_type_id==null)){
                     // LJ
 
                     // cek apakah fitur automatic journal RO non PPN sudah tersedia
@@ -3353,7 +3414,7 @@ class ReceiptOrderServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$total_before_vat,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -3366,7 +3427,7 @@ class ReceiptOrderServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_hutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$total_before_vat,
                             'active'=>'Y',
