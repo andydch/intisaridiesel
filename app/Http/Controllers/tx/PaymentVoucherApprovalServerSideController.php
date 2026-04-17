@@ -355,7 +355,6 @@ class PaymentVoucherApprovalServerSideController extends Controller
         DB::beginTransaction();
 
         try {
-
             if($request->order_appr == 'A'){
                 $upd = Tx_payment_voucher::where('payment_voucher_no','=',urldecode($payment_voucher_no))
                 ->where('approved_by','=',null)

@@ -408,6 +408,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Maatwebsite\Excel\Facades\Excel;
 use Rap2hpoutre\LaravelLogViewer\LogViewerController;
+use App\Http\Controllers\Auth\VerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -450,7 +451,8 @@ Route::group(
             'index', 'create', 'show', 'edit', 'update', 'destroy'
         ]);
 
-        Route::get('email/verify', 'Auth\VerificationController@show')->name('verification.verify');
+        // Route::get('email/verify', 'Auth\VerificationController@show')->name('verification.verify');
+        Route::get('email/verify', [VerificationController::class, 'show'])->name('verification.notice');
 
         // registrasi & login
         Route::get('/err-notif', function () {
