@@ -655,6 +655,27 @@ class PaymentReceiptServerSideController extends Controller
                 'is_full_payment' => $isFullPayment,
             ]);
 
+            // simpan deskripsi utk jurnal - start
+            $deskripsi = '';
+            $getDesc = Tx_payment_receipt::leftJoin('mst_customers AS msc', 'tx_payment_receipts.customer_id', '=', 'msc.id')
+            ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+            ->select(
+                'tx_payment_receipts.payment_receipt_no AS pa_no',
+                'tx_payment_receipts.remark AS pa_remark',
+                'msc.name AS cust_name',
+                'msc.customer_unique_code AS cust_unique_code',
+                'msg.title_ind AS entity_type',
+            )
+            ->where('tx_payment_receipts.id', $maxId)
+            ->first();
+            if ($getDesc){
+                $deskripsi = $getDesc->pa_no.', '.
+                    $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                    $getDesc->pa_remark;
+                $deskripsi = substr($deskripsi, 0, 4096);
+            }
+            // simpan deskripsi utk jurnal - end
+
             $methodNm = '';
             switch ($request->payment_mode_id) {
                 case 1:
@@ -858,7 +879,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_cash->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($payment_total_before_tax+($payment_total_before_tax*$vat_val)/100)-
                         ($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0)-
                         ($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0)+
@@ -875,7 +896,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_discount->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0),
                     'kredit'=>0,
                     'active'=>'Y',
@@ -889,7 +910,7 @@ class PaymentReceiptServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_admin_bank->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0),
                         'kredit'=>0,
                         'active'=>'Y',
@@ -903,7 +924,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_biaya_kirim->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($request->biaya_kirim?GlobalFuncHelper::moneyValidate($request->biaya_kirim):0),
                     'active'=>'Y',
@@ -912,24 +933,26 @@ class PaymentReceiptServerSideController extends Controller
                 ]);
 
                 // penerimaan lainnya
-                $ins_penerimaan_lainnya = Tx_general_journal_detail::create([
-                    'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
-                    'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
-                    'coa_detail_id'=>null,
-                    'description'=>null,
-                    'debit'=>0,
-                    'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
-                    'active'=>'Y',
-                    'created_by'=>Auth::user()->id,
-                    'updated_by'=>Auth::user()->id,
-                ]);
+                if ($qAutJournal_penerimaan_lainnya){
+                    $ins_penerimaan_lainnya = Tx_general_journal_detail::create([
+                        'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
+                        'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
+                        'coa_detail_id'=>null,
+                        'description'=>$deskripsi,
+                        'debit'=>0,
+                        'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
+                        'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
 
                 // piutang
                 $ins_piutang = Tx_general_journal_detail::create([
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_piutang->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($payment_total_before_tax+($payment_total_before_tax*$vat_val)/100),
                     'active'=>'Y',
@@ -1127,7 +1150,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_cash->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>$payment_total_before_tax-
                         ($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0)-
                         ($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0)+
@@ -1144,7 +1167,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_discount->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0),
                     'kredit'=>0,
                     'active'=>'Y',
@@ -1158,7 +1181,7 @@ class PaymentReceiptServerSideController extends Controller
                         'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_admin_bank->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0),
                         'kredit'=>0,
                         'active'=>'Y',
@@ -1172,7 +1195,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_biaya_kirim->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($request->biaya_kirim?GlobalFuncHelper::moneyValidate($request->biaya_kirim):0),
                     'active'=>'Y',
@@ -1181,24 +1204,26 @@ class PaymentReceiptServerSideController extends Controller
                 ]);
 
                 // penerimaan lainnya
-                $ins_penerimaan_lainnya = Tx_lokal_journal_detail::create([
-                    'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
-                    'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
-                    'coa_detail_id'=>null,
-                    'description'=>null,
-                    'debit'=>0,
-                    'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
-                    'active'=>'Y',
-                    'created_by'=>Auth::user()->id,
-                    'updated_by'=>Auth::user()->id,
-                ]);
+                if ($qAutJournal_penerimaan_lainnya){
+                    $ins_penerimaan_lainnya = Tx_lokal_journal_detail::create([
+                        'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
+                        'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
+                        'coa_detail_id'=>null,
+                        'description'=>$deskripsi,
+                        'debit'=>0,
+                        'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
+                        'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
 
                 // piutang
                 $ins_piutang = Tx_lokal_journal_detail::create([
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_piutang->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>$payment_total_before_tax,
                     'active'=>'Y',
@@ -1218,7 +1243,7 @@ class PaymentReceiptServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            // throw $e;
+            throw $e;
 
             return redirect()
             ->back()
@@ -2122,7 +2147,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_cash->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($payment_total_before_tax+($payment_total_before_tax*$vat_val)/100)-
                         ($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0)-
                         ($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0)+
@@ -2139,7 +2164,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_discount->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0),
                     'kredit'=>0,
                     'active'=>'Y',
@@ -2153,7 +2178,7 @@ class PaymentReceiptServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_admin_bank->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0),
                         'kredit'=>0,
                         'active'=>'Y',
@@ -2167,7 +2192,7 @@ class PaymentReceiptServerSideController extends Controller
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_biaya_kirim->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($request->biaya_kirim?GlobalFuncHelper::moneyValidate($request->biaya_kirim):0),
                     'active'=>'Y',
@@ -2176,24 +2201,26 @@ class PaymentReceiptServerSideController extends Controller
                 ]);
 
                 // penerimaan lainnya
-                $ins_penerimaan_lainnya = Tx_general_journal_detail::create([
-                    'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
-                    'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
-                    'coa_detail_id'=>null,
-                    'description'=>null,
-                    'debit'=>0,
-                    'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
-                    'active'=>'Y',
-                    'created_by'=>Auth::user()->id,
-                    'updated_by'=>Auth::user()->id,
-                ]);
+                if ($qAutJournal_penerimaan_lainnya){
+                    $ins_penerimaan_lainnya = Tx_general_journal_detail::create([
+                        'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
+                        'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
+                        'coa_detail_id'=>null,
+                        'description'=>$deskripsi,
+                        'debit'=>0,
+                        'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
+                        'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
 
                 // piutang
                 $ins_piutang = Tx_general_journal_detail::create([
                     'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_piutang->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($payment_total_before_tax+($payment_total_before_tax*$vat_val)/100),
                     'active'=>'Y',
@@ -2390,7 +2417,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_cash->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>$payment_total_before_tax-
                         ($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0)-
                         ($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0)+
@@ -2407,7 +2434,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_discount->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0),
                     'kredit'=>0,
                     'active'=>'Y',
@@ -2421,7 +2448,7 @@ class PaymentReceiptServerSideController extends Controller
                         'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_admin_bank->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0),
                         'kredit'=>0,
                         'active'=>'Y',
@@ -2435,7 +2462,7 @@ class PaymentReceiptServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_biaya_kirim->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>($request->biaya_kirim?GlobalFuncHelper::moneyValidate($request->biaya_kirim):0),
                     'active'=>'Y',
@@ -2444,24 +2471,26 @@ class PaymentReceiptServerSideController extends Controller
                 ]);
 
                 // penerimaan lainnya
-                $ins_penerimaan_lainnya = Tx_lokal_journal_detail::create([
-                    'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
-                    'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
-                    'coa_detail_id'=>null,
-                    'description'=>null,
-                    'debit'=>0,
-                    'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
-                    'active'=>'Y',
-                    'created_by'=>Auth::user()->id,
-                    'updated_by'=>Auth::user()->id,
-                ]);
+                if ($qAutJournal_penerimaan_lainnya){
+                    $ins_penerimaan_lainnya = Tx_lokal_journal_detail::create([
+                        'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
+                        'coa_id'=>$qAutJournal_penerimaan_lainnya->coa_code_id,
+                        'coa_detail_id'=>null,
+                        'description'=>$deskripsi,
+                        'debit'=>0,
+                        'kredit'=>($request->penerimaan_lainnya?GlobalFuncHelper::moneyValidate($request->penerimaan_lainnya):0),
+                        'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
 
                 // piutang
                 $ins_piutang = Tx_lokal_journal_detail::create([
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_piutang->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>$payment_total_before_tax,
                     'active'=>'Y',
@@ -2481,7 +2510,7 @@ class PaymentReceiptServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            throw $e;
+            // throw $e;
 
             return redirect()
             ->back()
