@@ -1944,6 +1944,27 @@ class PaymentReceiptServerSideController extends Controller
                 'is_full_payment' => $isFullPayment,
             ]);
 
+            // simpan deskripsi utk jurnal - start
+            $deskripsi = '';
+            $getDesc = Tx_payment_receipt::leftJoin('mst_customers AS msc', 'tx_payment_receipts.customer_id', '=', 'msc.id')
+            ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+            ->select(
+                'tx_payment_receipts.payment_receipt_no AS pa_no',
+                'tx_payment_receipts.remark AS pa_remark',
+                'msc.name AS cust_name',
+                'msc.customer_unique_code AS cust_unique_code',
+                'msg.title_ind AS entity_type',
+            )
+            ->where('tx_payment_receipts.id', $qPr->id)
+            ->first();
+            if ($getDesc){
+                $deskripsi = $getDesc->pa_no.', '.
+                    $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                    $getDesc->pa_remark;
+                $deskripsi = substr($deskripsi, 0, 4096);
+            }
+            // simpan deskripsi utk jurnal - end
+
             $methodNm = '';
             switch ($request->payment_mode_id) {
                 case 1:
