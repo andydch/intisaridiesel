@@ -561,6 +561,27 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                 'total_price' => $totalPrice,
             ]);
 
+            // simpan deskripsi utk jurnal - start
+            $deskripsi = '';
+            $getDesc = Tx_delivery_order_non_tax::leftJoin('mst_customers AS msc', 'tx_delivery_order_non_taxes.customer_id', '=', 'msc.id')
+            ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+            ->select(
+                'tx_delivery_order_non_taxes.delivery_order_no',
+                'tx_delivery_order_non_taxes.remark',
+                'msc.name AS cust_name',
+                'msc.customer_unique_code AS cust_unique_code',
+                'msg.title_ind AS entity_type',
+            )
+            ->where('tx_delivery_order_non_taxes.id', '=', $maxId)
+            ->first();
+            if ($getDesc){
+                $deskripsi = $getDesc->delivery_order_no.', '.
+                    $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                    $getDesc->remark;
+                $deskripsi = substr($deskripsi, 0, 4096);
+            }
+            // simpan deskripsi utk jurnal - end
+
             // cek apakah fitur automatic journal untuk nota penjualan sudah tersedia
             $qAutJournal = Mst_automatic_journal_detail::where([
                 'auto_journal_id'=>3,
@@ -720,7 +741,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_cogs->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>$totalLastAvgCost,
                     'kredit'=>0,
                     'active'=>'Y',
@@ -733,7 +754,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_inventory->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>$totalLastAvgCost,
                     'active'=>'Y',
@@ -746,7 +767,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_piutang->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>$totalPrice,
                     'kredit'=>0,
                     'active'=>'Y',
@@ -759,7 +780,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                     'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                     'coa_id'=>$qAutJournal_sales_non_pajak->coa_code_id,
                     'coa_detail_id'=>null,
-                    'description'=>null,
+                    'description'=>$deskripsi,
                     'debit'=>0,
                     'kredit'=>$totalPrice,
                     'active'=>'Y',
@@ -779,7 +800,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            throw $e;
+            // throw $e;
 
             return redirect()
             ->back()
@@ -1124,7 +1145,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                         ->where('branch_id','=',$partSO->branch_id)
                         ->first();
                         if($qtyStock){
-                            if ($qStock->qty<$do_part->qty){
+                            if ($qtyStock->qty<$do_part->qty){
                                 DB::rollback();
 
                                 return redirect()
@@ -1154,6 +1175,27 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                 $qNP = Tx_delivery_order_non_tax::where('id', '=', $id)
                 ->first();
                 if ($qNP){
+
+                    // simpan deskripsi utk jurnal - start
+                    $deskripsi = '';
+                    $getDesc = Tx_delivery_order_non_tax::leftJoin('mst_customers AS msc', 'tx_delivery_order_non_taxes.customer_id', '=', 'msc.id')
+                    ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+                    ->select(
+                        'tx_delivery_order_non_taxes.delivery_order_no',
+                        'tx_delivery_order_non_taxes.remark',
+                        'msc.name AS cust_name',
+                        'msc.customer_unique_code AS cust_unique_code',
+                        'msg.title_ind AS entity_type',
+                    )
+                    ->where('tx_delivery_order_non_taxes.id', '=', $id)
+                    ->first();
+                    if ($getDesc){
+                        $deskripsi = $getDesc->delivery_order_no.', '.
+                            $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                            $getDesc->remark;
+                        $deskripsi = substr($deskripsi, 0, 4096);
+                    }
+                    // simpan deskripsi utk jurnal - end
 
                     // cek apakah fitur automatic journal untuk nota penjualan sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
@@ -1314,7 +1356,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_cogs->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$totalLastAvgCost,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -1327,7 +1369,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$totalLastAvgCost,
                             'active'=>'Y',
@@ -1340,7 +1382,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_piutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$qNP->total_price,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -1353,7 +1395,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                             'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_sales_non_pajak->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$qNP->total_price,
                             'active'=>'Y',
@@ -1377,7 +1419,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            // throw $e;
+            throw $e;
 
             return redirect()
             ->back()
@@ -1400,7 +1442,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
      * @param  \App\Models\Tx_delivery_order  $tx_delivery_order
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Tx_delivery_order $tx_delivery_order)
+    public function destroy($id)
     {
         //
     }

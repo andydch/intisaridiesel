@@ -1573,7 +1573,7 @@ class DeliveryOrderServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            throw $e;
+            // throw $e;
 
             return redirect()
             ->back()
