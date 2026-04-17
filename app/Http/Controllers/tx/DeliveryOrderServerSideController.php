@@ -617,6 +617,27 @@ class DeliveryOrderServerSideController extends Controller
 
             // buat automatic general journal untuk faktur
             if($request->is_draft!='Y'){
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_delivery_order::leftJoin('mst_customers AS msc', 'tx_delivery_orders.customer_id', '=', 'msc.id')
+                ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+                ->select(
+                    'tx_delivery_orders.delivery_order_no',
+                    'tx_delivery_orders.remark',
+                    'msc.name AS cust_name',
+                    'msc.customer_unique_code AS cust_unique_code',
+                    'msg.title_ind AS entity_type',
+                )
+                ->where('tx_delivery_orders.id', '=', $maxId)
+                ->first();
+                if ($getDesc){
+                    $deskripsi = $getDesc->delivery_order_no.', '.
+                        $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                        $getDesc->remark;
+                    $deskripsi = substr($deskripsi, 0, 4096);
+                }
+                // simpan deskripsi utk jurnal - end
+
                 // cek apakah fitur automatic journal faktur sudah tersedia
                 $qAutJournal = Mst_automatic_journal_detail::where([
                     'auto_journal_id'=>1,
@@ -784,7 +805,7 @@ class DeliveryOrderServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_cogs->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$totalPerLastAVGcost,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -797,7 +818,7 @@ class DeliveryOrderServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_inventory->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$totalPerLastAVGcost,
                         'active'=>'Y',
@@ -810,7 +831,7 @@ class DeliveryOrderServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_piutang->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$totalPrice+($totalPrice*$vat/100),
                         'kredit'=>0,
                         'active'=>'Y',
@@ -823,7 +844,7 @@ class DeliveryOrderServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_sales_pajak->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$totalPrice,
                         'active'=>'Y',
@@ -836,7 +857,7 @@ class DeliveryOrderServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_ppn_keluaran->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>($totalPrice*$vat/100),
                         'active'=>'Y',
@@ -1288,6 +1309,27 @@ class DeliveryOrderServerSideController extends Controller
                 if($request->is_draft=='N'){
                     // $lastBranchID = $orders_old->branch_id;
                     $so_date_arr = explode("-", $orders_old->delivery_order_date);
+
+                    // simpan deskripsi utk jurnal - start
+                    $deskripsi = '';
+                    $getDesc = Tx_delivery_order::leftJoin('mst_customers AS msc', 'tx_delivery_orders.customer_id', '=', 'msc.id')
+                    ->leftJoin('mst_globals AS msg', 'msc.entity_type_id', '=', 'msg.id')
+                    ->select(
+                        'tx_delivery_orders.delivery_order_no',
+                        'tx_delivery_orders.remark',
+                        'msc.name AS cust_name',
+                        'msc.customer_unique_code AS cust_unique_code',
+                        'msg.title_ind AS entity_type',
+                    )
+                    ->where('tx_delivery_orders.id', '=', $id)
+                    ->first();
+                    if ($getDesc){
+                        $deskripsi = $getDesc->delivery_order_no.', '.
+                            $getDesc->cust_unique_code.' - '.($getDesc->entity_type!=null?$getDesc->entity_type.' ':'').$getDesc->cust_name.', '.
+                            $getDesc->remark;
+                        $deskripsi = substr($deskripsi, 0, 4096);
+                    }
+                    // simpan deskripsi utk jurnal - end
     
                     // cek apakah fitur automatic journal faktur sudah tersedia
                     $qAutJournal = Mst_automatic_journal_detail::where([
@@ -1456,7 +1498,7 @@ class DeliveryOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_cogs->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$totalPerLastAVGcost,
                             'kredit'=>0,
                             'active'=>'Y',
@@ -1469,7 +1511,7 @@ class DeliveryOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_inventory->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$totalPerLastAVGcost,
                             'active'=>'Y',
@@ -1482,7 +1524,7 @@ class DeliveryOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_piutang->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>$totalPrice+($totalPrice*$vat/100),
                             'kredit'=>0,
                             'active'=>'Y',
@@ -1495,7 +1537,7 @@ class DeliveryOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_sales_pajak->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>$totalPrice,
                             'active'=>'Y',
@@ -1508,7 +1550,7 @@ class DeliveryOrderServerSideController extends Controller
                             'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                             'coa_id'=>$qAutJournal_ppn_keluaran->coa_code_id,
                             'coa_detail_id'=>null,
-                            'description'=>null,
+                            'description'=>$deskripsi,
                             'debit'=>0,
                             'kredit'=>($totalPrice*$vat/100),
                             'active'=>'Y',
