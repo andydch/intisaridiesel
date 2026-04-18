@@ -1261,7 +1261,7 @@ class OrderServerSideController extends Controller
                                 if ($qROparts){
                                     $updROparts = Tx_receipt_order_part::where('id', $qROparts->id)
                                     ->update([
-                                        'qty' => 0,
+                                        // 'qty' => 0,
                                         'is_partial_received' => 'N',
                                         'updated_by' => Auth::user()->id
                                     ]);
