@@ -251,7 +251,12 @@ class TagihanSupplierServerSideController extends Controller
                     if ($qPv->is_full_payment=='N'){
                         return 'Partial';
                     }else{
-                        return 'Paid';
+                        if ($qPv->approved_by==null && $qPv->is_draft=='N'){
+                            return 'PV';
+                        }
+                        if ($qPv->approved_by!=null){
+                            return 'Paid';
+                        }
                     }
                 }
                 return 'Created';
