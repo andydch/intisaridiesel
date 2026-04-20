@@ -392,6 +392,18 @@ class StockAdjustmentServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournalPlus && $request->is_draft!='Y'){
+
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_stock_adjustment::where('id', '=', $maxId)
+                ->get();
+                if ($getDesc){
+                    $deskripsi = $getDesc->stock_adj_no.', '.
+                        $getDesc->branch->name.', '.
+                        $getDesc->remark;
+                }
+                // simpan deskripsi utk jurnal - end
+
                 // inventory-plus
                 $qAutJournal_inventory_plus = Mst_automatic_journal_detail::where([
                     'auto_journal_id'=>11,
@@ -498,7 +510,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_inventory_plus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$total_all,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -511,7 +523,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_cogs_plus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$total_all,
                         'active'=>'Y',
@@ -524,7 +536,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_cogs_minus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$total_all,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -537,7 +549,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_inventory_minus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$total_all,
                         'active'=>'Y',
@@ -928,6 +940,17 @@ class StockAdjustmentServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournalPlus && $request->is_draft!='Y'){
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = '';
+                $getDesc = Tx_stock_adjustment::where('id', '=', $id)
+                ->get();
+                if ($getDesc){
+                    $deskripsi = $getDesc->stock_adj_no.', '.
+                        $getDesc->branch->name.', '.
+                        $getDesc->remark;
+                }
+                // simpan deskripsi utk jurnal - end
+
                 // inventory-plus
                 $qAutJournal_inventory_plus = Mst_automatic_journal_detail::where([
                     'auto_journal_id'=>11,
@@ -1044,7 +1067,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_inventory_plus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$total_all,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -1057,7 +1080,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_cogs_plus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$total_all,
                         'active'=>'Y',
@@ -1070,7 +1093,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_cogs_minus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$total_all,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -1083,7 +1106,7 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_inventory_minus->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$total_all,
                         'active'=>'Y',
