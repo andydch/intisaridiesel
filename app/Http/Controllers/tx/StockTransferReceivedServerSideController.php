@@ -314,6 +314,11 @@ class StockTransferReceivedServerSideController extends Controller
             if ($qStockMaster){
                 $journal_date = explode("-", $qStockMaster->stock_transfer_date);
 
+                // simpan deskripsi utk jurnal - start
+                $deskripsi = $qStockMaster->stock_transfer_no.', '.
+                    $qStockMaster->branch_from->name.' To '.$qStockMaster->branch_to->name.', '.
+                    $qStockMaster->remark;
+                // simpan deskripsi utk jurnal - end
 
                 // cek apakah fitur automatic journal untuk stock adjustment plus sudah tersedia
                 $qAutJournal = Mst_automatic_journal_detail::where([
@@ -459,7 +464,7 @@ class StockTransferReceivedServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_transfer_in->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>$totalPrice,
                         'kredit'=>0,
                         'active'=>'Y',
@@ -472,7 +477,7 @@ class StockTransferReceivedServerSideController extends Controller
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                         'coa_id'=>$qAutJournal_transfer_out->coa_code_id,
                         'coa_detail_id'=>null,
-                        'description'=>null,
+                        'description'=>$deskripsi,
                         'debit'=>0,
                         'kredit'=>$totalPrice,
                         'active'=>'Y',
