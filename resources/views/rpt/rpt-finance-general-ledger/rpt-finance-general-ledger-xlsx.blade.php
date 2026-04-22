@@ -132,16 +132,16 @@
                                 'tx_general_journal_details.kredit as kredit',
                                 'usr_d.branch_id as branch_id',
                             )
+                            ->whereRaw('tx_gj.general_journal_no NOT LIKE \'%Draft%\'')
                             ->where([
                                 'tx_general_journal_details.coa_id'=>$coa_id,
                                 'tx_general_journal_details.active'=>'Y',
-                                'tx_gj.is_wt_for_appr'=>'N',
+                                // 'tx_gj.is_wt_for_appr'=>'N',
+                                'tx_gj.is_draft'=>'N',
                                 'tx_gj.active'=>'Y',
                             ])
                             ->whereRaw('tx_gj.general_journal_date>=\''.$beginning_balance_date.'\'')
                             ->whereRaw('tx_gj.general_journal_date<=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                            // ->whereRaw('tx_gj.general_journal_date>=\'2024-06-10\'')
-                            // ->whereRaw('tx_gj.general_journal_date<=\'2024-06-13\'')
                             ->orderBy('tx_gj.general_journal_date','DESC');
 
                             $lokJdx = \App\Models\Tx_lokal_journal_detail::leftJoin('tx_lokal_journals as tx_lj','tx_lokal_journal_details.lokal_journal_id','=','tx_lj.id')
@@ -153,16 +153,16 @@
                                 'tx_lokal_journal_details.kredit as kredit',
                                 'usr_d.branch_id as branch_id',
                             )
+                            ->whereRaw('tx_lj.general_journal_no NOT LIKE \'%Draft%\'')
                             ->where([
                                 'tx_lokal_journal_details.coa_id'=>$coa_id,
                                 'tx_lokal_journal_details.active'=>'Y',
-                                'tx_lj.is_wt_for_appr'=>'N',
+                                // 'tx_lj.is_wt_for_appr'=>'N',
+                                'tx_lj.is_draft'=>'Y',
                                 'tx_lj.active'=>'Y',
                             ])
                             ->whereRaw('tx_lj.general_journal_date>=\''.$beginning_balance_date.'\'')
                             ->whereRaw('tx_lj.general_journal_date<=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                            // ->whereRaw('tx_lj.general_journal_date>=\'2024-06-10\'')
-                            // ->whereRaw('tx_lj.general_journal_date<=\'2024-06-13\'')
                             ->orderBy('tx_lj.general_journal_date','DESC');
 
                             $allJdx = $lokJdx->union($genJdx)
@@ -321,10 +321,12 @@
                                 'm_coa.coa_name',
                                 'usr_d.branch_id as branch_id',
                             )
+                            ->whereRaw('tx_gj.general_journal_no NOT LIKE \'%Draft%\'')
                             ->where([
                                 'tx_general_journal_details.coa_id'=>$coa_id,
                                 'tx_general_journal_details.active'=>'Y',
-                                'tx_gj.is_wt_for_appr'=>'N',
+                                // 'tx_gj.is_wt_for_appr'=>'N',
+                                'tx_gj.is_draft'=>'N',
                                 'tx_gj.active'=>'Y',
                             ])
                             ->whereRaw('tx_gj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
@@ -347,10 +349,12 @@
                                 'm_coa.coa_name',
                                 'usr_d.branch_id as branch_id',
                             )
+                            ->whereRaw('tx_lj.general_journal_no NOT LIKE \'%Draft%\'')
                             ->where([
                                 'tx_lokal_journal_details.coa_id'=>$coa_id,
                                 'tx_lokal_journal_details.active'=>'Y',
-                                'tx_lj.is_wt_for_appr'=>'N',
+                                // 'tx_lj.is_wt_for_appr'=>'N',
+                                'tx_lj.is_draft'=>'N',
                                 'tx_lj.active'=>'Y',
                             ])
                             ->whereRaw('tx_lj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
@@ -479,30 +483,30 @@
                                     @endphp
                                 @endif
                                 @if ($branch_id==$branch->id)
-                                <tr>
-                                    @if ($journal->debit>0)
+                                    <tr>
+                                        @if ($journal->debit>0)
+                                            @php
+                                                $last_beginning_balance_amount = $last_beginning_balance_amount+$journal->debit;
+                                            @endphp
+                                        @endif
+                                        @if ($journal->kredit>0)
+                                            @php
+                                                $last_beginning_balance_amount = $last_beginning_balance_amount-$journal->kredit;
+                                            @endphp
+                                        @endif
+                                        <td style="text-align: center;border-left:1px solid black;">{{ ($general_journal_date_tmp!=$journal->general_journal_date?date_format(date_create($journal->general_journal_date),"d-M-Y"):'') }}</td>
+                                        <td style="text-align: center;">{{ ($general_journal_no_tmp!=$journal->general_journal_no?$journal->general_journal_no:'') }}</td>
+                                        <td style="text-align: left;">{{ $journal->description }}</td>
+                                        <td style="text-align: right;">{{ $journal->debit }}</td>
+                                        <td style="text-align: right;">{{ $journal->kredit }}</td>
+                                        <td style="text-align: right;border-right:1px solid black;">{{ $last_beginning_balance_amount }}</td>
                                         @php
-                                            $last_beginning_balance_amount = $last_beginning_balance_amount+$journal->debit;
+                                            $totalDebit += $journal->debit;
+                                            $totalKredit += $journal->kredit;
+                                            $general_journal_date_tmp = $journal->general_journal_date;
+                                            $general_journal_no_tmp = $journal->general_journal_no;
                                         @endphp
-                                    @endif
-                                    @if ($journal->kredit>0)
-                                        @php
-                                            $last_beginning_balance_amount = $last_beginning_balance_amount-$journal->kredit;
-                                        @endphp
-                                    @endif
-                                    <td style="text-align: center;border-left:1px solid black;">{{ ($general_journal_date_tmp!=$journal->general_journal_date?date_format(date_create($journal->general_journal_date),"d-M-Y"):'') }}</td>
-                                    <td style="text-align: center;">{{ ($general_journal_no_tmp!=$journal->general_journal_no?$journal->general_journal_no:'') }}</td>
-                                    <td style="text-align: left;">{{ $journal->description }}</td>
-                                    <td style="text-align: right;">{{ $journal->debit }}</td>
-                                    <td style="text-align: right;">{{ $journal->kredit }}</td>
-                                    <td style="text-align: right;border-right:1px solid black;">{{ $last_beginning_balance_amount }}</td>
-                                    @php
-                                        $totalDebit += $journal->debit;
-                                        $totalKredit += $journal->kredit;
-                                        $general_journal_date_tmp = $journal->general_journal_date;
-                                        $general_journal_no_tmp = $journal->general_journal_no;
-                                    @endphp
-                                </tr>
+                                    </tr>
                                 @endif
                             @endforeach
                         @endif
