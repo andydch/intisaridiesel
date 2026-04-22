@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\Auto_inc;
 use App\Models\Mst_automatic_journal_detail;
+use App\Models\Mst_automatic_journal_detail_ext;
 use App\Models\Tx_general_journal;
 use App\Models\Tx_general_journal_detail;
 use Illuminate\Support\Facades\Auth;
@@ -355,6 +356,7 @@ class PaymentVoucherApprovalServerSideController extends Controller
         DB::beginTransaction();
 
         try {
+
             if($request->order_appr == 'A'){
                 $upd = Tx_payment_voucher::where('payment_voucher_no','=',urldecode($payment_voucher_no))
                 ->where('approved_by','=',null)
@@ -441,7 +443,6 @@ class PaymentVoucherApprovalServerSideController extends Controller
                             ])
                             ->whereRaw('LOWER(`desc`)=\'hutang\'')
                             ->first();
-                            // dd($qAutJournal_hutang->coa_code_id);
                             // bank admin
                             $qAutJournal_bank_admin = Mst_automatic_journal_detail::where([
                                 'auto_journal_id'=>8,
@@ -487,14 +488,26 @@ class PaymentVoucherApprovalServerSideController extends Controller
                             ])
                             ->whereRaw('LOWER(`desc`)=\'discount\'')
                             ->first();
-                            // cash
-                            $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                            // cash/bank/advance payment
+                            $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                            ->where([
                                 'auto_journal_id'=>8,
                                 'branch_id'=>$branch_id,
                                 'method_id'=>$payment_mode,
+                                'coa_code_id'=>$q->coa_id,
+                                'active'=>'Y',
+                            ])
+                            ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                            $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                            ->where([
+                                'auto_journal_id'=>8,
+                                'branch_id'=>$branch_id,
+                                'method_id'=>$payment_mode,
+                                'coa_code_id'=>$q->coa_id,
                                 'active'=>'Y',
                             ])
                             ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
+                            ->union($qAutJournal_cash_ext)
                             ->first();
 
                             // PPN
@@ -714,7 +727,7 @@ class PaymentVoucherApprovalServerSideController extends Controller
                                 ]);
                             }
 
-                            // cash
+                            // cash/bank/advance payment
                             $ins_cash = Tx_general_journal_detail::create([
                                 'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_cash->coa_code_id,
@@ -804,14 +817,26 @@ class PaymentVoucherApprovalServerSideController extends Controller
                             ])
                             ->whereRaw('LOWER(`desc`)=\'discount\'')
                             ->first();
-                            // cash
-                            $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                            // cash/bank/advance payment
+                            $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                            ->where([
                                 'auto_journal_id'=>13,
                                 'branch_id'=>$branch_id,
                                 'method_id'=>$payment_mode,
+                                'coa_code_id'=>$q->coa_id,
+                                'active'=>'Y',
+                            ])
+                            ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                            $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                            ->where([
+                                'auto_journal_id'=>13,
+                                'branch_id'=>$branch_id,
+                                'method_id'=>$payment_mode,
+                                'coa_code_id'=>$q->coa_id,
                                 'active'=>'Y',
                             ])
                             ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
+                            ->union($qAutJournal_cash_ext)
                             ->first();
 
                             // ---
@@ -1018,7 +1043,7 @@ class PaymentVoucherApprovalServerSideController extends Controller
                                 ]);
                             }
 
-                            // cash
+                            // cash/bank/advance payment
                             $ins_cash = Tx_lokal_journal_detail::create([
                                 'lokal_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
                                 'coa_id'=>$qAutJournal_cash->coa_code_id,
