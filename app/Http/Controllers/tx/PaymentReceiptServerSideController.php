@@ -15,6 +15,7 @@ use App\Models\Tx_payment_receipt;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\Mst_automatic_journal_detail;
+use App\Models\Mst_automatic_journal_detail_ext;
 use App\Models\Tx_general_journal;
 use App\Models\Tx_general_journal_detail;
 use App\Models\Tx_lokal_journal;
@@ -700,15 +701,26 @@ class PaymentReceiptServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournal && $request->is_draft=='N' && $isVATforAutoJournal=='Y'){
-                // cash atau bank atau customer deposit
-                $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                // cash/bank/customer deposit
+                $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                ->where([
                     'auto_journal_id'=>7,
                     'branch_id'=>$branch_id,
                     'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
+                    'active'=>'Y',
+                ])
+                ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                ->where([
+                    'auto_journal_id'=>7,
+                    'branch_id'=>$branch_id,
+                    'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
                     'active'=>'Y',
                 ])
                 ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
-                // ->whereRaw('LOWER(`desc`)='.($request->payment_mode_id==1?'\'cash\'':'\'bank\''))
+                ->union($qAutJournal_cash_ext)
                 ->first();
                 // discount
                 $qAutJournal_discount = Mst_automatic_journal_detail::where([
@@ -970,15 +982,26 @@ class PaymentReceiptServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournal && $request->is_draft=='N' && $isVATforAutoJournal=='N'){
-                // cash atau bank
-                $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                // cash/bank/customer deposit
+                $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                ->where([
                     'auto_journal_id'=>14,
                     'branch_id'=>$branch_id,
                     'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
+                    'active'=>'Y',
+                ])
+                ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                ->where([
+                    'auto_journal_id'=>14,
+                    'branch_id'=>$branch_id,
+                    'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
                     'active'=>'Y',
                 ])
                 ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
-                // ->whereRaw('LOWER(`desc`)='.($request->payment_mode_id==1?'\'cash\'':'\'bank\''))
+                ->union($qAutJournal_cash_ext)
                 ->first();
                 // discount
                 $qAutJournal_discount = Mst_automatic_journal_detail::where([
@@ -1989,15 +2012,26 @@ class PaymentReceiptServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournal && $request->is_draft=='N' && $isVATforAutoJournal=='Y'){
-                // cash atau bank
-                $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                // cash/bank/customer deposit
+                $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                ->where([
                     'auto_journal_id'=>7,
                     'branch_id'=>$branch_id,
                     'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
+                    'active'=>'Y',
+                ])
+                ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                ->where([
+                    'auto_journal_id'=>7,
+                    'branch_id'=>$branch_id,
+                    'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
                     'active'=>'Y',
                 ])
                 ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
-                // ->whereRaw('LOWER(`desc`)='.($request->payment_mode_id==1?'\'cash\'':'\'bank\''))
+                ->union($qAutJournal_cash_ext)
                 ->first();
                 // discount
                 $qAutJournal_discount = Mst_automatic_journal_detail::where([
@@ -2259,15 +2293,26 @@ class PaymentReceiptServerSideController extends Controller
             ])
             ->first();
             if ($qAutJournal && $request->is_draft=='N' && $isVATforAutoJournal=='N'){
-                // cash atau bank
-                $qAutJournal_cash = Mst_automatic_journal_detail::where([
+                // cash/bank/customer deposit
+                $qAutJournal_cash_ext = Mst_automatic_journal_detail_ext::select('coa_code_id')
+                ->where([
                     'auto_journal_id'=>14,
                     'branch_id'=>$branch_id,
                     'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
+                    'active'=>'Y',
+                ])
+                ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'');
+                $qAutJournal_cash = Mst_automatic_journal_detail::select('coa_code_id')
+                ->where([
+                    'auto_journal_id'=>14,
+                    'branch_id'=>$branch_id,
+                    'method_id'=>$request->payment_mode_id,
+                    'coa_code_id'=>$request->coa_id,
                     'active'=>'Y',
                 ])
                 ->whereRaw('LOWER(`desc`)=\''.strtolower($methodNm).'\'')
-                // ->whereRaw('LOWER(`desc`)='.($request->payment_mode_id==1?'\'cash\'':'\'bank\''))
+                ->union($qAutJournal_cash_ext)
                 ->first();
                 // discount
                 $qAutJournal_discount = Mst_automatic_journal_detail::where([

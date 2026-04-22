@@ -105,7 +105,7 @@
                                             </div>
                                             <div class="row mb-3">
                                                 <label for="" class="col-sm-3 col-form-label">Plan Date</label>
-                                                <label for="" class="col-sm-9 col-form-label">{{ date_format(date_create($qKwi->invoice_date), 'd/m/Y') }}</label>
+                                                <label for="" class="col-sm-9 col-form-label">{{ date_format(date_create($qKwi->kwitansi_date), 'd/m/Y') }}</label>
                                             </div>
                                             <div class="row mb-3">
                                                 <label for="" class="col-sm-3 col-form-label">Branch</label>
