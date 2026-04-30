@@ -51,16 +51,16 @@ class DispROinfoController extends Controller
                 'mst_parts.part_number',
                 'mst_parts.part_name'
             )
-            ->whereNotIn('part_id', function($q) use($request){
-                $q->select('part_id')
-                ->from('tx_purchase_retur_parts')
-                ->whereIn('purchase_retur_id', function($q1) use($request){
-                    $q1->select('id')
-                    ->from('tx_purchase_returs')
-                    ->where('receipt_order_id', '=', $request->ro_id);
-                })
-                ->where('active', '=', 'Y');
-            })
+            // ->whereNotIn('part_id', function($q) use($request){
+            //     $q->select('part_id')
+            //     ->from('tx_purchase_retur_parts')
+            //     ->whereIn('purchase_retur_id', function($q1) use($request){
+            //         $q1->select('id')
+            //         ->from('tx_purchase_returs')
+            //         ->where('receipt_order_id', '=', $request->ro_id);
+            //     })
+            //     ->where('active', '=', 'Y');
+            // })
             ->where([
                 'tx_receipt_order_parts.receipt_order_id' => $request->ro_id,
                 'tx_receipt_order_parts.active' => 'Y'
