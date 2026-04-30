@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\main;
 
-use App\Models\Userdetail;
-use Illuminate\Http\Request;
-use App\Models\Tx_receipt_order;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Tx_receipt_order_part;
+use App\Models\Tx_receipt_order;
+use App\Models\Userdetail;
+use Illuminate\Database\Query\JoinClause;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 // use Illuminate\Database\Query\Builder;
 
 class DispROinfoController extends Controller
@@ -42,14 +43,24 @@ class DispROinfoController extends Controller
 
             $queryPart = Tx_receipt_order_part::leftJoin('userdetails AS usr','tx_receipt_order_parts.created_by','=','usr.user_id')
             ->leftJoin('mst_parts','tx_receipt_order_parts.part_id','=','mst_parts.id')
+            ->leftJoin('tx_purchase_retur_parts as tx_prp', function(JoinClause $join) {
+                $join->on('tx_receipt_order_parts.part_id', '=', 'tx_prp.part_id')
+                ->whereIn('tx_prp.purchase_retur_id', function($q) {
+                    $q->select('id')
+                    ->from('tx_purchase_returs')
+                    ->where('receipt_order_id', '=', request()->ro_id)
+                    ->where('active', '=', 'Y');
+                })
+                ->where('tx_prp.active', '=', 'Y');
+            })
             ->select(
                 'tx_receipt_order_parts.po_mo_no',
                 'tx_receipt_order_parts.part_id',
-                // 'tx_receipt_order_parts.qty',
-                DB::raw('SUM(tx_receipt_order_parts.qty) as qty'),
+                DB::raw('(SUM(tx_receipt_order_parts.qty)-SUM(tx_prp.qty_retur)) as qty'),
+                // DB::raw('SUM(tx_receipt_order_parts.qty) as qty'),
                 'tx_receipt_order_parts.final_cost',
                 'mst_parts.part_number',
-                'mst_parts.part_name'
+                'mst_parts.part_name',
             )
             // ->whereNotIn('part_id', function($q) use($request){
             //     $q->select('part_id')
@@ -63,11 +74,14 @@ class DispROinfoController extends Controller
             // })
             ->where([
                 'tx_receipt_order_parts.receipt_order_id' => $request->ro_id,
-                'tx_receipt_order_parts.active' => 'Y'
+                'tx_receipt_order_parts.active' => 'Y',
+                'tx_prp.active' => 'Y',
+                'tx_prp.active' => 'Y',
             ])
             ->groupBy(
                 'tx_receipt_order_parts.po_mo_no',
                 'tx_receipt_order_parts.part_id',
+                'tx_prp.part_id',
                 'tx_receipt_order_parts.final_cost',
                 'mst_parts.part_number',
                 'mst_parts.part_name'
