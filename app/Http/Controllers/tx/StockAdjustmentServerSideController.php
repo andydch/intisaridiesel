@@ -396,7 +396,7 @@ class StockAdjustmentServerSideController extends Controller
                 // simpan deskripsi utk jurnal - start
                 $deskripsi = '';
                 $getDesc = Tx_stock_adjustment::where('id', '=', $maxId)
-                ->get();
+                ->first();
                 if ($getDesc){
                     $deskripsi = $getDesc->stock_adj_no.', '.
                         $getDesc->branch->name.', '.
@@ -943,7 +943,7 @@ class StockAdjustmentServerSideController extends Controller
                 // simpan deskripsi utk jurnal - start
                 $deskripsi = '';
                 $getDesc = Tx_stock_adjustment::where('id', '=', $id)
-                ->get();
+                ->first();
                 if ($getDesc){
                     $deskripsi = $getDesc->stock_adj_no.', '.
                         $getDesc->branch->name.', '.
