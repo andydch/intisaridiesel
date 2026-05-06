@@ -24,7 +24,7 @@ class MenuController extends Controller
         $title = 'Summary Sales Per Branch Per Customer';
         $uri_folder_title = 'rpt/summary-sales-per-branch-per-customer';
 
-        $order_no = 12;
+        $order_no = 125;
 
         $ins = Mst_menu::create([
             'name' => 'Report '.$title,

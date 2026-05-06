@@ -25,7 +25,6 @@ use App\Exports\report\OutstandingPurchaseOrderExport;
 use App\Exports\report\OverdueReceivablesPerBranchExport;
 use App\Exports\report\ReportAnalyzeDebtSummaryPerBranchExport;
 use App\Exports\report\ReportBalanceSheetExport;
-// use App\Exports\report\ReportCashFlow2026Export;
 use App\Exports\report\ReportCashFlowDbgExport;
 use App\Exports\report\ReportCashFlowExport;
 use App\Exports\report\ReportChangeInAvgCostExport;
@@ -59,6 +58,7 @@ use App\Exports\report\ReportSalesTargetCustomerPerBranchExport;
 use App\Exports\report\ReportSalesTargetPerBranchExport;
 use App\Exports\report\ReportSummaryReturPenjualanExport;
 use App\Exports\report\ReportSummarySalesPerBranchPerBrandExport;
+use App\Exports\report\ReportSummarySalesPerBranchPerCustomerExport;
 use App\Exports\report\ReportSummarySalesPerBranchPerSalesmanExport;
 use App\Exports\report\SalesPerBranchPerCustomerExport;
 use App\Exports\report\StockInventoryAccPerBranchExport;
@@ -113,19 +113,18 @@ use App\Http\Controllers\adm\SupplierTypeController;
 use App\Http\Controllers\adm\TaxInvoiceController;
 use App\Http\Controllers\adm\UserAccessController;
 use App\Http\Controllers\adm\UserManagementController;
-// use App\Http\Controllers\dbg\TestDatatableController;
 use App\Http\Controllers\adm\VatController;
 use App\Http\Controllers\adm\WeightTypeController;
 use App\Http\Controllers\auth\SignInController;
 use App\Http\Controllers\auth\SignOutController;
 use App\Http\Controllers\auth\SignUpController;
 use App\Http\Controllers\auth\UserProfileController;
+use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\dbg\AuthController;
 use App\Http\Controllers\dbg\BeginningBalancePerMonthDbgController;
 use App\Http\Controllers\dbg\CreateWordController;
 use App\Http\Controllers\dbg\DocumentController;
 use App\Http\Controllers\dbg\GenFakturController;
-// use App\Http\Controllers\dbg\GenRptCashFlowController;
 use App\Http\Controllers\dbg\ImportSubDistrictController;
 use App\Http\Controllers\dbg\JsonController;
 use App\Http\Controllers\dbg\MenuController;
@@ -226,7 +225,6 @@ use App\Http\Controllers\main\DispSimilarPartNumberController;
 use App\Http\Controllers\main\DispSimilarSalesmanController;
 use App\Http\Controllers\main\DispSimilarSupplierCodeController;
 use App\Http\Controllers\main\DispSimilarSupplierController;
-// use App\Http\Controllers\tx\ReceiptOrderApprovalController;
 use App\Http\Controllers\main\DispSJbyCustController;
 use App\Http\Controllers\main\DispSJdtlController;
 use App\Http\Controllers\main\DispSJPartRefController;
@@ -288,7 +286,6 @@ use App\Http\Controllers\rpt\CustomerPaymentStatusController;
 use App\Http\Controllers\rpt\ReportAlzReceivablesSummPerBranchController;
 use App\Http\Controllers\rpt\ReportAnalyzeDebtSummaryPerBranchController;
 use App\Http\Controllers\rpt\ReportBalanceSheetController;
-// use App\Http\Controllers\rpt\ReportCashFlow2026Controller;
 use App\Http\Controllers\rpt\ReportCashFlowController;
 use App\Http\Controllers\rpt\ReportCashFlowDbgController;
 use App\Http\Controllers\rpt\ReportChangeInAvgCostController;
@@ -331,6 +328,7 @@ use App\Http\Controllers\rpt\ReportSalesTargetPerBranchController;
 use App\Http\Controllers\rpt\ReportStockInventoryAccPerBranchController;
 use App\Http\Controllers\rpt\ReportSummaryPenjualanPerBranchPerBrandController;
 use App\Http\Controllers\rpt\ReportSummaryReturPenjualanController;
+use App\Http\Controllers\rpt\ReportSummarySalesPerBranchPerCustomerController;
 use App\Http\Controllers\rpt\ReportSummarySalesPerBranchPerSalesmanController;
 use App\Http\Controllers\rpt\ReportSummaryStockPerGudangPerMerkController;
 use App\Http\Controllers\rpt\ReportSummaryStockPerMerkPerGudangController;
@@ -366,7 +364,6 @@ use App\Http\Controllers\tx\OrderServerSideController;
 use App\Http\Controllers\tx\PaymentPlanPerRCServerSideController;
 use App\Http\Controllers\tx\PaymentPlanServerSideController;
 use App\Http\Controllers\tx\PaymentReceiptServerSideController;
-// use App\Http\Controllers\tx\PaymentReceiptServerSideControllerGJ;
 use App\Http\Controllers\tx\PaymentVoucherApprovalServerSideController;
 use App\Http\Controllers\tx\PaymentVoucherServerSideController;
 use App\Http\Controllers\tx\PurchaseInquiryPrintController;
@@ -408,7 +405,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Maatwebsite\Excel\Facades\Excel;
 use Rap2hpoutre\LaravelLogViewer\LogViewerController;
-use App\Http\Controllers\Auth\VerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -914,6 +910,17 @@ Route::group(
             string $lokal_input) use($date_xls) {
             return Excel::download(new ReportPenjualanPerCustomerPerPartsNoExport($customer_id,$date_start,$date_end,$lokal_input),
                 'penjualan-per-customer-per-parts-no-fk-np-'.date_format($date_xls,"YmdHis").'.xlsx');
+        });
+
+        // summary sales per branch per customer
+        Route::resource('/summary-sales-per-branch-per-customer', ReportSummarySalesPerBranchPerCustomerController::class)->except(['show','edit','update','destroy']);
+        Route::get('/summary-sales-per-branch-per-customer-xlsx/{customer_id}/{date_start}/{date_end}/{lokal_input}', function (
+            string $customer_id,
+            string $date_start,
+            string $date_end,
+            string $lokal_input) use($date_xls) {
+            return Excel::download(new ReportSummarySalesPerBranchPerCustomerExport($customer_id,$date_start,$date_end,$lokal_input),
+                'summary-sales-per-branch-per-customer-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // penjualan per customer per parts no (so & sj)

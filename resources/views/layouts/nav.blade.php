@@ -1377,7 +1377,7 @@
             @php
             // report
             $query = \App\Models\Mst_menu_user::whereIn('menu_id', [57,58,59,60,61,62,63,64,65,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,
-                100,104,105,106,107,108,109,110,111,112,114,115,118,119,122,123])
+                100,104,105,106,107,108,109,110,111,112,114,115,118,119,122,123,125])
                 ->where([
                     'user_id' => Auth::user()->id,
                     'user_access_read' => 'Y',
@@ -1548,7 +1548,7 @@
                 <li>
                     @php
                     // Sales report
-                    $query = \App\Models\Mst_menu_user::whereIn('menu_id', [80,81,82,83,84,85,86,87,88,89,90,91,92,111,112,119])
+                    $query = \App\Models\Mst_menu_user::whereIn('menu_id', [80,81,82,83,84,85,86,87,88,89,90,91,92,111,112,119,125])
                         ->where([
                         'user_id' => Auth::user()->id,
                         'user_access_read' => 'Y',
@@ -1637,6 +1637,19 @@
                             @endphp
                             @if ($querySummarySalesPerBranchPerSalesman || Auth::user()->id==1)
                                 <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/summary-sales-per-branch-per-salesman') }}"><i class="bx bx-right-arrow-alt"></i>Summary Sales Per Branch Per Salesman</a></li>
+                            @endif
+
+                            {{-- summary sales per branch per customer --}}
+                            @php
+                                $querySummarySalesPerBranchPerCustomer = \App\Models\Mst_menu_user::where([
+                                    'menu_id' => 125,
+                                    'user_id' => Auth::user()->id,
+                                    'user_access_read' => 'Y',
+                                ])
+                                ->first();
+                            @endphp
+                            @if ($querySummarySalesPerBranchPerCustomer || Auth::user()->id==1)
+                                <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/summary-sales-per-branch-per-customer') }}"><i class="bx bx-right-arrow-alt"></i>Summary Sales Per Branch Per Customer</a></li>
                             @endif
 
                             {{-- summary penjualan per branch per brand --}}
