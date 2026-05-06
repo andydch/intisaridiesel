@@ -21,10 +21,10 @@ class MenuController extends Controller
         // $title = 'Tagihan Supplier';
         // $uri_folder_title = 'tx/tagihan-supplier';
 
-        $title = 'Customer Payment Status';
-        $uri_folder_title = 'rpt/customer-payment-status';
+        $title = 'Summary Sales Per Branch Per Customer';
+        $uri_folder_title = 'rpt/summary-sales-per-branch-per-customer';
 
-        $order_no = 124;
+        $order_no = 12;
 
         $ins = Mst_menu::create([
             'name' => 'Report '.$title,
