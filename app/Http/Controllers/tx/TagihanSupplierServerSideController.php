@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-// use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +15,6 @@ use App\Models\Auto_inc;
 use App\Models\Mst_global;
 use App\Models\Userdetail;
 use App\Models\Mst_branch;
-// use App\Models\Tx_qty_part;
 use App\Models\Mst_supplier;
 use App\Models\Tx_receipt_order;
 use App\Models\Tx_tagihan_supplier;
@@ -109,7 +107,8 @@ class TagihanSupplierServerSideController extends Controller
                 $qRO = Tx_receipt_order::leftJoin('tx_purchase_returs as tx_pr', 'tx_receipt_orders.id', '=', 'tx_pr.receipt_order_id')
                 ->select(
                     'tx_receipt_orders.id as ro_id',                    
-                    'tx_receipt_orders.receipt_no',                    
+                    'tx_receipt_orders.receipt_no',
+                    DB::raw('DATE_FORMAT(receipt_date, \'%d-%m-%Y\') AS receipt_date'),                    
                 )
                 ->whereIn('tx_receipt_orders.id', function($q) use($qTagihanSupplier){
                     $q->select('tx_tsd.receipt_order_id')
@@ -130,7 +129,7 @@ class TagihanSupplierServerSideController extends Controller
                 if ($qRO){
                     foreach($qRO as $ro){
                         $ro_numbers .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/receipt-order/'.$ro->ro_id).'" target="_new" '.
-                            'style="text-decoration: underline;">'.$ro->receipt_no.'</a>,';
+                            'style="text-decoration: underline;">'.$ro->receipt_no.'</a> ('.$ro->receipt_date.'),';
                     }
                     if ($ro_numbers!=''){
                         $ro_numbers = substr($ro_numbers, 0, strlen($ro_numbers)-1);

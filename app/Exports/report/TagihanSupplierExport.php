@@ -122,7 +122,7 @@ class TagihanSupplierExport implements FromView, ShouldAutoSize, WithStyles, Wit
             // 'A1' => ['font' => ['bold' => true]],
             // 'N4' => ['font' => ['bold' => true]],
             // 'H4' => ['font' => ['bold' => true]],
-            'A6:H6' => ['font' => ['bold' => true]],
+            'A6:I6' => ['font' => ['bold' => true]],
             // 'D'.$lastHighestRow => ['font' => ['bold' => true]],
             // 'M'.$lastHighestRow => ['font' => ['bold' => true]],
 

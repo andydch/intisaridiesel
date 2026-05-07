@@ -15,7 +15,7 @@
         <div class="table-responsive">
             <table style="width:1024px;">
                 @php
-                    $totCols = 7;
+                    $totCols = 9;
                     $dt_s = explode("-", $date_start);
                     $dt_e = explode("-", $date_end);
 
@@ -49,6 +49,7 @@
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">RO No</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">INV No</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">PR No</th>
+                        <th style="text-align: center;border:1px solid black;background-color:#daeef3;">Status</th>
                     </tr>
                     @php
                         $supplier_name = '';
@@ -71,11 +72,23 @@
                             'msp.name as supplier_name',
                             'msp.supplier_code',
                             'tx_ro.receipt_no',
+                            DB::raw('DATE_FORMAT(tx_ro.receipt_date, \'%d-%m-%Y\') AS receipt_date'),
                             'tx_ro.invoice_no',
                             'gb.title_ind',
                             'tx_pr.purchase_retur_no',
                             'coa.coa_name as bank_name',
                         )
+                        ->addSelect([
+                            'status' => \App\Models\Tx_payment_voucher::selectRaw('CASE 
+                                WHEN is_full_payment=\'N\' THEN \'Partial\' 
+                                WHEN approved_by IS null AND is_draft=\'N\' THEN \'PV\'
+                                WHEN approved_by IS NOT null THEN \'Paid\' 
+                                ELSE \'Created\' 
+                                END AS status')
+                                ->whereColumn('tagihan_supplier_id', 'tts.id')
+                                ->latest()
+                                ->take(1)
+                        ])
                         ->whereBetween(DB::raw('DATE(tts.tagihan_supplier_date)'), [$startDate, $endDate])
                         // ->whereNotIn('tts.id', function($q){
                         //     $q->select('tagihan_supplier_id')
@@ -87,7 +100,6 @@
                         ->orderBy('tts.tagihan_supplier_no', 'asc')
                         ->orderBy('tts.tagihan_supplier_date', 'asc')
                         ->get();
-                        // dd($qTagihanSuppliers);
                     @endphp
                     @foreach ($qTagihanSuppliers as $qS)
                         <tr>
@@ -99,9 +111,10 @@
                             @endphp
                             <td style="text-align: center;">{{ $tagihan_supplier_no!=$qS->tagihan_supplier_no?date_format($planDate, "d/m/Y"):'' }}</td>
                             <td>{{ $grandtotal_price!=$qS->grandtotal_price?number_format($qS->grandtotal_price, 0, ".", ""):'' }}</td>
-                            <td style="text-align: center;">{{ $qS->receipt_no }}</td>
+                            <td style="text-align: center;">{{ $qS->receipt_no }} ({{ $qS->receipt_date }})</td>
                             <td style="text-align: center;">{{ $qS->invoice_no }}</td>
-                            <td style="text-align: center;border-right: 1px solid black;">{{ strpos($qS->purchase_retur_no, "Draft")<0?$qS->purchase_retur_no:'' }}</td>
+                            <td style="text-align: center;">{{ strpos($qS->purchase_retur_no, "Draft")<0?$qS->purchase_retur_no:'' }}</td>
+                            <td style="text-align: center;border-right: 1px solid black;">{{ $qS->status!=null?$qS->status:'Created' }}</td>
                         </tr>
                         @php
                             if ($grandtotal_price!=$qS->grandtotal_price){
@@ -122,6 +135,7 @@
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
                         <td style="font-weight: 700;border-top: 1px solid black;border-bottom: 1px solid black;">{{ number_format($grandtotal_price_real, 0, ".", "") }}</td>
+                        <td style="border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
                         <td style="border-right: 1px solid black;border-top: 1px solid black;border-bottom: 1px solid black;">&nbsp;</td>
