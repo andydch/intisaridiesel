@@ -89,6 +89,14 @@
                             )
                             ->addSelect([
                                 'total_dpp_retur' => DB::table('v_nota_retur_all AS v_retur')
+                                ->selectRaw('SUM(v_retur.total_dpp)')
+                                ->whereColumn('v_retur.customer_id', 'v.customer_id')
+                                ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                            ])
+                            ->addSelect([
+                                'total_after_vat_retur' => DB::table('v_nota_retur_all AS v_retur')
                                 ->selectRaw('SUM(v_retur.total_after_vat)')
                                 ->whereColumn('v_retur.customer_id', 'v.customer_id')
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
@@ -128,12 +136,12 @@
                                     {{ ($custInit.$custName!=$qS->customer_unique_code.$qS->name)?$qS->customer_unique_code.' - '.$qS->name:'' }}
                                 </td>
                                 @php
-                                    $total_dpp = $qS->total_dpp;
-                                    $total_ppn = $qS->total_after_vat-$qS->total_dpp;
-                                    $total_amount = $qS->total_after_vat;
-                                    $total_avg = $qS->total_avg;
-                                    $gp = $total_dpp - $total_avg - $qS->total_dpp_retur + $qS->total_avg_retur;
-                                    $gp_percent = ($gp/$total_dpp)*100;
+                                    $total_dpp = $qS->total_dpp - $qS->total_dpp_retur;
+                                    $total_ppn = ($qS->total_after_vat-$qS->total_dpp) - ($qS->total_after_vat_retur-$qS->total_dpp_retur);
+                                    $total_amount = $qS->total_after_vat - $qS->total_after_vat_retur;
+                                    $total_avg = $qS->total_avg - $qS->total_avg_retur;
+                                    $gp = $total_dpp - $total_avg - $qS->total_after_vat_retur - $qS->total_avg_retur;
+                                    $gp_percent = ($gp/($total_dpp - $qS->total_after_vat_retur))*100;
 
                                     $total_dpp_per_branch += $total_dpp;
                                     $total_ppn_per_branch += $total_ppn;
