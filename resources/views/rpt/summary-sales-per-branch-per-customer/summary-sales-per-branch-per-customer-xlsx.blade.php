@@ -140,8 +140,10 @@
                                     $total_ppn = ($qS->total_after_vat-$qS->total_dpp) - ($qS->total_after_vat_retur-$qS->total_dpp_retur);
                                     $total_amount = $qS->total_after_vat - $qS->total_after_vat_retur;
                                     $total_avg = $qS->total_avg - $qS->total_avg_retur;
-                                    $gp = $total_dpp - $total_avg - $qS->total_after_vat_retur - $qS->total_avg_retur;
-                                    $gp_percent = ($gp/($total_dpp - $qS->total_after_vat_retur))*100;
+                                    $gp = $total_dpp - $total_avg;
+                                    // $gp = $total_dpp - $total_avg - $qS->total_after_vat_retur - $qS->total_avg_retur;
+                                    $gp_percent = ($gp/$total_dpp)*100;
+                                    // $gp_percent = ($gp/($total_dpp - $qS->total_after_vat_retur))*100;
 
                                     $total_dpp_per_branch += $total_dpp;
                                     $total_ppn_per_branch += $total_ppn;

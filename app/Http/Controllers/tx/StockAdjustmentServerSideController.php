@@ -496,8 +496,8 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_no'=>$journal_no,
                         // 'general_journal_date'=>date("Y-m-d"),
                         'general_journal_date'=>$stock_adj_date,
-                        'total_debit'=>$total_all+$total_all,
-                        'total_kredit'=>$total_all+$total_all,
+                        'total_debit'=>$total_all,
+                        'total_kredit'=>$total_all,
                         'module_no'=>$stock_adj_no,
                         'automatic_journal_id'=>4,
                         'active'=>'Y',
@@ -1007,8 +1007,8 @@ class StockAdjustmentServerSideController extends Controller
                     // ubah jurnal
                     $insJournal = Tx_general_journal::where('general_journal_id','=',$qJournals->id)
                     ->update([
-                        'total_debit'=>$total_all+$total_all,
-                        'total_kredit'=>$total_all+$total_all,
+                        'total_debit'=>$total_all,
+                        'total_kredit'=>$total_all,
                         'module_no'=>$stock_adj_no,
                         'automatic_journal_id'=>11,
                         'updated_by'=>Auth::user()->id,
@@ -1055,8 +1055,8 @@ class StockAdjustmentServerSideController extends Controller
                         'general_journal_no'=>$journal_no,
                         // 'general_journal_date'=>date("Y-m-d"),
                         'general_journal_date'=>$stock_adj_date,
-                        'total_debit'=>$total_all+$total_all,
-                        'total_kredit'=>$total_all+$total_all,
+                        'total_debit'=>$total_all,
+                        'total_kredit'=>$total_all,
                         'module_no'=>$stock_adj_no,
                         'automatic_journal_id'=>11,
                         'active'=>'Y',
