@@ -142,7 +142,7 @@
                                                     }
                                                 @endphp
                                                 <tr id="row{{ $lastIdx }}">
-                                                    <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $lastIdx }}.</label></th>
+                                                    <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $lastIdx+1 }}.</label></th>
                                                     <td>
                                                         <select class="form-select partsAjax" id="part_id{{ $lastIdx }}" name="part_id{{ $lastIdx }}"
                                                             onchange="dispPartInfo(this.value,{{ $lastIdx }});">

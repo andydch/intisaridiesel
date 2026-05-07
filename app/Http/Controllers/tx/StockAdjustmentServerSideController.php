@@ -188,12 +188,13 @@ class StockAdjustmentServerSideController extends Controller
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric',
-                        'qty_adj_'.$i => ['required','numeric',new ValidateQtyToOH($request['oh_ori_'.$i])],
+                        'qty_adj_'.$i => ['required', 'not_in:0', 'numeric',new ValidateQtyToOH($request['oh_ori_'.$i])],
                     ];
                     $errShipmentMsg = [
                         'part_id'.$i.'.numeric' => 'Please select a valid part',
                         'qty_adj_'.$i.'.required' => 'The qty field is required',
                         'qty_adj_'.$i.'.numeric' => 'The qty field is must be numeric',
+                        'qty_adj_'.$i.'.not_in' => 'The qty field must be a non-zero value',
                     ];
                     $validateInput = array_merge($validateInput, $validateShipmentInput);
                     $errMsg = array_merge($errMsg, $errShipmentMsg);
@@ -349,7 +350,8 @@ class StockAdjustmentServerSideController extends Controller
                         $qPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                         ->first();
                         if ($qPart){
-                            $newAvgCost = (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))/($freeOH+$request['qty_adj_'.$iRowPart]);
+                            $newAvgCost = (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))>0?
+                                (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))/($freeOH+$request['qty_adj_'.$iRowPart]):0;
                             $updPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                             ->update([
                                 'avg_cost' => $newAvgCost,
@@ -726,11 +728,12 @@ class StockAdjustmentServerSideController extends Controller
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric',
-                        'qty_adj_'.$i => ['required','numeric',new ValidateQtyToOH($request['oh_ori_'.$i])],
+                        'qty_adj_'.$i => ['required', 'not_in:0', 'numeric',new ValidateQtyToOH($request['oh_ori_'.$i])],
                     ];
                     $errShipmentMsg = [
                         'part_id'.$i.'.numeric' => 'Please select a valid part',
                         'qty_adj_'.$i.'.required' => 'The qty field is required',
+                        'qty_adj_'.$i.'.not_in' => 'The qty field must be a non-zero value',
                         'qty_adj_'.$i.'.numeric' => 'The qty field must be numeric',
                     ];
                     $validateInput = array_merge($validateInput, $validateShipmentInput);
@@ -897,7 +900,8 @@ class StockAdjustmentServerSideController extends Controller
                         $qPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                         ->first();
                         if ($qPart){
-                            $newAvgCost = (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))/($freeOH+$request['qty_adj_'.$iRowPart]);
+                            $newAvgCost = (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))>0?
+                                (($freeOH*$qPart->avg_cost)+($request['qty_adj_'.$iRowPart]*$request['avg_cost_ori_'.$iRowPart]))/($freeOH+$request['qty_adj_'.$iRowPart]):0;
                             $updPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                             ->update([
                                 'avg_cost' => $newAvgCost,
