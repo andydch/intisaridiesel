@@ -501,7 +501,7 @@
                                                         <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
                                                     </td>
                                                     <td style="text-align: center;">
-                                                        @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif
+                                                        {{-- @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif --}}
                                                     </td>
                                                 </tr>
                                                 @php
@@ -713,7 +713,7 @@
                                                     <input type="hidden" name="oo_{{ $i }}_tmp" id="oo_{{ $i }}_tmp" value="{{ $oo }}">
                                                 </td>
                                                 <td style="text-align: center;">
-                                                    @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif
+                                                    {{-- @if($is_part_in_RO=='N'){!! '<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">' !!}@endif --}}
                                                 </td>
                                             </tr>
                                             @php
@@ -725,7 +725,7 @@
                             </table>
                             <div class="input-group">
                                 <input type="button" id="btn-add-row" class="btn btn-primary px-5" style="margin-top: 15px;" value="Add Row">
-                                <input type="button" id="btn-del-row" class="btn btn-danger px-5" style="margin-top: 15px;" value="Remove Row">
+                                {{-- <input type="button" id="btn-del-row" class="btn btn-danger px-5" style="margin-top: 15px;" value="Remove Row"> --}}
                             </div>
                         </div>
                     </div>

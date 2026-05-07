@@ -348,7 +348,7 @@ class DeliveryOrderNonTaxServerSideController extends Controller
             'surat_jalan_date' => 'date',
         ];
         $errMsg = [
-            'customer_id.numeric' => 'Please select a valid supplier',
+            'customer_id.numeric' => 'Please select a valid customer',
             'surat_jalan_no_all.required' => 'Please select a valid surat jalan no',
         ];
         Validator::make(

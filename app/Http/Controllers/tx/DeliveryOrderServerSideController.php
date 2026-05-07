@@ -379,7 +379,7 @@ class DeliveryOrderServerSideController extends Controller
             'sales_order_no_all' => ['required', new IsSOnotConnectedToFK(0)],
         ];
         $errMsg = [
-            'customer_id.numeric' => 'Please select a valid supplier',
+            'customer_id.numeric' => 'Please select a valid customer',
             'sales_order_no_all.required' => 'Please select a valid sales order no',
         ];
         Validator::make(
