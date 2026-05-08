@@ -6,12 +6,12 @@ use App\Models\Mst_part;
 use App\Models\Mst_global;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Models\Mst_branch;
+// use App\Models\Mst_branch;
 use Illuminate\Support\Facades\Validator;
 
 class ReportAnalyzeDebtSummaryPerBranchController extends Controller
 {
-    protected $title = 'Summary Analisa Hutang Per Cabang';
+    protected $title = 'Posisi Hutang Hari Ini';
     protected $folder = 'analyze-debt-summary-per-branch';
 
     /**
@@ -28,15 +28,15 @@ class ReportAnalyzeDebtSummaryPerBranchController extends Controller
         ])
         ->first();
 
-        $branches = Mst_branch::where('active','=','Y')
-        ->orderBy('name','ASC')
-        ->get();
+        // $branches = Mst_branch::where('active','=','Y')
+        // ->orderBy('name','ASC')
+        // ->get();
 
         $data = [
             'title' => $this->title,
             'folder' => $this->folder,
             'qCurrency' => $qCurrency,
-            'branches' => $branches,
+            // 'branches' => $branches,
         ];
         return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
     }
@@ -60,7 +60,7 @@ class ReportAnalyzeDebtSummaryPerBranchController extends Controller
     public function store(Request $request)
     {
         $validateInput = [
-            'branch_id' => 'required|numeric',
+            // 'branch_id' => 'required|numeric',
             // 'date_start' => 'required|date',
             // 'date_end' => 'required|date',
         ];
@@ -96,9 +96,9 @@ class ReportAnalyzeDebtSummaryPerBranchController extends Controller
             $vat = $qVat->numeric_val;
         }
 
-        $branches = Mst_branch::where('active','=','Y')
-        ->orderBy('name','ASC')
-        ->get();
+        // $branches = Mst_branch::where('active','=','Y')
+        // ->orderBy('name','ASC')
+        // ->get();
 
         if($request->view_mode=='V'){
             $data = [
@@ -107,12 +107,13 @@ class ReportAnalyzeDebtSummaryPerBranchController extends Controller
                 'reqs' => $request,
                 'qCurrency' => $qCurrency,
                 'vat' => $vat,
-                'branches' => $branches,
+                // 'branches' => $branches,
             ];
             return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
         }
         if($request->view_mode=='P'){
-            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.$request->branch_id);
+            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx');
+            // return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.$request->branch_id);
         }
     }
 

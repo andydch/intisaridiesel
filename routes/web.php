@@ -1063,8 +1063,8 @@ Route::group(
 
         // analyze debt summary per branch
         Route::resource('/analyze-debt-summary-per-branch', ReportAnalyzeDebtSummaryPerBranchController::class)->except(['show','edit','update','destroy']);
-        Route::get('/analyze-debt-summary-per-branch-xlsx/{branch_id}', function (string $branch_id) use($date_xls) {
-            return Excel::download(new ReportAnalyzeDebtSummaryPerBranchExport($branch_id),
+        Route::get('/analyze-debt-summary-per-branch-xlsx', function () use($date_xls) {
+            return Excel::download(new ReportAnalyzeDebtSummaryPerBranchExport(),
                 'analyze-debt-summary-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 

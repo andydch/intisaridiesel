@@ -6,7 +6,7 @@
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.time.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.date.css') }}" rel="stylesheet" />
 <link rel="stylesheet" href="{{ asset('assets/plugins/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.min.css') }}">
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+{{-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> --}}
 <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
 <style>
@@ -31,7 +31,7 @@
         <hr />
         <form name="submit_form" id="submit-form" action="{{ url('/'.ENV('REPORT_FOLDER_NAME').'/'.$folder) }}" method="POST" enctype="application/x-www-form-urlencoded">
             @csrf
-            <div class="card">
+            {{-- <div class="card">
                 <div class="card-body">
                     @if (session('status'))
                         <div class="alert alert-success">{{ session('status') }}</div>
@@ -69,7 +69,7 @@
                     </div>
                 </div>
             </div>
-            <hr>
+            <hr> --}}
             <div class="card">
                 <div class="card-body">
                     <div class="row mb-3">

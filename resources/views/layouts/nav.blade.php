@@ -1915,11 +1915,11 @@
                                 ->first();
                             @endphp
                             @if ($queryDebtOverduePerBranch || Auth::user()->id==1)
-                                <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/analyze-debt-summary-per-branch') }}"><i class="bx bx-right-arrow-alt"></i>Summary Analisa Hutang Per Cabang</a></li>
+                                <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/analyze-debt-summary-per-branch') }}"><i class="bx bx-right-arrow-alt"></i>Posisi Hutang Hari Ini</a></li>
                             @endif
 
                             {{-- supplier payment status 01 --}}
-                            @php
+                            {{-- @php
                                 $queryPurchaseSupplierPaymentStatus = \App\Models\Mst_menu_user::where([
                                     'menu_id' => 115,
                                     'user_id' => Auth::user()->id,
@@ -1929,7 +1929,7 @@
                             @endphp
                             @if ($queryPurchaseSupplierPaymentStatus || Auth::user()->id==1)
                                 <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/purchase-supplier-payment-status') }}"><i class="bx bx-right-arrow-alt"></i>Supplier Payment Status (Old)</a></li>
-                            @endif
+                            @endif --}}
 
                         </ul>
                     @endif

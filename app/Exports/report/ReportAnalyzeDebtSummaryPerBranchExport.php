@@ -14,14 +14,14 @@ use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
 class ReportAnalyzeDebtSummaryPerBranchExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
-    protected $branch_id;
+    // protected $branch_id;
 
-    public function __construct($branch_id)
+    public function __construct()
     {
         // ini_set('memory_limit', '64M');
         // ini_set('max_execution_time', 1800);
 
-        $this->branch_id = $branch_id;
+        // $this->branch_id = $branch_id;
     }
 
     public function view(): View
@@ -48,7 +48,7 @@ class ReportAnalyzeDebtSummaryPerBranchExport implements FromView, ShouldAutoSiz
         }
 
         $data = [
-            'branch_id' => $this->branch_id,
+            // 'branch_id' => $this->branch_id,
             'qCurrency' => $qCurrency,
             'company' => $company,
             'vat' => $vat,
@@ -128,7 +128,7 @@ class ReportAnalyzeDebtSummaryPerBranchExport implements FromView, ShouldAutoSiz
             // 'A1' => ['font' => ['bold' => true]],
             // 'N4' => ['font' => ['bold' => true]],
             'A4' => ['font' => ['bold' => true]],
-            'A6:I6' => ['font' => ['bold' => true]],
+            'A6:G6' => ['font' => ['bold' => true]],
             // 'D'.$lastHighestRow => ['font' => ['bold' => true]],
             // 'M'.$lastHighestRow => ['font' => ['bold' => true]],
 

@@ -9,13 +9,13 @@
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
-        <title>SummAnalisaHutangPerCb</title>
+        <title>PosisiHutangHariIni</title>
     </head>
     <body>
         <div class="table-responsive">
             <table style="width:1024px;">
                 @php
-                    $totCols = 8;
+                    $totCols = 7;
                     $timezoneNow = new DateTimeZone('Asia/Jakarta');
                     $date_local_now = new DateTime();
                     $date_local_now->setTimeZone($timezoneNow);
@@ -28,7 +28,7 @@
                         <th>&nbsp;</th>
                     </tr>
                     <tr>
-                        <th colspan="{{ $totCols }}">SUMMARY ANALISA HUTANG PER CABANG</th>
+                        <th colspan="{{ $totCols }}">POSISI HUTANG HARI INI</th>
                     </tr>
                     <tr>
                         <th>&nbsp;</th>
@@ -44,8 +44,7 @@
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">LAST 3 MO ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">MORE 3 MO ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">TOTAL ({{ $qCurrency->string_val }})</th>
-                        <th style="text-align: center;border:1px solid black;background-color:#daeef3;">PAYMENT ({{ $qCurrency->string_val }})</th>
-                        {{-- <th style="text-align: center;border:1px solid black;background-color:#daeef3;">END BALANCE ({{ $qCurrency->string_val }})</th> --}}
+                        {{-- <th style="text-align: center;border:1px solid black;background-color:#daeef3;">PAYMENT ({{ $qCurrency->string_val }})</th> --}}
                     </tr>
                 </thead>
                 <tbody>
@@ -58,6 +57,12 @@
                         $totalLast2MonthAmount = 0;
                         $totalLast3MonthAmount = 0;
                         $totalMore3MonthAmount = 0;
+                        $sumPvTotalAllTmp = 0;
+                        $qRO_lastmore3month_amountTmp = 0;
+                        $qRO_last3month_amountTmp = 0;
+                        $qRO_last2month_amountTmp = 0;
+                        $qRO_lastmonth_amountTmp = 0;
+                        $qRO_thismonth_amountTmp = 0;
 
                         $timezoneNow = new DateTimeZone('Asia/Jakarta');
                         $date_local_now = new DateTime();
@@ -81,14 +86,14 @@
                         date_add($last_3month, date_interval_create_from_date_string("-3 months"));
                         date_add($last_more3month, date_interval_create_from_date_string("-4 months"));
 
-                        $branches = \App\Models\Mst_branch::when($branch_id!='0', function($q) use($branch_id) {
-                            $q->where('id','=',$branch_id);
-                        })
-                        ->where('active','=','Y')
-                        ->orderBy('name','ASC')
-                        ->get();
+                        // $branches = \App\Models\Mst_branch::when($branch_id!='0', function($q) use($branch_id) {
+                        //     $q->where('id','=',$branch_id);
+                        // })
+                        // ->where('active','=','Y')
+                        // ->orderBy('name','ASC')
+                        // ->get();
                     @endphp
-                    @foreach ($branches as $branch)
+                    {{-- @foreach ($branches as $branch)
                         <tr>
                             <td style="font-weight:700;border-left:1px solid black;">{{ $branch->name }}</td>
                             <td>&nbsp;</td>
@@ -96,10 +101,8 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            {{-- <td>&nbsp;</td> --}}
                             <td style="border-right:1px solid black;">&nbsp;</td>
-                        </tr>
+                        </tr> --}}
                         @php
                             $q_tx_ro = \App\Models\Tx_receipt_order::leftJoin('mst_suppliers as m_sp','tx_receipt_orders.supplier_id','=','m_sp.id')
                             ->select(
@@ -109,7 +112,7 @@
                             )
                             ->whereRaw('tx_receipt_orders.receipt_no NOT LIKE \'%Draft%\'')
                             ->where([
-                                'tx_receipt_orders.branch_id'=>$branch->id,
+                                // 'tx_receipt_orders.branch_id'=>$branch->id,
                                 'tx_receipt_orders.active'=>'Y',
                                 // 'm_sp.id'=>40,
                             ])
@@ -120,392 +123,246 @@
                             ->get();
                         @endphp
                         @foreach ($q_tx_ro as $ro)
-                            <tr>
-                                <td style="border-left:1px solid black;">
-                                    {{ $ro->supplier_code.' - '.
-                                        ($ro->supplier->entity_type?$ro->supplier->entity_type->title_ind:'').' '.$ro->supplier_name }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $total_amount = 0;
-                                        $qRO_thismonth_amount = 0;
-                                        $qRO_thismonth = \App\Models\Tx_receipt_order::whereRaw('receipt_no NOT LIKE \'%Draft%\'')
-                                        ->whereRaw('DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($this_month,"Y-m").'\'')
-                                        ->where([
-                                            'supplier_id'=>$ro->supplier_id,
-                                            'branch_id'=>$branch->id,
-                                            'active'=>'Y',
-                                        ])
-                                        ->get();
-                                        foreach ($qRO_thismonth as $ro_tm) {
-                                            $total_amount = $ro_tm->supplier_type_id==10?$ro_tm->total_after_vat_rp:$ro_tm->total_after_vat;
-                                            $qRO_thismonth_amount += $total_amount;
-                                        }                                        
+                            @php
+                                $sumPvTotalAll = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat
+                                    +IFNULL(admin_bank,0)
+                                    +IFNULL(biaya_kirim,0)
+                                    +IFNULL(biaya_asuransi,0)
+                                    -IFNULL(diskon_pembelian,0)) as payment_total_after_vat')
+                                ->where('supplier_id', '=', $ro->supplier_id)
+                                ->whereRaw('approved_by IS NOT NULL')
+                                ->where('is_draft', '=', 'N')
+                                ->where('active', '=', 'Y')
+                                ->value('payment_total_after_vat');
+                                $sumPvTotalAllTmp = $sumPvTotalAll;
 
-                                        $q_tx_pr_this_month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($this_month,"Y-m").'\'')
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->where('branch_id', '=', $branch->id)
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->sum('total_after_vat');
+                                // less than 3 months ago
+                                    $qRO_lastmore3month_amount = 0;
+                                    $qRO_lastmore3month = \App\Models\Tx_receipt_order::selectRaw('CASE 
+                                        WHEN supplier_type_id=10 THEN SUM(total_after_vat_rp) 
+                                        WHEN supplier_type_id=11 THEN SUM(total_after_vat) 
+                                        ELSE 0 END AS total_after_vat_ro')
+                                    ->whereRaw('(receipt_date<=\''.date_format($last_more3month, "Y-m").'-01\')')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->groupBy('supplier_id')
+                                    ->groupBy('supplier_type_id')
+                                    ->first();
+                                    if ($qRO_lastmore3month){
+                                        $qRO_lastmore3month_amount = $qRO_lastmore3month->total_after_vat_ro;
+                                        $qRO_lastmore3month_amountTmp = $qRO_lastmore3month->total_after_vat_ro;
+                                    }
 
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($this_month,"Y-m").'\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        } 
+                                    $q_tx_pr_last_more3month = \App\Models\Tx_purchase_retur::whereRaw('purchase_retur_date<\''.date_format($last_more3month,"Y-m").'-01\'')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->sum('total_after_vat');
 
-                                        if (($qRO_thismonth_amount - $q_tx_pr_this_month)<=0){
-                                            $qRO_thismonth_amount = $qRO_thismonth_amount - $q_tx_pr_this_month;
-                                        }else{
-                                            if (($qRO_thismonth_amount - $q_tx_pr_this_month - $sumPV)<=0){
-                                                $qRO_thismonth_amount = 0;
-                                            }else{
-                                                $qRO_thismonth_amount = $qRO_thismonth_amount - $q_tx_pr_this_month - $sumPV;
-                                            }
-                                        }
-                                        $totalThisMonthAmount+=$qRO_thismonth_amount;
-                                    @endphp
-                                    {{ number_format($qRO_thismonth_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $total_amount = 0;
-                                        $qRO_lastmonth_amount = 0;
-                                        $qRO_lastmonth = \App\Models\Tx_receipt_order::whereRaw('receipt_no NOT LIKE \'%Draft%\'')
-                                        ->whereRaw('DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_month,"Y-m").'\'')
-                                        ->where([
-                                            'supplier_id'=>$ro->supplier_id,
-                                            'branch_id'=>$branch->id,
-                                            'active'=>'Y',
-                                        ])
-                                        ->get();
-                                        foreach ($qRO_lastmonth as $ro_tm) {
-                                            $total_amount = $ro_tm->supplier_type_id==10?$ro_tm->total_after_vat_rp:$ro_tm->total_after_vat;
-                                            $qRO_lastmonth_amount += $total_amount;
-                                        }
-                                        $q_tx_pr_last_month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_month,"Y-m").'\'')
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->where('branch_id', '=', $branch->id)
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->sum('total_after_vat');
-                                        
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        // ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($last_month,"Y-m").'\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        }
+                                    $qRO_lastmore3month_amount = $qRO_lastmore3month_amount - $q_tx_pr_last_more3month - $sumPvTotalAll;
+                                    $sumPvTotalAll = $qRO_lastmore3month_amount<0?$qRO_lastmore3month_amount*-1:0;
+                                    $qRO_lastmore3month_amount = $qRO_lastmore3month_amount<0?0:$qRO_lastmore3month_amount;
+                                    $totalMore3MonthAmount += $qRO_lastmore3month_amount;
+                                // less than 3 months ago
 
-                                        if (($qRO_lastmonth_amount - $q_tx_pr_last_month)<=0){
-                                            $qRO_lastmonth_amount = $qRO_lastmonth_amount - $q_tx_pr_last_month;
-                                        }else{
-                                            if (($qRO_lastmonth_amount - $q_tx_pr_last_month - $sumPV)<=0){
-                                                $qRO_lastmonth_amount = 0;
-                                            }else{
-                                                $qRO_lastmonth_amount = $qRO_lastmonth_amount - $q_tx_pr_last_month - $sumPV;
-                                            }
-                                        }
-                                        // $qRO_lastmonth_amount = $qRO_lastmonth_amount - $q_tx_pr_last_month;
-                                        $totalLastMonthAmount+=$qRO_lastmonth_amount;
-                                    @endphp
-                                    {{ number_format($qRO_lastmonth_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $total_amount = 0;
-                                        $qRO_last2month_amount = 0;
-                                        $qRO_last2month = \App\Models\Tx_receipt_order::whereRaw('receipt_no NOT LIKE \'%Draft%\'')
-                                        ->whereRaw('DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_2month,"Y-m").'\'')
-                                        ->where([
-                                            'supplier_id'=>$ro->supplier_id,
-                                            'branch_id'=>$branch->id,
-                                            'active'=>'Y',
-                                        ])
-                                        ->get();
-                                        foreach ($qRO_last2month as $ro_tm) {
-                                            $total_amount = $ro_tm->supplier_type_id==10?$ro_tm->total_after_vat_rp:$ro_tm->total_after_vat;
-                                            $qRO_last2month_amount += $total_amount;
-                                        }
-                                        $q_tx_pr_last_2month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_2month,"Y-m").'\'')
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->where('branch_id', '=', $branch->id)
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->sum('total_after_vat');
+                                // 3 months ago
+                                    $qRO_last3month_amount = 0;
+                                    $qRO_last3month = \App\Models\Tx_receipt_order::selectRaw('CASE 
+                                        WHEN supplier_type_id=10 THEN SUM(IFNULL(total_after_vat_rp, 0)) 
+                                        WHEN supplier_type_id=11 THEN SUM(IFNULL(total_after_vat, 0)) 
+                                        ELSE 0 END AS total_after_vat_ro')
+                                    ->whereRaw('(DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_3month, "Y-m").'\')')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->groupBy('supplier_id')
+                                    ->groupBy('supplier_type_id')
+                                    ->first();
+                                    if ($qRO_last3month){
+                                        $qRO_last3month_amount = $qRO_last3month->total_after_vat_ro==null?0:$qRO_last3month->total_after_vat_ro;
+                                        $qRO_last3month_amountTmp = $qRO_last3month->total_after_vat_ro;
+                                    }
 
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        // ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($last_2month,"Y-m").'\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        }
+                                    $q_tx_pr_last_3month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_3month, "Y-m").'\'')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->sum('total_after_vat');
 
-                                        if (($qRO_last2month_amount - $q_tx_pr_last_2month)<=0){
-                                            $qRO_last2month_amount = $qRO_last2month_amount - $q_tx_pr_last_2month;
-                                        }else{
-                                            if (($qRO_last2month_amount - $q_tx_pr_last_2month - $sumPV)<=0){
-                                                $qRO_last2month_amount = 0;
-                                            }else{
-                                                $qRO_last2month_amount = $qRO_last2month_amount - $q_tx_pr_last_2month - $sumPV;
-                                            }
-                                        }
-                                        // $qRO_last2month_amount = $qRO_last2month_amount - $q_tx_pr_last_2month;
-                                        $totalLast2MonthAmount+=$qRO_last2month_amount;
-                                    @endphp
-                                    {{ number_format($qRO_last2month_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $total_amount = 0;
-                                        $qRO_last3month_amount = 0;
-                                        $qRO_last3month = \App\Models\Tx_receipt_order::whereRaw('receipt_no NOT LIKE \'%Draft%\'')
-                                        ->whereRaw('DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_3month,"Y-m").'\'')
-                                        ->where([
-                                            'supplier_id'=>$ro->supplier_id,
-                                            'branch_id'=>$branch->id,
-                                            'active'=>'Y',
-                                        ])
-                                        ->get();
-                                        foreach ($qRO_last3month as $ro_tm) {
-                                            $total_amount = $ro_tm->supplier_type_id==10?$ro_tm->total_after_vat_rp:$ro_tm->total_after_vat;
-                                            $qRO_last3month_amount += $total_amount;
-                                        }
-                                        $q_tx_pr_last_3month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_3month,"Y-m").'\'')
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->where('branch_id', '=', $branch->id)
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->sum('total_after_vat');
+                                    $qRO_last3month_amount = $qRO_last3month_amount - $q_tx_pr_last_3month - $sumPvTotalAll;
+                                    $sumPvTotalAll = $qRO_last3month_amount<0?$qRO_last3month_amount*-1:0;
+                                    $qRO_last3month_amount = $qRO_last3month_amount<0?0:$qRO_last3month_amount;
+                                    $totalLast3MonthAmount += $qRO_last3month_amount;
+                                // 3 months ago
 
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        // ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($last_3month,"Y-m").'\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        }
+                                // 2 months ago
+                                    $qRO_last2month_amount = 0;
+                                    $qRO_last2month = \App\Models\Tx_receipt_order::selectRaw('CASE 
+                                        WHEN supplier_type_id=10 THEN SUM(IFNULL(total_after_vat_rp, 0)) 
+                                        WHEN supplier_type_id=11 THEN SUM(IFNULL(total_after_vat, 0)) 
+                                        ELSE 0 END AS total_after_vat_ro')
+                                    ->whereRaw('(DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_2month, "Y-m").'\')')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->groupBy('supplier_id')
+                                    ->groupBy('supplier_type_id')
+                                    ->first();
+                                    if ($qRO_last2month){
+                                        $qRO_last2month_amount = $qRO_last2month->total_after_vat_ro==null?0:$qRO_last2month->total_after_vat_ro;
+                                        $qRO_last2month_amountTmp = $qRO_last2month->total_after_vat_ro;
+                                    }
 
-                                        if (($qRO_last3month_amount - $q_tx_pr_last_3month)<=0){
-                                            $qRO_last3month_amount = $qRO_last3month_amount - $q_tx_pr_last_3month;
-                                        }else{
-                                            if (($qRO_last3month_amount - $q_tx_pr_last_3month - $sumPV)<=0){
-                                                $qRO_last3month_amount = 0;
-                                            }else{
-                                                $qRO_last3month_amount = $qRO_last3month_amount - $q_tx_pr_last_3month - $sumPV;
-                                            }
-                                        }
-                                        // $qRO_last3month_amount = $qRO_last3month_amount - $q_tx_pr_last_3month;
-                                        $totalLast3MonthAmount+=$qRO_last3month_amount;
-                                    @endphp
-                                    {{ number_format($qRO_last3month_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    @php
-                                        $total_amount = 0;
-                                        $qRO_lastmore3month_amount = 0;
-                                        $qRO_lastmore3month = \App\Models\Tx_receipt_order::whereRaw('receipt_no NOT LIKE \'%Draft%\'')
-                                        ->whereRaw('(receipt_date BETWEEN \''.date_format($last_3month,"Y").'-01-01 0:0:0\' AND \''.date_format($last_3month,"Y-m").'-01 0:0:0\')')
-                                        ->where([
-                                            'supplier_id'=>$ro->supplier_id,
-                                            'branch_id'=>$branch->id,
-                                            'active'=>'Y',
-                                        ])
-                                        ->get();
-                                        foreach ($qRO_lastmore3month as $ro_tm) {
-                                            $total_amount = $ro_tm->supplier_type_id==10?$ro_tm->total_after_vat_rp:$ro_tm->total_after_vat;
-                                            $qRO_lastmore3month_amount += $total_amount;
-                                        }
+                                    $q_tx_pr_last_2month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_2month, "Y-m").'\'')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->sum('total_after_vat');
 
-                                        $q_tx_pr_last_more3month = \App\Models\Tx_purchase_retur::whereRaw('purchase_retur_date<\''.date_format($last_3month,"Y-m").'-01\'')
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->where('branch_id', '=', $branch->id)
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->sum('total_after_vat');
+                                    $qRO_last2month_amount = $qRO_last2month_amount - $q_tx_pr_last_2month - $sumPvTotalAll;
+                                    $sumPvTotalAll = $qRO_last2month_amount<0?$qRO_last2month_amount*-1:0;
+                                    $qRO_last2month_amount = $qRO_last2month_amount<0?0:$qRO_last2month_amount;
+                                    $totalLast2MonthAmount += $qRO_last2month_amount;
+                                // 2 months ago
 
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        // ->whereRaw('payment_date<\''.date_format($last_3month,"Y-m").'-01\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        }
+                                // a month ago
+                                    $qRO_lastmonth_amount = 0;
+                                    $qRO_lastmonth = \App\Models\Tx_receipt_order::selectRaw('CASE 
+                                        WHEN supplier_type_id=10 THEN SUM(IFNULL(total_after_vat_rp, 0)) 
+                                        WHEN supplier_type_id=11 THEN SUM(IFNULL(total_after_vat, 0)) 
+                                        ELSE 0 END AS total_after_vat_ro')
+                                    ->whereRaw('(DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($last_month, "Y-m").'\')')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->groupBy('supplier_id')
+                                    ->groupBy('supplier_type_id')
+                                    ->first();
+                                    if ($qRO_lastmonth){
+                                        $qRO_lastmonth_amount = $qRO_lastmonth->total_after_vat_ro==null?0:$qRO_lastmonth->total_after_vat_ro;
+                                        $qRO_lastmonth_amountTmp = $qRO_lastmonth->total_after_vat_ro;
+                                    }
 
-                                        if (($qRO_lastmore3month_amount - $q_tx_pr_last_more3month)<=0){
-                                            $qRO_lastmore3month_amount = $qRO_lastmore3month_amount - $q_tx_pr_last_more3month;
-                                        }else{
-                                            if (($qRO_lastmore3month_amount - $q_tx_pr_last_more3month - $sumPV)<=0){
-                                                $qRO_lastmore3month_amount = 0;
-                                            }else{
-                                                $qRO_lastmore3month_amount = $qRO_lastmore3month_amount - $q_tx_pr_last_more3month - $sumPV;
-                                            }
-                                        }
-                                        // $qRO_lastmore3month_amount = $qRO_lastmore3month_amount - $q_tx_pr_last_more3month;
-                                        $totalMore3MonthAmount+=$qRO_lastmore3month_amount;
-                                    @endphp
-                                    {{ number_format($qRO_lastmore3month_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;">
-                                    {{-- total --}}
-                                    @php
-                                        $qRO_thisyear_amount = 0;
-                                        $qRO_thisyear_amount+=($qRO_thismonth_amount+$qRO_lastmonth_amount+$qRO_last2month_amount+$qRO_last3month_amount+$qRO_lastmore3month_amount);
-                                    @endphp
-                                    {{ number_format($qRO_thisyear_amount,0,'.','') }}
-                                </td>
-                                <td style="text-align: right;border-right:1px solid black;">
-                                    @php
-                                        // payment
-                                        $sumPV = 0;
-                                        $qSumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat+admin_bank+biaya_kirim+biaya_asuransi-diskon_pembelian) as payment_total_after_vat')
-                                        ->whereIn('id', function($q) use($ro, $branch){
-                                            $q->select('payment_voucher_id')
-                                            ->from('tx_payment_voucher_invoices')
-                                            ->whereIn('receipt_order_id', function ($q1) use($ro, $branch){
-                                                $q1->select('id')
-                                                ->from('tx_receipt_orders')
-                                                ->where([
-                                                    'supplier_id'=>$ro->supplier_id,
-                                                    'branch_id'=>$branch->id,
-                                                    'is_draft'=>'N',
-                                                    'active'=>'Y',
-                                                ]);
-                                            })
-                                            ->where('active', '=', 'Y');
-                                        })
-                                        ->where('supplier_id', '=', $ro->supplier_id)
-                                        ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($this_month,"Y-m").'\'')
-                                        ->whereRaw('approved_by IS NOT NULL')
-                                        ->where('is_draft', '=', 'N')
-                                        ->where('active', '=', 'Y')
-                                        ->groupBy('supplier_id')
-                                        ->first();
-                                        if ($qSumPV){
-                                            $sumPV = $qSumPV->payment_total_after_vat;
-                                        }
+                                    $q_tx_pr_last_month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($last_month, "Y-m").'\'')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->sum('total_after_vat');
 
-                                        $totalPaymentAmount+=$sumPV;
-                                    @endphp
-                                    {{ number_format($sumPV,0,'.','') }}
-                                </td>
-                                {{-- <td style="text-align: right;border-right:1px solid black;">
-                                    @php
-                                        $totalEndBalanceAmount+=($qRO_thisyear_amount-$sumPV);
-                                    @endphp
-                                    {{ number_format(($qRO_thisyear_amount-$sumPV),0,'.','') }}
-                                </td> --}}
+                                    $qRO_lastmonth_amount = $qRO_lastmonth_amount - $q_tx_pr_last_month - $sumPvTotalAll;
+                                    $sumPvTotalAll = $qRO_lastmonth_amount<0?$qRO_lastmonth_amount*-1:0;
+                                    $qRO_lastmonth_amount = $qRO_lastmonth_amount<0?0:$qRO_lastmonth_amount;
+                                    $totalLastMonthAmount += $qRO_lastmonth_amount;
+                                // a month ago
+
+                                // this month
+                                    $qRO_thismonth_amount = 0;
+                                    $qRO_thismonth = \App\Models\Tx_receipt_order::selectRaw('CASE 
+                                        WHEN supplier_type_id=10 THEN SUM(IFNULL(total_after_vat_rp, 0)) 
+                                        WHEN supplier_type_id=11 THEN SUM(IFNULL(total_after_vat, 0)) 
+                                        ELSE 0 END AS total_after_vat_ro')
+                                    ->whereRaw('(DATE_FORMAT(receipt_date, "%Y-%m")=\''.date_format($this_month, "Y-m").'\')')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->groupBy('supplier_id')
+                                    ->groupBy('supplier_type_id')
+                                    ->first();
+                                    if ($qRO_thismonth){
+                                        $qRO_thismonth_amount = $qRO_thismonth->total_after_vat_ro==null?0:$qRO_thismonth->total_after_vat_ro;
+                                        $qRO_thismonth_amountTmp = $qRO_thismonth->total_after_vat_ro;
+                                    }
+
+                                    $q_tx_pr_this_month = \App\Models\Tx_purchase_retur::whereRaw('DATE_FORMAT(purchase_retur_date, "%Y-%m")=\''.date_format($this_month, "Y-m").'\'')
+                                    ->where('supplier_id', '=', $ro->supplier_id)
+                                    ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
+                                    ->sum('total_after_vat');
+
+                                    $qRO_thismonth_amount = $qRO_thismonth_amount - $q_tx_pr_this_month - $sumPvTotalAll;
+                                    $sumPvTotalAll = $qRO_thismonth_amount<0?$qRO_thismonth_amount*-1:0;
+                                    $qRO_thismonth_amount = $qRO_thismonth_amount<0?0:$qRO_thismonth_amount;
+                                    $totalThisMonthAmount += $qRO_thismonth_amount;
+                                // this month
+
+                                $qRO_thisyear_amount = ($qRO_thismonth_amount
+                                    +$qRO_lastmonth_amount
+                                    +$qRO_last2month_amount
+                                    +$qRO_last3month_amount
+                                    +$qRO_lastmore3month_amount);
+                            @endphp
+                            @if ($qRO_thisyear_amount>0)
+                                
+                                <tr>
+                                    <td style="border-left:1px solid black;">
+                                        {{ $ro->supplier_code.' - '.
+                                            ($ro->supplier->entity_type?$ro->supplier->entity_type->title_ind:'').' '.$ro->supplier_name }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{ number_format($qRO_thismonth_amount,0,'.','') }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{ number_format($qRO_lastmonth_amount,0,'.','') }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{ number_format($qRO_last2month_amount,0,'.','') }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{ number_format($qRO_last3month_amount,0,'.','') }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{ number_format($qRO_lastmore3month_amount,0,'.','') }}
+                                    </td>
+                                    <td style="text-align: right;border-right:1px solid black;">
+                                        {{ number_format($qRO_thisyear_amount,0,'.','') }}
+                                    </td>
+                                    {{-- <td style="text-align: right;border-right:1px solid black;">
+                                        @php
+                                            $sumPV = \App\Models\Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat
+                                                +IFNULL(admin_bank,0)
+                                                +IFNULL(biaya_kirim,0)
+                                                +IFNULL(biaya_asuransi,0)
+                                                -IFNULL(diskon_pembelian,0)) as payment_total_after_vat')
+                                            ->where('supplier_id', '=', $ro->supplier_id)
+                                            ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.date_format($this_month,"Y-m").'\'')
+                                            ->whereRaw('approved_by IS NOT NULL')
+                                            ->where('is_draft', '=', 'N')
+                                            ->where('active', '=', 'Y')
+                                            ->value('payment_total_after_vat');
+
+                                            $totalPaymentAmount += $sumPV;
+                                        @endphp
+                                        {{ number_format($sumPV,0,'.','') }}
+                                    </td> --}}
+                                    {{-- <td style="text-align: right;border-right:1px solid black;">
+                                        {{ number_format($sumPvTotalAllTmp,0,'.','') }}
+                                    </td> --}}
+                                </tr>
+                            @endif
+                            {{-- <tr>
+                                <td>&nbsp;</td>
+                                <td style="background-color: orange;">{{ $q_tx_pr_this_month }}</td>
+                                <td style="background-color: orange;">{{ $q_tx_pr_last_month }}</td>
+                                <td style="background-color: orange;">{{ $q_tx_pr_last_2month }}</td>
+                                <td style="background-color: orange;">{{ $q_tx_pr_last_3month }}</td>
+                                <td style="background-color: orange;">{{ $q_tx_pr_last_more3month }}</td>
+                                <td style="background-color: orange;">&nbsp;</td>
                             </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td style="background-color: yellow;">{{ $qRO_thismonth_amountTmp }}</td>
+                                <td style="background-color: yellow;">{{ $qRO_lastmonth_amountTmp }}</td>
+                                <td style="background-color: yellow;">{{ $qRO_last2month_amountTmp }}</td>
+                                <td style="background-color: yellow;">{{ $qRO_last3month_amountTmp }}</td>
+                                <td style="background-color: yellow;">{{ $qRO_lastmore3month_amountTmp }}</td>
+                                <td style="background-color: yellow;">&nbsp;</td>
+                            </tr> --}}
                         @endforeach
                         <tr>
                             <td style="border-left:1px solid black;">&nbsp;</td>
@@ -514,11 +371,9 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            {{-- <td>&nbsp;</td> --}}
                             <td style="border-right:1px solid black;">&nbsp;</td>
                         </tr>
-                    @endforeach
+                    {{-- @endforeach --}}
                     <tr>
                         <td style="text-align: center;font-weight:700;border-left:1px solid black;border-top:1px solid black;border-bottom:1px solid black;">TOTAL</td>
                         <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalThisMonthAmount,0,'.','') }}</td>
@@ -526,14 +381,14 @@
                         <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalLast2MonthAmount,0,'.','') }}</td>
                         <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalLast3MonthAmount,0,'.','') }}</td>
                         <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalMore3MonthAmount,0,'.','') }}</td>
-                        <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;">
+                        <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;border-right:1px solid black;">
                             {{ number_format($totalThisMonthAmount+
                                 $totalLastMonthAmount+
                                 $totalLast2MonthAmount+
                                 $totalLast3MonthAmount+
                                 $totalMore3MonthAmount,0,'.','') }}
                         </td>
-                        <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;border-right:1px solid black;">{{ number_format($totalPaymentAmount,0,'.','') }}</td>
+                        {{-- <td style="text-align: right;font-weight:700;border-top:1px solid black;border-bottom:1px solid black;border-right:1px solid black;">{{ number_format($totalPaymentAmount,0,'.','') }}</td> --}}
                         {{-- <td style="text-align: right;font-weight:700;border-right:1px solid black;border-top:1px solid black;border-bottom:1px solid black;">{{ number_format($totalEndBalanceAmount,0,'.','') }}</td> --}}
                     </tr>
                 </tbody>
