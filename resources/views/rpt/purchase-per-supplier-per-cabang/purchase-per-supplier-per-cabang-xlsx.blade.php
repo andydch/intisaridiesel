@@ -98,20 +98,24 @@
                             @php
                                 $totDPPperSupplier = 0;
                                 $totPPNperSupplier = 0;
-                                $receipt_orders = \App\Models\Tx_receipt_order::where('receipt_no','NOT LIKE','%Draft%')
-                                ->whereRaw('receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                ->whereRaw('receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                ->where([
-                                    'supplier_id'=>$supplier->supplier_id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
-                                ])
-                                ->orderBy('receipt_date','ASC');
+                                $receipt_orders = \App\Models\Tx_receipt_order::whereRaw('(receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                    AND receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
+                                ->where('supplier_id', '=', $supplier->supplier_id)
+                                ->where('branch_id', '=', $branch->id)
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('vat_val', '=', 0);
+                                })
+                                ->where('is_draft', '=', 'N')
+                                ->where('active', '=', 'Y')
+                                ->orderBy('receipt_date', 'ASC');
                             @endphp
                             @foreach ($receipt_orders->get() as $ro)
                                 @php
-                                    $dpp_last = $ro->total_before_vat_rp==0?$ro->total_before_vat:$ro->total_before_vat_rp;
-                                    $vat_last = $ro->total_vat_rp==0?$ro->total_vat:$ro->total_vat_rp;
+                                    $dpp_last = $ro->supplier_type_id==11?$ro->total_before_vat:$ro->total_before_vat_rp;
+                                    $vat_last = $ro->supplier_type_id==11?$ro->total_vat:$ro->total_vat_rp;
                                 @endphp
                                 <tr>
                                     <td style="border-left:1px solid black;">{{ ($supplier_name!=$supplier->supplier_name)?$supplier->supplier_name:'' }}</td>
@@ -126,20 +130,24 @@
                                     <td style="border-right:1px solid black;">{{ $ro->createdBy->userDetail->initial }}</td>
                                 </tr>
                                 @php
-                                    $totalDPP += ($ro->total_before_vat_rp==0?$ro->total_before_vat:$ro->total_before_vat_rp);
-                                    $totDPPperSupplier += ($ro->total_before_vat_rp==0?$ro->total_before_vat:$ro->total_before_vat_rp);
+                                    $totalDPP += $dpp_last;
+                                    $totDPPperSupplier += $dpp_last;
                                     $totalVAT += $vat_last;
                                     $totPPNperSupplier += $vat_last;
                                     $supplier_name = $supplier->supplier_name;
 
-                                    $purchase_returs = \App\Models\Tx_purchase_retur::where('purchase_retur_no','NOT LIKE','%Draft%')
-                                    ->whereRaw('purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                    ->whereRaw('purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    $purchase_returs = \App\Models\Tx_purchase_retur::whereRaw('(purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                        AND purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
                                     ->whereRaw('approved_by IS NOT NULL')
-                                    ->where([
-                                        'receipt_order_id'=>$ro->id,
-                                        'active'=>'Y',
-                                    ])
+                                    ->where('receipt_order_id', '=', $ro->id)
+                                    ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                        $q->where('vat_val', '>', 0);
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q){
+                                        $q->where('vat_val', '=', 0);
+                                    })
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
                                     ->orderBy('purchase_retur_date','ASC')
                                     ->get();
                                 @endphp
@@ -181,16 +189,26 @@
                                     'tx_ro.invoice_no',
                                     'usr.initial as createdUserInit',
                                 )
-                                ->where('tx_purchase_returs.purchase_retur_no','NOT LIKE','%Draft%')
-                                ->whereRaw('tx_purchase_returs.purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                ->whereRaw('tx_purchase_returs.purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->whereRaw('(tx_purchase_returs.purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                    AND tx_purchase_returs.purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
                                 ->whereRaw('tx_purchase_returs.approved_by IS NOT NULL')
                                 ->whereRaw('tx_ro.receipt_date<\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                ->where([
-                                    'tx_purchase_returs.supplier_id'=>$supplier->supplier_id,
-                                    'tx_purchase_returs.active'=>'Y',
-                                    'tx_ro.branch_id'=>$branch->id,
-                                ])
+                                ->where('tx_purchase_returs.supplier_id', '=', $supplier->supplier_id)
+                                ->where('tx_purchase_returs.is_draft', '=', 'N')
+                                ->where('tx_purchase_returs.active', '=', 'Y')
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('tx_purchase_returs.vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('tx_purchase_returs.vat_val', '=', 0);
+                                })
+                                ->where('tx_ro.branch_id', '=', $branch->id)
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('tx_ro.vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('tx_ro.vat_val', '=', 0);
+                                })
                                 ->orderBy('tx_purchase_returs.purchase_retur_date','ASC')
                                 ->get();
                             @endphp

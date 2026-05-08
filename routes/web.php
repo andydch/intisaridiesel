@@ -1012,9 +1012,15 @@ Route::group(
 
         // purchase per supplier per branch
         Route::resource('/purchase-per-supplier-per-cabang', ReportPurchasePerSupplierPerBranchController::class)->except(['show','edit','update','destroy']);
-        Route::get('/purchase-per-supplier-per-cabang-xlsx/{branch_id}/{date_start}/{date_end}/{supplier_id}', 
-            function (string $branch_id,string $date_start,string $date_end,string $supplier_id) use($date_xls) {
-            return Excel::download(new ReportPurchasePerSupplierPerBranchExport($branch_id,$date_start,$date_end,$supplier_id),
+        Route::get('/purchase-per-supplier-per-cabang-xlsx/{branch_id}/{date_start}/{date_end}/{supplier_id}/{lokal_input}', 
+            function (
+                string $branch_id, 
+                string $date_start,
+                string $date_end, 
+                string $supplier_id, 
+                string $lokal_input
+            ) use($date_xls) {
+            return Excel::download(new ReportPurchasePerSupplierPerBranchExport($branch_id, $date_start, $date_end, $supplier_id, $lokal_input),
                 'purchase-per-supplier-per-cabang-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 

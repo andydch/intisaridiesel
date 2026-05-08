@@ -18,8 +18,9 @@ class ReportPurchasePerSupplierPerBranchExport implements FromView, ShouldAutoSi
     protected $date_start;
     protected $date_end;
     protected $supplier_id;
+    protected $lokal_input;
 
-    public function __construct($branch_id,$date_start,$date_end,$supplier_id)
+    public function __construct($branch_id, $date_start, $date_end, $supplier_id, $lokal_input)
     {
         // ini_set('memory_limit', '64M');
         // ini_set('max_execution_time', 1800);
@@ -28,6 +29,7 @@ class ReportPurchasePerSupplierPerBranchExport implements FromView, ShouldAutoSi
         $this->supplier_id = $supplier_id;
         $this->date_start = $date_start;
         $this->date_end = $date_end;
+        $this->lokal_input = $lokal_input;
     }
 
     public function view(): View
@@ -58,6 +60,7 @@ class ReportPurchasePerSupplierPerBranchExport implements FromView, ShouldAutoSi
             'supplier_id' => $this->supplier_id,
             'date_start' => $this->date_start,
             'date_end' => $this->date_end,
+            'lokal_input' => $this->lokal_input,
             'qCurrency' => $qCurrency,
             'company' => $company,
             'vat' => $vat,
