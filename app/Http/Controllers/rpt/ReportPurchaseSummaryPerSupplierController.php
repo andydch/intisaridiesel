@@ -112,7 +112,12 @@ class ReportPurchaseSummaryPerSupplierController extends Controller
             return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
         }
         if($request->view_mode=='P'){
-            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.$request->branch_id.'/'.$request->date_start.'/'.$request->date_end);
+            return redirect(ENV('REPORT_FOLDER_NAME').'/'
+                .$this->folder.'-xlsx/'
+                .$request->branch_id.'/'
+                .$request->date_start.'/'
+                .$request->date_end.'/'
+                .($request->lokal_input==''?'P':$request->lokal_input));
         }
     }
 

@@ -87,98 +87,47 @@
                                 $sumTotReturDpp = 0;
                                 $sumTotReturDppPpn = 0;
 
-                                $qRO_dpp = \App\Models\Tx_receipt_order::where('receipt_no','NOT LIKE','%Draft%')
-                                ->whereRaw('receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                ->whereRaw('receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                ->where([
-                                    'supplier_id'=>$supplier->id,
-                                    'branch_id'=>$branch->id,
-                                    'active'=>'Y',
-                                ])
+                                $qRO_dpp = \App\Models\Tx_receipt_order::whereRaw('(receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                    AND receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
+                                ->where('supplier_id', '=', $supplier->id)
+                                ->where('branch_id', '=', $branch->id)
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('vat_val', '=', 0);
+                                })
+                                ->where('is_draft', '=', 'N')
+                                ->where('active', '=', 'Y')
                                 ->get();
                             @endphp
                             @foreach ($qRO_dpp as $qRO_d)
-                                {{-- @php
-                                    $is_vat = 'N';
-                                    $vat_val = 0;
-                                    $exchange_rate = !is_null($qRO_d->exchange_rate)?$qRO_d->exchange_rate:1;
-                                    $exc_rate_for_vat = !is_null($qRO_d->exc_rate_for_vat)?$qRO_d->exc_rate_for_vat:1;
-                                    $po_mo_Arr = explode(",",$qRO_d->po_or_pm_no);
-                                @endphp --}}
-                                {{-- @foreach ($po_mo_Arr as $po_mo)
-                                    @if ($po_mo!='')
-                                        @if (strpos("-".$po_mo,env('P_PURCHASE_MEMO'))>0)
-                                            @php
-                                                $qO = \App\Models\Tx_purchase_memo::where([
-                                                    'memo_no'=>$po_mo,
-                                                ])
-                                                ->first();
-                                                if ($qO){
-                                                    $is_vat = $qO->is_vat;
-                                                    $vat_val = $qO->vat_val;
-                                                    break;
-                                                }
-                                            @endphp
-                                        @endif
-                                        @if (strpos("-".$po_mo,env('P_PURCHASE_ORDER'))>0)
-                                            @php
-                                                $qO = \App\Models\Tx_purchase_order::where([
-                                                    'purchase_no'=>$po_mo,
-                                                ])
-                                                ->first();
-                                                if ($qO){
-                                                    $is_vat = $qO->is_vat;
-                                                    $vat_val = $qO->vat_val;
-                                                    break;
-                                                }
-                                            @endphp
-                                        @endif
-                                    @endif
-                                @endforeach --}}
-                                @if ($qRO_d->supplier_type_id==10)
-                                    {{-- international --}}
-                                    @php
-                                        $sumTotDpp += $qRO_d->total_before_vat_rp;
-                                        $sumTotDppPpn += $qRO_d->total_vat_rp;
-                                        // $sumTotDppPpn += ($is_vat=='Y'?$qRO_d->total_vat_rp:0);
-                                    @endphp
-                                @else
-                                    {{-- lokal --}}
-                                    @php
-                                        $sumTotDpp += $qRO_d->total_before_vat;
-                                        $sumTotDppPpn += ($qRO_d->vat_val>0)?(($qRO_d->total_before_vat*$qRO_d->vat_val)/100):0;
-                                        // $sumTotDppPpn += ($is_vat=='Y')?(($qRO_d->total_before_vat*$vat_val)/100):0;
-                                    @endphp
-                                @endif
+                                @php
+                                    $sumTotDpp = $qRO_d->supplier_type_id==11?$qRO_d->total_before_vat:$qRO_d->total_before_vat_rp;
+                                    $sumTotDppPpn = $qRO_d->supplier_type_id==11?$qRO_d->total_vat:$qRO_d->total_vat_rp;
+                                @endphp
 
                                 {{-- retur --}}
                                 @php
-                                    // $p_returs = \App\Models\Tx_purchase_retur::where('purchase_retur_no','NOT LIKE','%Draft%')
-                                    // ->where([
-                                    //     'supplier_id'=>$supplier->id,
-                                    //     'receipt_order_id'=>$qRO_d->id,
-                                    //     'active'=>'Y',
-                                    // ])
-                                    // ->whereRaw('approved_by IS NOT NULL')
-                                    // ->sum('total_before_vat');
-
-                                    // $sumTotReturDpp += $p_returs;
-                                    // $sumTotReturDppPpn += ($is_vat=='Y')?(($p_returs*$vat_val)/100):0;
-
                                     $total_before_vat_retur = 0;
-                                    $qPReturs = \App\Models\Tx_purchase_retur::where('purchase_retur_no','NOT LIKE','%Draft%')
-                                    ->where([
-                                        'supplier_id'=>$supplier->id,
-                                        'receipt_order_id'=>$qRO_d->id,
-                                        'active'=>'Y',
-                                    ])
+                                    $qPReturs = \App\Models\Tx_purchase_retur::whereRaw('(purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                        AND purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
+                                    ->where('supplier_id', '=', $supplier->id)
+                                    ->where('receipt_order_id', '=', $qRO_d->id)
+                                    ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                        $q->where('vat_val', '>', 0);
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q){
+                                        $q->where('vat_val', '=', 0);
+                                    })
                                     ->whereRaw('approved_by IS NOT NULL')
+                                    ->where('is_draft', '=', 'N')
+                                    ->where('active', '=', 'Y')
                                     ->first();
                                     if ($qPReturs){
                                         $sumTotReturDpp += $qPReturs->total_before_vat;
                                         $sumTotReturDppPpn += ($qPReturs->vat_val>0)?(($qPReturs->total_before_vat*$qPReturs->vat_val)/100):0;
                                     }
-
                                 @endphp
                             @endforeach
                             {{-- other retur --}}
@@ -190,57 +139,32 @@
                                     'tx_purchase_returs.vat_val',
                                     'tx_ro.po_or_pm_no',
                                 )
-                                ->where('purchase_retur_no','NOT LIKE','%Draft%')
-                                ->where([
-                                    'tx_purchase_returs.supplier_id'=>$supplier->id,
-                                    'tx_purchase_returs.active'=>'Y',
-                                ])
-                                ->whereRaw('tx_purchase_returs.purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                ->whereRaw('tx_purchase_returs.purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->where('tx_purchase_returs.supplier_id', '=', $supplier->id)
+                                ->whereRaw('(tx_purchase_returs.purchase_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                    AND tx_purchase_returs.purchase_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
                                 ->whereRaw('tx_purchase_returs.approved_by IS NOT NULL')
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('tx_purchase_returs.vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('tx_purchase_returs.vat_val', '=', 0);
+                                })
+                                ->where('tx_purchase_returs.is_draft', '=', 'N')
+                                ->where('tx_purchase_returs.active', '=', 'Y')
                                 ->whereRaw('tx_ro.receipt_date<\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                    $q->where('tx_ro.vat_val', '>', 0);
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('tx_ro.vat_val', '=', 0);
+                                })
+                                ->where('tx_ro.active', '=', 'Y')
                                 ->get();
                             @endphp
                             @foreach ($qPR_other as $qPR_o)
-                                {{-- @php
-                                    $is_vat = 'N';
-                                    $vat_val = 0;
-                                    $po_mo = explode(",",$qPR_o->po_or_pm_no)
-                                @endphp --}}
-                                {{-- @foreach ($po_mo as $p_m)
-                                    @if ($p_m!='')
-                                        @if (strpos("-".$p_m,env("P_PURCHASE_ORDER"))>0)
-                                            @php
-                                                $po = \App\Models\Tx_purchase_order::where([
-                                                    'purchase_no'=>$p_m,
-                                                ])
-                                                ->first();
-                                                if ($po){
-                                                    $is_vat = $po->is_vat;
-                                                    $vat_val = $po->vat_val;
-                                                    break;
-                                                }
-                                            @endphp
-                                        @endif
-                                        @if (strpos("-".$p_m,env("P_PURCHASE_MEMO"))>0)
-                                            @php
-                                                $mo = \App\Models\Tx_purchase_memo::where([
-                                                    'memo_no'=>$p_m,
-                                                ])
-                                                ->first();
-                                                if ($mo){
-                                                    $is_vat = $mo->is_vat;
-                                                    $vat_val = $mo->vat_val;
-                                                    break;
-                                                }
-                                            @endphp
-                                        @endif
-                                    @endif
-                                @endforeach --}}
                                 @php
                                     $sumTotReturDpp += $qPR_o->total_before_vat;
                                     $sumTotReturDppPpn += ($qPR_o->vat_val>0)?(($qPR_o->total_before_vat*$qPR_o->vat_val)/100):0;
-                                    // $sumTotReturDppPpn += ($is_vat=='Y')?(($qPR_o->total_before_vat*$vat_val)/100):0;
                                 @endphp
                             @endforeach
                             @if ($sumTotDpp>0)
@@ -262,14 +186,18 @@
                                     <td style="text-align: right;">{{ number_format($totalAmount,0,'.','') }}</td>
                                     <td style="text-align: center;border-right:1px solid black;">
                                         @php
-                                            $lastEstDate = \App\Models\Tx_receipt_order::where('receipt_no','NOT LIKE','%Draft%')
-                                            ->whereRaw('receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                            ->whereRaw('receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                            ->where([
-                                                'supplier_id'=>$supplier->id,
-                                                'branch_id'=>$branch->id,
-                                                'active'=>'Y',
-                                            ])
+                                            $lastEstDate = \App\Models\Tx_receipt_order::whereRaw('(receipt_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\' 
+                                                AND receipt_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\')')
+                                            ->where('supplier_id', '=', $supplier->id)
+                                            ->where('branch_id', '=', $branch->id)
+                                            ->when(strtoupper($lokal_input)=='P' || (strtoupper($lokal_input)!='P' && strtoupper($lokal_input)!='N' && strtoupper($lokal_input)!='A'), function($q){
+                                                $q->where('vat_val', '>', 0);
+                                            })
+                                            ->when(strtoupper($lokal_input)=='N', function($q){
+                                                $q->where('vat_val', '=', 0);
+                                            })
+                                            ->where('is_draft', '=', 'N')
+                                            ->where('active', '=', 'Y')
                                             ->orderBy('receipt_date','DESC')
                                             ->first();
                                         @endphp

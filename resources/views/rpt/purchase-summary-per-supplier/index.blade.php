@@ -6,7 +6,7 @@
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.time.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/datetimepicker/css/classic.date.css') }}" rel="stylesheet" />
 <link rel="stylesheet" href="{{ asset('assets/plugins/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.min.css') }}">
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+{{-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> --}}
 <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
 <style>
@@ -82,7 +82,7 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3">
+                                    <div class="row mb-3">
                                         <label for="year_id" class="col-sm-3 col-form-label">Lokal</label>
                                         <div class="col-sm-9">
                                             <input type="text" name="lokal_input" id="lokal_input" class="form-control @error('lokal_input') is-invalid @enderror" maxlength="1"
@@ -91,7 +91,7 @@
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
-                                    </div> --}}
+                                    </div>
                                 </div>
                             </div>
                         </div>

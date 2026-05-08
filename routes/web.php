@@ -1041,8 +1041,14 @@ Route::group(
 
         // purchase summary per supplier
         Route::resource('/purchase-summary-per-supplier', ReportPurchaseSummaryPerSupplierController::class)->except(['show','edit','update','destroy']);
-        Route::get('/purchase-summary-per-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id,string $date_start,string $date_end) use($date_xls) {
-            return Excel::download(new ReportPurchaseSummaryPerSupplierExport($branch_id, $date_start, $date_end),
+        Route::get('/purchase-summary-per-supplier-xlsx/{branch_id}/{date_start}/{date_end}/{lokal_input}', 
+            function (
+                string $branch_id, 
+                string $date_start, 
+                string $date_end, 
+                string $lokal_input
+            ) use($date_xls) {
+            return Excel::download(new ReportPurchaseSummaryPerSupplierExport($branch_id, $date_start, $date_end, $lokal_input),
                 'purchase-summary-per-supplier-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
