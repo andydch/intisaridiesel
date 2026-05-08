@@ -103,8 +103,8 @@
                             @endphp
                             @foreach ($qRO_dpp as $qRO_d)
                                 @php
-                                    $sumTotDpp = $qRO_d->supplier_type_id==11?$qRO_d->total_before_vat:$qRO_d->total_before_vat_rp;
-                                    $sumTotDppPpn = $qRO_d->supplier_type_id==11?$qRO_d->total_vat:$qRO_d->total_vat_rp;
+                                    $sumTotDpp += $qRO_d->supplier_type_id==11?$qRO_d->total_before_vat:$qRO_d->total_before_vat_rp;
+                                    $sumTotDppPpn += $qRO_d->supplier_type_id==11?$qRO_d->total_vat:$qRO_d->total_vat_rp;
                                 @endphp
 
                                 {{-- retur --}}
@@ -123,10 +123,10 @@
                                     ->whereRaw('approved_by IS NOT NULL')
                                     ->where('is_draft', '=', 'N')
                                     ->where('active', '=', 'Y')
-                                    ->first();
-                                    if ($qPReturs){
-                                        $sumTotReturDpp += $qPReturs->total_before_vat;
-                                        $sumTotReturDppPpn += ($qPReturs->vat_val>0)?(($qPReturs->total_before_vat*$qPReturs->vat_val)/100):0;
+                                    ->get();
+                                    foreach($qPReturs as $qPRet) {
+                                        $sumTotReturDpp += $qPRet->total_before_vat;
+                                        $sumTotReturDppPpn += ($qPRet->vat_val>0)?(($qPRet->total_before_vat*$qPRet->vat_val)/100):0;
                                     }
                                 @endphp
                             @endforeach
