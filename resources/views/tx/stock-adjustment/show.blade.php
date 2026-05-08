@@ -128,9 +128,9 @@
                                                 ->first();
 
                                                 $qty_adj_ = $qP->adjustment;
-                                                if($qty_adj_<0){
-                                                    $qty_adj_ = $qty_adj_ * -1;
-                                                }
+                                                // if($qty_adj_<0){
+                                                //     $qty_adj_ = $qty_adj_ * -1;
+                                                // }
                                             @endphp
                                             <tr id="row{{ $lastIdx }}">
                                                 <th scope="row" style="text-align:right;">

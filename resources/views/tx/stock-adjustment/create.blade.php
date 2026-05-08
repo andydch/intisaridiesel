@@ -137,9 +137,9 @@
                                                     ->first();
 
                                                     $qty_adj_ = old('qty_adj_'.$lastIdx);
-                                                    if($qty_adj_<0){
-                                                        $qty_adj_ = $qty_adj_ * -1;
-                                                    }
+                                                    // if($qty_adj_<0){
+                                                    //     $qty_adj_ = $qty_adj_ * -1;
+                                                    // }
                                                 @endphp
                                                 <tr id="row{{ $lastIdx }}">
                                                     <th scope="row" style="text-align:right;"><label for="" class="col-form-label">{{ $lastIdx+1 }}.</label></th>
@@ -385,11 +385,11 @@
     function calcTotal(val,idx){
         if(!isNaN(val)){
             let newVal = val;
-            if(val<0){newVal = val*-1;}
+            // if(val<0){newVal = val*-1;}
             if((parseInt(val)+parseInt($("#oh_ori_"+idx).val()))>=0){
                 $("#total_"+idx).text(parseFloat($("#avg_cost_ori_"+idx).val()*newVal).numberFormat(0,'.',','));
             }else{
-                $("#qty_adj_"+i).val('');
+                $("#qty_adj_"+idx).val('');
                 $("#total_"+idx).text('');
             }
         }else{
@@ -404,7 +404,7 @@
         for (i = 0; i < $("#totalRow").val(); i++) {
             if(!isNaN($("#qty_adj_"+i).val())){
                 let newVal = $("#qty_adj_"+i).val();
-                if($("#qty_adj_"+i).val()<0){newVal = $("#qty_adj_"+i).val()*-1;}
+                // if($("#qty_adj_"+i).val()<0){newVal = $("#qty_adj_"+i).val()*-1;}
                 if((parseInt($("#qty_adj_"+i).val())+parseInt($("#oh_ori_"+i).val()))>=0){
                     total = total+(newVal*$("#avg_cost_ori_"+i).val());
                 }else{

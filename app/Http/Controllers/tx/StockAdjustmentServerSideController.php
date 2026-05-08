@@ -506,7 +506,7 @@ class StockAdjustmentServerSideController extends Controller
                     ]);
                 }
 
-                if ($total_adjustment>=0){
+                if ($total_all>=0){
                     // inventory-plus
                     $ins_inventory_plus = Tx_general_journal_detail::create([
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
@@ -1065,7 +1065,7 @@ class StockAdjustmentServerSideController extends Controller
                     ]);
                 }
 
-                if ($total_adjustment>=0){
+                if ($total_all>=0){
                     // inventory-plus
                     $ins_inventory_plus = Tx_general_journal_detail::create([
                         'general_journal_id'=>($qJournals?$qJournals->id:$insJournal->id),
