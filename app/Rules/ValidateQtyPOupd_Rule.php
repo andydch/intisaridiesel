@@ -41,7 +41,8 @@ class ValidateQtyPOupd_Rule implements InvokableRule
             ->from('tx_receipt_orders')
             ->where('active', 'Y');
         })
-        ->where('po_mo_id', $this->purchase_order_part_id)
+        // ->where('po_mo_id', $this->purchase_order_part_id)
+        ->whereRaw('po_mo_no IN (select purchase_no from tx_purchase_orders where id = '.$this->purchase_order_id.' and active = "Y")')
         ->where('part_id', $this->part_id)
         ->whereRaw('qty<>'.$value)
         ->where('is_partial_received', 'N')
