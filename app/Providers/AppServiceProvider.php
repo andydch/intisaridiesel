@@ -34,8 +34,8 @@ class AppServiceProvider extends ServiceProvider
             DB::listen(function ($query) {
                 // Properti $query->time menggunakan satuan milidetik (ms)
                 // 500 ms = 0.5 detik
-                // 5000 ms = 5 detik
-                if ($query->time > 5000) {
+                // 3000 ms = 3 detik
+                if ($query->time > 3000) {
                     // 1. Ambil riwayat pemanggilan fungsi (backtrace)
                     // Menggunakan DEBUG_BACKTRACE_IGNORE_ARGS agar tidak memakan banyak memori
                     $traces = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);

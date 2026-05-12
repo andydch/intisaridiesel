@@ -462,6 +462,9 @@ class StockMasterServerSideController extends Controller
                 ->where('mst_brand_types.brand_id', '=', 'mg_03.id')
             ])
             ->where('mst_parts.active', '=', 'Y')
+            ->where('mg_01.active', '=', 'Y')
+            ->where('mg_02.active', '=', 'Y')
+            ->where('mg_03.active', '=', 'Y')
             ->where('mb.active', '=', 'Y')
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', $parameter[0].'%');
