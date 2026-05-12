@@ -472,6 +472,7 @@
             // scrollY: 500,
             searching: true,
             serverSide: true,
+            order: [], // Mematikan pengurutan default saat pertama kali dimuat
             ajax: {
                 url: '{!! url()->current() !!}'
             },

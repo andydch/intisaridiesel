@@ -22,7 +22,8 @@ use App\Models\Tx_stock_transfer_part;
 use App\Models\Tx_surat_jalan_part;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
-// use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class StockMasterServerSideController extends Controller
@@ -62,7 +63,9 @@ class StockMasterServerSideController extends Controller
             return redirect(route('stockmaster.index').'/'.urlencode('::::::::::::::'));
         }
         if ($request->ajax()) {
-            $sql = Tx_qty_part::leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
+            $sql = DB::table('tx_qty_parts')
+            ->leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
+            // $sql = Tx_qty_part::leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
             ->leftJoin('mst_globals as mg_01', 'mst_parts.part_type_id', '=', 'mg_01.id')
             ->leftJoin('mst_globals as mg_02', 'mst_parts.quantity_type_id', '=', 'mg_02.id')
             ->leftJoin('mst_globals as mg_03', 'mst_parts.brand_id', '=', 'mg_03.id')
@@ -461,11 +464,6 @@ class StockMasterServerSideController extends Controller
             ->addSelect(['brand_type_id' => Mst_brand_type::select('id')
                 ->where('mst_brand_types.brand_id', '=', 'mg_03.id')
             ])
-            ->where('mst_parts.active', '=', 'Y')
-            ->where('mg_01.active', '=', 'Y')
-            ->where('mg_02.active', '=', 'Y')
-            ->where('mg_03.active', '=', 'Y')
-            ->where('mb.active', '=', 'Y')
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', $parameter[0].'%');
             })
@@ -492,10 +490,23 @@ class StockMasterServerSideController extends Controller
             ->when($parameter[7]=='Y', function($q) use($parameter) {
                 $q->whereRaw('tx_qty_parts.qty>0');
             })
+            ->where('mst_parts.active', '=', 'Y')
+            ->where('mg_01.active', '=', 'Y')
+            ->where('mg_02.active', '=', 'Y')
+            ->where('mg_03.active', '=', 'Y')
+            ->where('mb.active', '=', 'Y')
             ->orderBy('mst_parts.part_number', 'ASC')
             ->orderBy('mb.id', 'ASC');
 
+            // Cache jumlah total data selama 1 jam (3600 detik)
+            $totalRecords = Cache::remember('data_count', 3600, function () use ($sql) {
+                return $sql->count();
+            });
+
             return DataTables::of($sql)
+            ->setTotalRecords($totalRecords)
+            // opsional: untuk menghindari penghitungan ulang recordsFiltered jika tidak ada pencarian
+            // ->skipTotalRecords()
             ->addColumn('part_number_with_delimiter', function ($sql) {
                 return $sql->part_number_wd;
             })
@@ -673,7 +684,6 @@ class StockMasterServerSideController extends Controller
                 ])
                 ->first();
                 if($tx13 && !$isTx){$isTx = true;}
-
 
                 if($sql->part_active=='Y' && !$isTx){
                     return '<input type="checkbox" name="delRow'.$sql->rank.'" id="delRow'.$sql->rank.'">';
