@@ -449,7 +449,7 @@
                                                             <div class="invalid-feedback">{{ $message }}</div>
                                                         @enderror
                                                     </td>
-                                                    <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q->quantity_type }}</label></td>
+                                                    <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q?$q->quantity_type: '' }}</label></td>
                                                     <td>
                                                         <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" 
                                                             style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}" 
@@ -487,8 +487,8 @@
                                                             class="col-form-label">{{ (is_null($q)?'':number_format($q->final_cost,0,'.',',').' / '.(is_null($q->fobCurr)?'':$q->fobCurr->string_val).' '.number_format($q->final_fob,($orders->supplier_type_id==10?2:0),'.',',')) }}</label>
                                                     </td>
                                                     <td style="text-align: right;">
-                                                        <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q->total_qty,0,'.',',') }}</label>
-                                                        <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q->total_qty }}">
+                                                        <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q?$q->total_qty:0,0,'.',',') }}</label>
+                                                        <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q?$q->total_qty:0 }}">
                                                     </td>
                                                     @php
                                                         $oo = 0;
@@ -665,7 +665,7 @@
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
                                                 </td>
-                                                <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q->quantity_type }}</label></td>
+                                                <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q?$q->quantity_type: '' }}</label></td>
                                                 <td>
                                                     <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" onchange="formatPartPrice({{ $i }});"
                                                         class="form-control @error('price_part'.$i) is-invalid @enderror"
@@ -699,8 +699,8 @@
                                                         class="col-form-label">{{ (!isset($q)?'':number_format($q->final_cost,0,'.',',').' / '.(is_null($q->fobCurr)?'':$q->fobCurr->string_val).number_format($q->final_fob,2,'.',',')) }}</label>
                                                 </td>
                                                 <td style="text-align: right;">
-                                                    <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q->total_qty,0,'.',',') }}</label>
-                                                    <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q->total_qty }}">
+                                                    <label id="oh-{{ $i }}" for="" class="col-form-label">{{ number_format($q?$q->total_qty:0,0,'.',',') }}</label>
+                                                    <input type="hidden" name="oh_{{ $i }}_tmp" id="oh_{{ $i }}_tmp" value="{{ $q?$q->total_qty:0 }}">
                                                 </td>
                                                 @php
                                                     $oo = 0;
