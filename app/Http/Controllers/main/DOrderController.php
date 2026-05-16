@@ -8,7 +8,7 @@ use App\Models\Tx_purchase_order;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Tx_purchase_order_part;
+// use App\Models\Tx_purchase_order_part;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Validation\ValidationException;
 
@@ -32,8 +32,12 @@ class DOrderController extends Controller
                 if($Ids[$i]!==''){
                     $del = Tx_purchase_order::where('id','=',$Ids[$i])
                     ->whereNotIn('purchase_no', function (Builder $query) {
-                        $query->select('po_or_pm_no')
-                        ->from('tx_receipt_orders');
+                        $query->select('tx_rop.po_mo_no')
+                        ->from('tx_receipt_order_parts AS tx_rop')
+                        ->leftJoin('tx_receipt_orders AS tx_ro', 'tx_ro.id', '=', 'tx_rop.receipt_order_id')
+                        ->where('tx_rop.active', 'Y')
+                        ->where('tx_ro.is_draft', 'N')
+                        ->where('tx_ro.active', 'Y');
                     })
                     ->update([
                         'active'=>'N',
