@@ -503,7 +503,7 @@
                                                     <td style="text-align: center;">
                                                         {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                                         {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-                                                        @if(($orders->created_by==Auth::user()->id || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                                        @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
                                                             $orders->active=='Y' && is_null($orders->receipt_order))
                                                             @if($is_part_in_RO=='N')<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">@endif
                                                         @endif
@@ -720,7 +720,7 @@
                                                 <td style="text-align: center;">
                                                     {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                                     {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-                                                    @if(($orders->created_by==Auth::user()->id || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                                    @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
                                                         $orders->active=='Y' && is_null($orders->receipt_order))
                                                         @if($is_part_in_RO=='N')<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">@endif
                                                     @endif
@@ -737,7 +737,8 @@
                                 <input type="button" id="btn-add-row" class="btn btn-primary px-5" style="margin-top: 15px;" value="Add Row">
                                 {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                 {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-                                @if(($orders->created_by==Auth::user()->id || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y' && is_null($orders->receipt_order))
+                                @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                    $orders->active=='Y' && is_null($orders->receipt_order))
                                     <input type="button" id="btn-del-row" class="btn btn-danger px-5" style="margin-top: 15px;" value="Remove Row">
                                 @endif
                             </div>
@@ -756,7 +757,7 @@
                                     {{-- @if($orders->created_by==Auth::user()->id && $orders->active=='Y' && is_null($orders->receipt_order) && is_null($orders->approved_by)) --}}
                                     {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                     {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-                                    @if(($orders->created_by==Auth::user()->id || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y' && is_null($orders->receipt_order))
+                                    @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y' && is_null($orders->receipt_order))
                                         <input type="hidden" name="orderId" id="orderId">
                                         <input type="button" id="del-btn" class="btn btn-danger px-5" value="Delete">                                            
                                     @endif
@@ -989,7 +990,7 @@
         // {{-- @if($orders->created_by==Auth::user()->id && $orders->active=='Y' && is_null($orders->receipt_order) && is_null($orders->approved_by)) --}}
         // {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
         // {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-        @if(($orders->created_by==Auth::user()->id || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y' && is_null($orders->receipt_order))
+        @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y' && is_null($orders->receipt_order))
             $("#del-btn").click(function() {
                 let msg = 'The following Order Numbers will be canceled.\n{{ $orders->purchase_no }}\nContinue?';
                 if(!confirm(msg)){
