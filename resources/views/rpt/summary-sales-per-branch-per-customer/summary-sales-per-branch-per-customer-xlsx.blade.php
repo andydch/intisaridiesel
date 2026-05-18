@@ -78,56 +78,109 @@
                             <td colspan="{{ $totCols }}" style="font-weight: bold;border-left:1px solid black;border-right:1px solid black;">{{ $branch->name }}</td>
                         </tr>
                         @php
-                            $qSales = DB::table('v_sales_all AS v')
-                            ->leftJoin('mst_customers AS c', 'c.id', '=', 'v.customer_id')
+                            $qSales = DB::table('mst_customers AS c')
                             ->select(
                                 'c.name as name',
                                 'c.customer_unique_code as customer_unique_code',
-                                DB::raw('SUM(v.total_dpp) AS total_dpp'),
-                                DB::raw('SUM(v.total_after_vat) AS total_after_vat'),
-                                DB::raw('SUM(v.total_avg) AS total_avg'),
                             )
+                            ->addSelect([
+                                'total_dpp' => DB::table('v_sales_all AS v')
+                                ->selectRaw('SUM(v.total_dpp) AS total_dpp')
+                                ->whereColumn('v.customer_id', 'c.id')
+                                ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->where('v.branch_id', $branch->id)
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v.tax_code', 'N');
+                                })
+                            ])
+                            ->addSelect([
+                                'total_after_vat' => DB::table('v_sales_all AS v')
+                                ->selectRaw('SUM(v.total_after_vat) AS total_after_vat')
+                                ->whereColumn('v.customer_id', 'c.id')
+                                ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->where('v.branch_id', $branch->id)
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v.tax_code', 'N');
+                                })
+                            ])
+                            ->addSelect([
+                                'total_avg' => DB::table('v_sales_all AS v')
+                                ->selectRaw('SUM(v.total_avg) AS total_avg')
+                                ->whereColumn('v.customer_id', 'c.id')
+                                ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                ->where('v.branch_id', $branch->id)
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v.tax_code', 'N');
+                                })
+                            ])
                             ->addSelect([
                                 'total_dpp_retur' => DB::table('v_nota_retur_all AS v_retur')
                                 ->selectRaw('SUM(v_retur.total_dpp)')
-                                ->whereColumn('v_retur.customer_id', 'v.customer_id')
+                                ->whereColumn('v_retur.customer_id', 'c.id')
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->where('v_retur.branch_id', $branch->id)
+                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
                             ])
                             ->addSelect([
                                 'total_after_vat_retur' => DB::table('v_nota_retur_all AS v_retur')
                                 ->selectRaw('SUM(v_retur.total_after_vat)')
-                                ->whereColumn('v_retur.customer_id', 'v.customer_id')
+                                ->whereColumn('v_retur.customer_id', 'c.id')
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->where('v_retur.branch_id', $branch->id)
+                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
                             ])
                             ->addSelect([
                                 'total_avg_retur' => DB::table('v_nota_retur_all AS v_retur')
                                 ->selectRaw('SUM(v_retur.total_avg)')
-                                ->whereColumn('v_retur.customer_id', 'v.customer_id')
+                                ->whereColumn('v_retur.customer_id', 'c.id')
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->where('v_retur.branch_id', $branch->id)
+                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
                             ])
-                            ->when(strtoupper($lokal_input)=='A', function($q){
-                                $q->whereIn('v.tax_code', ['P', 'N']);
+                            ->where(function($q) use($branch, $dt_s, $dt_e){
+                                $q->whereExists(function($q1) use($branch, $dt_s, $dt_e){
+                                    $q1->select(DB::raw(1))
+                                    ->from('v_sales_all AS v')
+                                    ->whereColumn('v.customer_id', 'c.id')
+                                    ->where('v.branch_id', $branch->id)
+                                    ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                    ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'');
+                                })
+                                ->orWhereExists(function($q1) use($branch, $dt_s, $dt_e){
+                                    $q1->select(DB::raw(1))
+                                    ->from('v_nota_retur_all AS v_retur')
+                                    ->whereColumn('v_retur.customer_id', 'c.id')
+                                    ->where('v_retur.branch_id', $branch->id)
+                                    ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
+                                    ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'');
+                                });
                             })
-                            ->when(strtoupper($lokal_input)=='P', function($q){
-                                $q->where('v.tax_code', 'P');
-                            })
-                            ->when(strtoupper($lokal_input)=='N', function($q){
-                                $q->where('v.tax_code', 'N');
-                            })
-                            ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                            ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                            ->where('v.branch_id', $branch->id)
                             ->where('c.active', 'Y')
-                            ->orderBy('c.name','ASC')
-                            ->groupBy('v.customer_id')
-                            ->groupBy('c.name')
-                            ->groupBy('c.customer_unique_code')
+                            ->orderBy('c.name', 'ASC')
                             ->get();
                         @endphp
                         @foreach ($qSales as $qS)
@@ -137,12 +190,12 @@
                                 </td>
                                 @php
                                     $total_dpp = $qS->total_dpp - $qS->total_dpp_retur;
-                                    $total_ppn = ($qS->total_after_vat-$qS->total_dpp) - ($qS->total_after_vat_retur-$qS->total_dpp_retur);
+                                    $total_ppn = ($qS->total_after_vat - $qS->total_dpp) - ($qS->total_after_vat_retur - $qS->total_dpp_retur);
                                     $total_amount = $qS->total_after_vat - $qS->total_after_vat_retur;
                                     $total_avg = $qS->total_avg - $qS->total_avg_retur;
                                     $gp = $total_dpp - $total_avg;
                                     // $gp = $total_dpp - $total_avg - $qS->total_after_vat_retur - $qS->total_avg_retur;
-                                    $gp_percent = ($gp/$total_dpp)*100;
+                                    $gp_percent = $total_dpp>0?($gp/$total_dpp)*100:0;
                                     // $gp_percent = ($gp/($total_dpp - $qS->total_after_vat_retur))*100;
 
                                     $total_dpp_per_branch += $total_dpp;
@@ -150,7 +203,7 @@
                                     $total_amount_per_branch += $total_amount;
                                     $total_avg_per_branch += $total_avg;
                                     $gp_per_branch += $gp;
-                                    $gp_percent_per_branch = ($gp_per_branch/$total_dpp_per_branch)*100;
+                                    $gp_percent_per_branch = $total_dpp_per_branch>0?($gp_per_branch/$total_dpp_per_branch)*100:0;
                                 @endphp
                                 <td style="text-align: right;">{{ number_format($total_dpp, 0, '.', '') }}</td>
                                 <td style="text-align: right;">{{ $total_ppn>0?number_format($total_ppn, 0, '.', ''):'' }}</td>
@@ -184,7 +237,7 @@
                             $grandtotal_amount_per_branch += $total_amount_per_branch;
                             $grandtotal_avg_per_branch += $total_avg_per_branch;
                             $grandtotal_gp_per_branch += $gp_per_branch;
-                            $grandtotal_gp_percent_per_branch = ($grandtotal_gp_per_branch/$grandtotal_dpp_per_branch)*100;
+                            $grandtotal_gp_percent_per_branch = $grandtotal_dpp_per_branch>0?($grandtotal_gp_per_branch/$grandtotal_dpp_per_branch)*100:0;
                         @endphp
                     @endforeach
                 </tbody>
