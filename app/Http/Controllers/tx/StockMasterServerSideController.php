@@ -119,6 +119,25 @@ class StockMasterServerSideController extends Controller
             ->groupBy('tx_mop.part_id')
             ->groupBy('tx_mo.branch_id');
 
+            $subQueryPo = DB::table('tx_purchase_order_parts AS tx_pop')
+            ->leftJoin('tx_purchase_orders as tx_po','tx_pop.order_id','=','tx_po.id')
+            ->select(DB::raw('tx_pop.part_id, tx_po.branch_id, SUM(tx_pop.qty) as total_qty_po'))
+            ->whereNotExists(function(Builder $q){    // belum memiliki RO
+                $q->select('tx_ro_parts.po_mo_no')
+                ->from('tx_receipt_order_parts as tx_ro_parts')
+                ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
+                ->whereColumn('tx_ro_parts.po_mo_no', 'tx_po.purchase_no')
+                ->where('tx_ro_parts.active', 'Y')
+                ->where('tx_ro.is_draft', 'N')
+                ->where('tx_ro.active', 'Y');
+            })
+            ->where('tx_pop.active', 'Y')
+            ->whereRaw('tx_po.approved_by IS NOT NULL')
+            ->where('tx_po.is_draft', 'N')
+            ->where('tx_po.active', 'Y')
+            ->groupBy('tx_pop.part_id')
+            ->groupBy('tx_po.branch_id');
+
             $sql = DB::table('tx_qty_parts')
             ->leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
             ->leftJoin('mst_globals as mg_01', 'mst_parts.part_type_id', '=', 'mg_01.id')
@@ -149,6 +168,14 @@ class StockMasterServerSideController extends Controller
                     ->on('memo_qty_summary.branch_id', '=', 'tx_qty_parts.branch_id');
                 }
             )
+            ->leftJoinSub(
+                $subQueryPo,
+                'po_qty_summary',
+                function ($join) {
+                    $join->on('po_qty_summary.part_id', '=', 'mst_parts.id')
+                    ->on('po_qty_summary.branch_id', '=', 'tx_qty_parts.branch_id');
+                }
+            )
             ->select(
                 'mst_parts.id AS part_idx',
                 'mst_parts.slug',
@@ -169,6 +196,7 @@ class StockMasterServerSideController extends Controller
                 DB::raw('IFNULL(so_qty_summary.total_qty_so, 0) as qtySO'),
                 DB::raw('IFNULL(sj_qty_summary.total_qty_sj, 0) as qtySJ'),
                 DB::raw('IFNULL(memo_qty_summary.total_qty_memo, 0) as purchase_memo_qty'),
+                DB::raw('IFNULL(po_qty_summary.total_qty_po, 0) as purchase_order_qty'),
             )
             ->selectRaw('
                 IF(LENGTH(mst_parts.part_number)<11,
@@ -245,26 +273,27 @@ class StockMasterServerSideController extends Controller
             //     ])
             // // --purchase memo
 
-            // --purchase order
-                ->addSelect(['purchase_order_qty' => Tx_purchase_order_part::selectRaw('IFNULL(SUM(tx_purchase_order_parts.qty),0)')  // total qty dari po yg aktif
-                    ->leftJoin('tx_purchase_orders as tx_order', 'tx_purchase_order_parts.order_id', '=', 'tx_order.id')
-                    ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
-                    ->where('tx_purchase_order_parts.active', '=','Y')
-                    ->whereNotIn('tx_order.purchase_no', function(Builder $q){    // belum memiliki RO
-                        $q->select('tx_ro_parts.po_mo_no')
-                        ->from('tx_receipt_order_parts as tx_ro_parts')
-                        ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-                        ->whereColumn('tx_ro_parts.part_id', 'mst_parts.id')
-                        ->where('tx_ro_parts.active', 'Y')
-                        ->where('tx_ro.is_draft', 'N')
-                        ->where('tx_ro.active', 'Y');
-                    })
-                    ->whereRaw('tx_order.approved_by IS NOT NULL')
-                    ->whereColumn('tx_order.branch_id', 'tx_qty_parts.branch_id')
-                    ->where('tx_order.is_draft', '=','N')
-                    ->where('tx_order.active', '=','Y')
-                ])
-            // --purchase order
+            // // --purchase order
+            //     ->addSelect(['purchase_order_qty' => Tx_purchase_order_part::selectRaw('IFNULL(SUM(tx_purchase_order_parts.qty),0)')  // total qty dari po yg aktif
+            //         ->leftJoin('tx_purchase_orders as tx_order', 'tx_purchase_order_parts.order_id', '=', 'tx_order.id')
+            //         ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
+            //         ->where('tx_purchase_order_parts.active', '=','Y')
+            //         ->whereNotIn('tx_order.purchase_no', function(Builder $q){    // belum memiliki RO
+            //             $q->select('tx_ro_parts.po_mo_no')
+            //             ->from('tx_receipt_order_parts as tx_ro_parts')
+            //             ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
+            //             ->whereColumn('tx_ro_parts.part_id', 'mst_parts.id')
+            //             ->where('tx_ro_parts.active', 'Y')
+            //             ->where('tx_ro.is_draft', 'N')
+            //             ->where('tx_ro.active', 'Y');
+            //         })
+            //         ->whereRaw('tx_order.approved_by IS NOT NULL')
+            //         ->whereColumn('tx_order.branch_id', 'tx_qty_parts.branch_id')
+            //         ->where('tx_order.is_draft', '=','N')
+            //         ->where('tx_order.active', '=','Y')
+            //     ])
+            // // --purchase order
+
             // --RO final cost
                 ->addSelect(['purchase_ro_final_cost' => Tx_receipt_order_part::select('tx_receipt_order_parts.final_cost')  // final cost
                     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_receipt_order_parts.receipt_order_id', '=', 'tx_ro.id')
