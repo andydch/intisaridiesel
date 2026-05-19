@@ -236,6 +236,7 @@
                                             ->selectRaw("SUM(tx_nota_retur_parts.qty_retur*tx_nota_retur_parts.final_price) as tot_price")
                                             ->selectRaw("SUM(tx_nota_retur_parts.qty_retur*tx_nota_retur_parts.final_price*tx_nr.vat_val/100) as tot_vat")
                                             ->whereRaw('DATE_FORMAT(tx_nr.nota_retur_date, "%Y-%m")=\''.$period_year.'-'.(strlen($i)==1?'0'.$i:$i).'\'')
+                                            ->whereRaw('tx_nr.approved_by IS NOT NULL')
                                             ->where([
                                                 'tx_nota_retur_parts.active' => 'Y',
                                                 'tx_nr.active' => 'Y',
@@ -285,6 +286,7 @@
                                             ->leftJoin('mst_customers as mst_cust','tx_re.customer_id','=','mst_cust.id')
                                             ->selectRaw("SUM(tx_nota_retur_part_non_taxes.qty_retur*tx_nota_retur_part_non_taxes.final_price) as tot_price")
                                             ->whereRaw('DATE_FORMAT(tx_re.nota_retur_date, "%Y-%m")=\''.$period_year.'-'.(strlen($i)==1?'0'.$i:$i).'\'')
+                                            ->whereRaw('tx_re.approved_by IS NOT NULL')
                                             ->where([
                                                 'tx_nota_retur_part_non_taxes.active' => 'Y',
                                                 'tx_re.active'=>'Y',
@@ -350,6 +352,7 @@
                                                 'tx_sop.last_avg_cost',
                                             )
                                             ->whereRaw('DATE_FORMAT(tx_nr.nota_retur_date, "%Y")=\''.$period_year.'\'')
+                                            ->whereRaw('tx_nr.approved_by IS NOT NULL')
                                             ->where([
                                                 'tx_nota_retur_parts.active' => 'Y',
                                                 'tx_nr.active' => 'Y',
@@ -398,6 +401,7 @@
                                                 'tx_sjp.last_avg_cost',
                                             )
                                             ->whereRaw('DATE_FORMAT(tx_re.nota_retur_date, "%Y")=\''.$period_year.'\'')
+                                            ->whereRaw('tx_re.approved_by IS NOT NULL')
                                             ->where([
                                                 'tx_nota_retur_part_non_taxes.active' => 'Y',
                                                 'tx_re.active'=>'Y',
