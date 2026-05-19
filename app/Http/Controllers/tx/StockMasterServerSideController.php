@@ -138,6 +138,16 @@ class StockMasterServerSideController extends Controller
             ->groupBy('tx_pop.part_id')
             ->groupBy('tx_po.branch_id');
 
+            $subQueryStockTransfer = DB::table('tx_stock_transfer_parts AS tx_stockp')
+            ->leftJoin('tx_stock_transfers as tx_stock','tx_stockp.stock_transfer_id', '=', 'tx_stock.id')
+            ->select(DB::raw('tx_stockp.part_id, tx_stock.branch_to_id, SUM(tx_stockp.qty) as total_qty_stock_transfer'))
+            ->where('tx_stockp.active', 'Y')
+            ->whereNotNull('tx_stock.approved_by')
+            ->whereNull('tx_stock.received_by')
+            ->where('tx_stock.active', 'Y')
+            ->groupBy('tx_stockp.part_id')
+            ->groupBy('tx_stock.branch_to_id');
+
             $sql = DB::table('tx_qty_parts')
             ->leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
             ->leftJoin('mst_globals as mg_01', 'mst_parts.part_type_id', '=', 'mg_01.id')
@@ -176,6 +186,14 @@ class StockMasterServerSideController extends Controller
                     ->on('po_qty_summary.branch_id', '=', 'tx_qty_parts.branch_id');
                 }
             )
+            ->leftJoinSub(
+                $subQueryStockTransfer,
+                'stock_transfer_qty_summary',
+                function ($join) {
+                    $join->on('stock_transfer_qty_summary.part_id', '=', 'mst_parts.id')
+                    ->on('stock_transfer_qty_summary.branch_to_id', '=', 'tx_qty_parts.branch_id');
+                }
+            )
             ->select(
                 'mst_parts.id AS part_idx',
                 'mst_parts.slug',
@@ -197,103 +215,14 @@ class StockMasterServerSideController extends Controller
                 DB::raw('IFNULL(sj_qty_summary.total_qty_sj, 0) as qtySJ'),
                 DB::raw('IFNULL(memo_qty_summary.total_qty_memo, 0) as purchase_memo_qty'),
                 DB::raw('IFNULL(po_qty_summary.total_qty_po, 0) as purchase_order_qty'),
+                DB::raw('IFNULL(stock_transfer_qty_summary.total_qty_stock_transfer, 0) as in_transit_qty'),
             )
             ->selectRaw('
                 IF(LENGTH(mst_parts.part_number)<11,
                     CONCAT(MID(mst_parts.part_number, 1, 5), "-", MID(mst_parts.part_number, 6, 5)),'.
                 'CONCAT(MID(mst_parts.part_number, 1, 5), "-", MID(mst_parts.part_number, 6, 5), "-", MID(mst_parts.part_number, 11, LENGTH(mst_parts.part_number)))) AS part_number_wd')
             ->selectRaw('mst_parts.part_name as part_name_wd')
-            // // qty SO
-            //     ->addSelect([
-            //         'qtySO' => Tx_sales_order_part::selectRaw('IFNULL(SUM(tx_sales_order_parts.qty),0)')    // total qty dari SO yg aktif
-            //         ->whereIn('tx_sales_order_parts.order_id', function (Builder $q) {
-            //             $q->select('txso.id')
-            //             ->from('tx_sales_orders as txso')
-            //             ->whereNotIn('txso.id', function (Builder $q1) {    // belum memiliki faktur
-            //                 $q1->select('tx_do_parts.sales_order_id')
-            //                 ->from('tx_delivery_order_parts as tx_do_parts')
-            //                 ->leftJoin('tx_delivery_orders as tx_do', 'tx_do_parts.delivery_order_id', '=', 'tx_do.id')
-            //                 ->whereColumn('tx_do_parts.part_id', 'mst_parts.id')
-            //                 ->where('tx_do_parts.active', 'Y')
-            //                 ->where('tx_do.is_draft', 'N')
-            //                 ->where('tx_do.active', 'Y');
-            //             })
-            //             ->whereColumn('txso.branch_id', 'tx_qty_parts.branch_id')
-            //             ->where('txso.need_approval', 'N')
-            //             ->where('txso.is_draft', 'N')
-            //             ->where('txso.active', 'Y');
-            //         })
-            //         ->whereColumn('tx_sales_order_parts.part_id', 'mst_parts.id')
-            //         ->where('tx_sales_order_parts.active', '=','Y')
-            //     ])
-            // // qty SO
-
-            // // qty SJ
-            //     ->addSelect([
-            //         'qtySJ' => Tx_surat_jalan_part::selectRaw('IFNULL(SUM(tx_surat_jalan_parts.qty),0)')    // total qty dari SJ yg aktif
-            //         ->whereIn('tx_surat_jalan_parts.surat_jalan_id', function (Builder $q) {
-            //             $q->select('txsj.id')
-            //             ->from('tx_surat_jalans as txsj')
-            //             ->whereNotIn('txsj.id', function (Builder $q1) {    // belum memiliki nota penjualan
-            //                 $q1->select('tx_do_parts.sales_order_id')
-            //                 ->from('tx_delivery_order_non_tax_parts as tx_do_parts')
-            //                 ->leftJoin('tx_delivery_order_non_taxes as tx_do', 'tx_do_parts.delivery_order_id', '=', 'tx_do.id')
-            //                 ->whereColumn('tx_do_parts.part_id', 'mst_parts.id')
-            //                 ->where('tx_do_parts.active', 'Y')
-            //                 ->where('tx_do.is_draft', 'N')
-            //                 ->where('tx_do.active', 'Y');
-            //             })
-            //             ->whereColumn('txsj.branch_id', 'tx_qty_parts.branch_id')
-            //             ->where('txsj.need_approval', 'N')
-            //             ->where('txsj.is_draft', 'N')
-            //             ->where('txsj.active', 'Y');
-            //         })
-            //         ->whereColumn('tx_surat_jalan_parts.part_id', 'mst_parts.id')
-            //         ->where('tx_surat_jalan_parts.active', 'Y')
-            //     ])
-            // // qty SJ
-
-            // // --purchase memo
-            //     ->addSelect(['purchase_memo_qty' => Tx_purchase_memo_part::selectRaw('IFNULL(SUM(tx_purchase_memo_parts.qty),0)')    // total qty dari memo yg aktif
-            //         ->leftJoin('tx_purchase_memos as tx_memo', 'tx_purchase_memo_parts.memo_id', '=', 'tx_memo.id')
-            //         ->whereColumn('tx_purchase_memo_parts.part_id','mst_parts.id')
-            //         ->whereNotIn('tx_memo.memo_no', function(Builder $q){    // belum memiliki RO
-            //             $q->select('tx_ro_parts.po_mo_no')
-            //             ->from('tx_receipt_order_parts as tx_ro_parts')
-            //             ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-            //             ->whereColumn('tx_ro_parts.part_id', 'mst_parts.id')
-            //             ->where('tx_ro_parts.active', 'Y')
-            //             ->where('tx_ro.is_draft', 'N')
-            //             ->where('tx_ro.active', 'Y');
-            //         })
-            //         ->whereColumn('tx_memo.branch_id', 'tx_qty_parts.branch_id')
-            //         ->where('tx_purchase_memo_parts.active', 'Y')
-            //         ->where('tx_memo.is_draft', 'N')
-            //         ->where('tx_memo.active', 'Y')
-            //     ])
-            // // --purchase memo
-
-            // // --purchase order
-            //     ->addSelect(['purchase_order_qty' => Tx_purchase_order_part::selectRaw('IFNULL(SUM(tx_purchase_order_parts.qty),0)')  // total qty dari po yg aktif
-            //         ->leftJoin('tx_purchase_orders as tx_order', 'tx_purchase_order_parts.order_id', '=', 'tx_order.id')
-            //         ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
-            //         ->where('tx_purchase_order_parts.active', '=','Y')
-            //         ->whereNotIn('tx_order.purchase_no', function(Builder $q){    // belum memiliki RO
-            //             $q->select('tx_ro_parts.po_mo_no')
-            //             ->from('tx_receipt_order_parts as tx_ro_parts')
-            //             ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-            //             ->whereColumn('tx_ro_parts.part_id', 'mst_parts.id')
-            //             ->where('tx_ro_parts.active', 'Y')
-            //             ->where('tx_ro.is_draft', 'N')
-            //             ->where('tx_ro.active', 'Y');
-            //         })
-            //         ->whereRaw('tx_order.approved_by IS NOT NULL')
-            //         ->whereColumn('tx_order.branch_id', 'tx_qty_parts.branch_id')
-            //         ->where('tx_order.is_draft', '=','N')
-            //         ->where('tx_order.active', '=','Y')
-            //     ])
-            // // --purchase order
-
+            
             // --RO final cost
                 ->addSelect(['purchase_ro_final_cost' => Tx_receipt_order_part::select('tx_receipt_order_parts.final_cost')  // final cost
                     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_receipt_order_parts.receipt_order_id', '=', 'tx_ro.id')
@@ -309,17 +238,7 @@ class StockMasterServerSideController extends Controller
                     ->take(1)
                 ])
             // --RO final cost
-            // --in transit
-                ->addSelect(['in_transit_qty' => Tx_stock_transfer_part::selectRaw('IFNULL(SUM(tx_stock_transfer_parts.qty),0)')
-                    ->leftJoin('tx_stock_transfers as tx_stock', 'tx_stock_transfer_parts.stock_transfer_id', '=', 'tx_stock.id')
-                    ->whereColumn('tx_stock_transfer_parts.part_id', 'mst_parts.id')
-                    ->whereColumn('tx_stock.branch_to_id', 'tx_qty_parts.branch_id')
-                    ->where('tx_stock_transfer_parts.active', '=', 'Y')
-                    ->whereRaw('tx_stock.approved_by IS NOT NULL')
-                    ->whereRaw('tx_stock.received_by IS NULL')
-                    ->where('tx_stock.active', '=', 'Y')
-                ])
-            // --in transit
+            
             // --last_final_price
                 ->addSelect(['last_final_price' => DB::table('v_sales_all_parts')
                     ->selectRaw('IFNULL(price, 0) AS last_final_price')
@@ -329,6 +248,7 @@ class StockMasterServerSideController extends Controller
                     ->take(1)
                 ])
             // --last_final_price
+
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', $parameter[0].'%');
             })
