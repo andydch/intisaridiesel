@@ -39,9 +39,6 @@ class StockMasterServerSideController extends Controller
      */
     public function index(Request $request,$param=null)
     {
-        // ini_set('memory_limit', '512M');
-        // ini_set('max_execution_time', 1800);
-
         $queryBranch = Mst_branch::where('active', '=','Y')
         ->orderBy('name','ASC')
         ->get();
@@ -104,15 +101,15 @@ class StockMasterServerSideController extends Controller
             $subQueryMemo = DB::table('tx_purchase_memo_parts AS tx_mop')
             ->leftJoin('tx_purchase_memos as tx_mo', 'tx_mop.memo_id', '=', 'tx_mo.id')
             ->select(DB::raw('tx_mop.part_id, tx_mo.branch_id, SUM(tx_mop.qty) as total_qty_memo'))
-            ->whereNotExists(function(Builder $q){    // belum memiliki RO
-                $q->select('tx_ro_parts.po_mo_no')
-                ->from('tx_receipt_order_parts as tx_ro_parts')
-                ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-                ->whereColumn('tx_ro_parts.po_mo_no', 'tx_mo.memo_no')
-                ->where('tx_ro_parts.active', 'Y')
-                ->where('tx_ro.is_draft', 'N')
-                ->where('tx_ro.active', 'Y');
-            })
+            // ->whereNotExists(function(Builder $q){    // belum memiliki RO
+            //     $q->select('tx_ro_parts.po_mo_no')
+            //     ->from('tx_receipt_order_parts as tx_ro_parts')
+            //     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
+            //     ->whereColumn('tx_ro_parts.po_mo_no', 'tx_mo.memo_no')
+            //     ->where('tx_ro_parts.active', 'Y')
+            //     ->where('tx_ro.is_draft', 'N')
+            //     ->where('tx_ro.active', 'Y');
+            // })
             ->where('tx_mop.active', 'Y')
             ->where('tx_mo.is_draft', 'N')
             ->where('tx_mo.active', 'Y')
@@ -122,21 +119,30 @@ class StockMasterServerSideController extends Controller
             $subQueryPo = DB::table('tx_purchase_order_parts AS tx_pop')
             ->leftJoin('tx_purchase_orders as tx_po','tx_pop.order_id','=','tx_po.id')
             ->select(DB::raw('tx_pop.part_id, tx_po.branch_id, SUM(tx_pop.qty) as total_qty_po'))
-            ->whereNotExists(function(Builder $q){    // belum memiliki RO
-                $q->select('tx_ro_parts.po_mo_no')
-                ->from('tx_receipt_order_parts as tx_ro_parts')
-                ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-                ->whereColumn('tx_ro_parts.po_mo_no', 'tx_po.purchase_no')
-                ->where('tx_ro_parts.active', 'Y')
-                ->where('tx_ro.is_draft', 'N')
-                ->where('tx_ro.active', 'Y');
-            })
+            // ->whereNotExists(function(Builder $q){    // belum memiliki RO
+            //     $q->select('tx_ro_parts.po_mo_no')
+            //     ->from('tx_receipt_order_parts as tx_ro_parts')
+            //     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
+            //     ->whereColumn('tx_ro_parts.po_mo_no', 'tx_po.purchase_no')
+            //     ->where('tx_ro_parts.active', 'Y')
+            //     ->where('tx_ro.is_draft', 'N')
+            //     ->where('tx_ro.active', 'Y');
+            // })
             ->where('tx_pop.active', 'Y')
             ->whereRaw('tx_po.approved_by IS NOT NULL')
             ->where('tx_po.is_draft', 'N')
             ->where('tx_po.active', 'Y')
             ->groupBy('tx_pop.part_id')
             ->groupBy('tx_po.branch_id');
+
+            $subQueryRo = DB::table('tx_receipt_order_parts AS tx_ro_parts')
+            ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
+            ->select(DB::raw('tx_ro_parts.part_id, tx_ro.branch_id, SUM(tx_ro_parts.qty) as total_qty_ro'))
+            ->where('tx_ro_parts.active', 'Y')
+            ->where('tx_ro.is_draft', 'N')
+            ->where('tx_ro.active', 'Y')
+            ->groupBy('tx_ro_parts.part_id')
+            ->groupBy('tx_ro.branch_id');
 
             $subQueryStockTransfer = DB::table('tx_stock_transfer_parts AS tx_stockp')
             ->leftJoin('tx_stock_transfers as tx_stock','tx_stockp.stock_transfer_id', '=', 'tx_stock.id')
@@ -187,6 +193,14 @@ class StockMasterServerSideController extends Controller
                 }
             )
             ->leftJoinSub(
+                $subQueryRo,
+                'ro_qty_summary',
+                function ($join) {
+                    $join->on('ro_qty_summary.part_id', '=', 'mst_parts.id')
+                    ->on('ro_qty_summary.branch_id', '=', 'tx_qty_parts.branch_id');
+                }
+            )
+            ->leftJoinSub(
                 $subQueryStockTransfer,
                 'stock_transfer_qty_summary',
                 function ($join) {
@@ -215,6 +229,7 @@ class StockMasterServerSideController extends Controller
                 DB::raw('IFNULL(sj_qty_summary.total_qty_sj, 0) as qtySJ'),
                 DB::raw('IFNULL(memo_qty_summary.total_qty_memo, 0) as purchase_memo_qty'),
                 DB::raw('IFNULL(po_qty_summary.total_qty_po, 0) as purchase_order_qty'),
+                DB::raw('IFNULL(ro_qty_summary.total_qty_ro, 0) as purchase_ro_qty'),
                 DB::raw('IFNULL(stock_transfer_qty_summary.total_qty_stock_transfer, 0) as in_transit_qty'),
             )
             ->selectRaw('
@@ -308,7 +323,9 @@ class StockMasterServerSideController extends Controller
             })
             ->addColumn('OOqty', function ($sql) {
                 // on order
-                $oo = ($sql->purchase_memo_qty>0 ? $sql->purchase_memo_qty : 0) + ($sql->purchase_order_qty>0 ? $sql->purchase_order_qty : 0);
+                $oo = ($sql->purchase_memo_qty>0 ? $sql->purchase_memo_qty : 0) 
+                    + ($sql->purchase_order_qty>0 ? $sql->purchase_order_qty : 0)
+                    - ($sql->purchase_ro_qty>0 ? $sql->purchase_ro_qty : 0);
                 if($oo>0){
                     return '<a href="#" onclick="dispOnOrderInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$oo.'</a>';
                 }else{
