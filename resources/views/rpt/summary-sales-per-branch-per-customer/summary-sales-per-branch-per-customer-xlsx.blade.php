@@ -141,7 +141,16 @@
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                                 ->where('v_retur.branch_id', $branch->id)
-                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v_retur.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v_retur.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v_retur.tax_code', 'N');
+                                })
                             ])
                             ->addSelect([
                                 'total_after_vat_retur' => DB::table('v_nota_retur_all AS v_retur')
@@ -150,7 +159,16 @@
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                                 ->where('v_retur.branch_id', $branch->id)
-                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v_retur.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v_retur.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v_retur.tax_code', 'N');
+                                })
                             ])
                             ->addSelect([
                                 'total_avg_retur' => DB::table('v_nota_retur_all AS v_retur')
@@ -159,24 +177,51 @@
                                 ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                                 ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                                 ->where('v_retur.branch_id', $branch->id)
-                                // ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->whereRaw('v_retur.approved_by IS NOT NULL')
+                                ->when(strtoupper($lokal_input)=='A', function($q){
+                                    $q->whereIn('v_retur.tax_code', ['P', 'N']);
+                                })
+                                ->when(strtoupper($lokal_input)=='P', function($q){
+                                    $q->where('v_retur.tax_code', 'P');
+                                })
+                                ->when(strtoupper($lokal_input)=='N', function($q){
+                                    $q->where('v_retur.tax_code', 'N');
+                                })
                             ])
-                            ->where(function($q) use($branch, $dt_s, $dt_e){
-                                $q->whereExists(function($q1) use($branch, $dt_s, $dt_e){
+                            ->where(function($q) use($branch, $dt_s, $dt_e, $lokal_input){
+                                $q->whereExists(function($q1) use($branch, $dt_s, $dt_e, $lokal_input){
                                     $q1->select(DB::raw(1))
                                     ->from('v_sales_all AS v')
                                     ->whereColumn('v.customer_id', 'c.id')
                                     ->where('v.branch_id', $branch->id)
                                     ->whereRaw('v.sales_order_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                    ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'');
+                                    ->whereRaw('v.sales_order_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    ->when(strtoupper($lokal_input)=='A', function($q){
+                                        $q->whereIn('v.tax_code', ['P', 'N']);
+                                    })
+                                    ->when(strtoupper($lokal_input)=='P', function($q){
+                                        $q->where('v.tax_code', 'P');
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q){
+                                        $q->where('v.tax_code', 'N');
+                                    });
                                 })
-                                ->orWhereExists(function($q1) use($branch, $dt_s, $dt_e){
+                                ->orWhereExists(function($q1) use($branch, $dt_s, $dt_e, $lokal_input){
                                     $q1->select(DB::raw(1))
                                     ->from('v_nota_retur_all AS v_retur')
                                     ->whereColumn('v_retur.customer_id', 'c.id')
                                     ->where('v_retur.branch_id', $branch->id)
                                     ->whereRaw('v_retur.nota_retur_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
-                                    ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'');
+                                    ->whereRaw('v_retur.nota_retur_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
+                                    ->when(strtoupper($lokal_input)=='A', function($q){
+                                        $q->whereIn('v_retur.tax_code', ['P', 'N']);
+                                    })
+                                    ->when(strtoupper($lokal_input)=='P', function($q){
+                                        $q->where('v_retur.tax_code', 'P');
+                                    })
+                                    ->when(strtoupper($lokal_input)=='N', function($q){
+                                        $q->where('v_retur.tax_code', 'N');
+                                    });
                                 });
                             })
                             ->where('c.active', 'Y')
