@@ -24,12 +24,12 @@ use App\Rules\ApprovalCheckingPO;
 use App\Rules\NumericCustom;
 use App\Rules\PQnumUnique;
 use App\Rules\ValidateQtyPOupd_Rule;
+use App\Rules\VatCheckingPO;
 use Exception;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -326,12 +326,15 @@ class OrderServerSideController extends Controller
      */
     public function create()
     {
-        ini_set('memory_limit', '128M');
-        ini_set('max_execution_time', 1800);
-
         $qCurrency = Mst_global::where([
             'id' => 3,
             'data_cat' => 'currency',
+            'active' => 'Y'
+        ])
+        ->first();
+
+        $qVat = Mst_global::where([
+            'data_cat' => 'vat',
             'active' => 'Y'
         ])
         ->first();
@@ -405,6 +408,7 @@ class OrderServerSideController extends Controller
             'totalRow' => (old('totalRow') ? old('totalRow') : 0),
             'userLogin' => $userLogin,
             'qCurrency' => $qCurrency,
+            'qVat' => $qVat,
             'couriers' => $couriers
         ];
 
@@ -858,12 +862,15 @@ class OrderServerSideController extends Controller
      */
     public function edit($id)
     {
-        ini_set('memory_limit', '128M');
-        ini_set('max_execution_time', 1800);
-
         $qCurrency = Mst_global::where([
             'id' => 3,
             'data_cat' => 'currency',
+            'active' => 'Y'
+        ])
+        ->first();
+
+        $qVat = Mst_global::where([
+            'data_cat' => 'vat',
             'active' => 'Y'
         ])
         ->first();
@@ -957,6 +964,7 @@ class OrderServerSideController extends Controller
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryOrderPartCount),
                 'userLogin' => $userLogin,
                 'qCurrency' => $qCurrency,
+                'qVat' => $qVat,
                 'couriers' => $couriers
             ];
 
@@ -998,7 +1006,7 @@ class OrderServerSideController extends Controller
             'currency_id' => 'required|numeric',
             'est_supply_date' => 'nullable',
             'quotation_id' => ['nullable', new PQnumUnique($id)],
-            'order_no' => [new ApprovalCheckingPO],
+            'order_no' => [new ApprovalCheckingPO, new VatCheckingPO($request->vat)],
             'courier_id' => 'required_if:courier_type,3',
         ];
         $errMsg = [
@@ -1014,7 +1022,6 @@ class OrderServerSideController extends Controller
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric',
                         'qty'.$i => ['required', 'numeric', 'min:0', new ValidateQtyPOupd_Rule($id, $request['order_part_id_'.$i], $request['part_id'.$i])],
-                        // 'qty'.$i => ['required', 'numeric', new ValidateQtyPOupd_Rule($id,$request['order_part_id_'.$i],$request['part_id'.$i])],
                         'price_part'.$i => ['required',new NumericCustom('Price')],
                     ];
                     $errShipmentMsg = [

@@ -244,7 +244,11 @@
                                             @endphp
                                         @endif
                                     @endif
-                                    <input class="form-check-input" type="checkbox" id="vat" name="vat" aria-label="VAT" @if($vat=='Y' ){{ 'checked' }}@endif>
+                                    <input class="form-check-input @error('vat') is-invalid @enderror" type="checkbox" id="vat" name="vat" onclick="calcGrandTotal();" 
+                                        aria-label="VAT" @if($vat=='Y'){{ 'checked' }}@endif>
+                                    @error('vat')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -295,6 +299,8 @@
                                 <tbody id="new-row">
                                     @php
                                         $iRowPart = 1;
+                                        $vatVal = old('vat') == 'on' ? $qVat->numeric_val : ($orders->is_vat=='Y' ? $orders->vat_val : 0);
+                                        $totalAmount = 0;
                                     @endphp
                                     @if(old('totalRow'))
                                         @for ($i = 0; $i < $totRow; $i++)
@@ -466,6 +472,7 @@
                                                                 $price_part = old('price_part'.$i);
                                                                 if (is_numeric(str_replace(",", "", $qty)) && is_numeric(str_replace(",", "", $price_part))) {
                                                                     $totalPrice = $qty * str_replace(",", "", $price_part);
+                                                                    $totalAmount += $totalPrice;
                                                                 }
                                                             @endphp
                                                         @endif
@@ -680,6 +687,7 @@
                                                         $totalPrice = 0;
                                                         if (is_numeric(str_replace(",", "", $qty)) && is_numeric(str_replace(",", "", $price_part))) {
                                                             $totalPrice = $qty * str_replace(",", "", $price_part);
+                                                            $totalAmount += $totalPrice;
                                                         }
                                                     @endphp
                                                     <label id="total-price-{{ $i }}" for="" class="col-form-label">{{ number_format($totalPrice,($orders->supplier_type_id==10?2:0),'.',',') }}</label>
@@ -723,7 +731,40 @@
                                             @endphp
                                         @endforeach
                                     @endif
+                                    @php
+                                        $vatAmount = $totalAmount * $vatVal / 100;
+                                        $grandTotalAmount = $totalAmount + $vatAmount;
+                                    @endphp
                                 </tbody>
+                                <tfoot>
+                                    <tr id="rowTotal">
+                                        <td colspan="5" style="text-align: right;">
+                                            <label for="" name="lblTotal" id="lblTotal" class="col-form-label">Total</label>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <label for="" name="lblTotalAmount" id="lblTotalAmount" class="col-form-label">{{ number_format($totalAmount,0,'.',',') }}</label>
+                                        </td>
+                                        <td colspan="5">&nbsp;</td>
+                                    </tr>
+                                    <tr id="rowVat">
+                                        <td colspan="5" style="text-align: right;">
+                                            <label for="" name="lblVat" id="lblVat" class="col-form-label">VAT</label>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <label for="" name="lblVatAmount" id="lblVatAmount" class="col-form-label">{{ number_format($vatAmount,0,'.',',') }}</label>
+                                        </td>
+                                        <td colspan="5">&nbsp;</td>
+                                    </tr>
+                                    <tr id="rowGrandTotal">
+                                        <td colspan="5" style="text-align: right;">
+                                            <label for="" name="lblGrandTotal" id="lblGrandTotal" class="col-form-label">Grand Total</label>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <label for="" name="lblGrandTotalAmount" id="lblGrandTotalAmount" class="col-form-label">{{ number_format($grandTotalAmount,0,'.',',') }}</label>
+                                        </td>
+                                        <td colspan="5">&nbsp;</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                             <div class="input-group">
                                 <input type="button" id="btn-add-row" class="btn btn-primary px-5" style="margin-top: 15px;" value="Add Row">
@@ -777,6 +818,32 @@
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 <script src="{{ asset('assets/js/my-custom.js') }}"></script>
 <script>
+    function calcGrandTotal(){
+        let totalAmount = 0;
+        let vatAmount = 0;
+        if ($('#vat').prop('checked')) {
+            vatAmount = {{ $qVat->numeric_val }};
+        } else {
+            vatAmount = 0;
+        }
+
+        for(let iRow=0;iRow<$("#totalRow").val();iRow++){
+            if ($("price_part"+iRow)) {
+                let qty = parseInt($("#qty"+iRow).val());
+                let price = parseFloat($("#price_part"+iRow).val().replaceAll(',',''));
+                if(!isNaN(qty) && !isNaN(price)){
+                    let total = qty*price;
+                    totalAmount += total;
+                }
+            }
+        }
+
+        let vatAmountVal = (totalAmount * vatAmount)/100;
+        $("#lblTotalAmount").text(totalAmount.numberFormat(0,'.',','));
+        $("#lblVatAmount").text(vatAmountVal.numberFormat(0,'.',','));
+        $("#lblGrandTotalAmount").text((totalAmount + vatAmountVal).numberFormat(0,'.',','));
+    }
+
     function dispPriceRef(part_id, idx){
         if($("#branch_id").val()==='#'){
             alert('Please select a valid branch');
@@ -819,6 +886,8 @@
             let total = qty*price;
             $("#total-price-"+idx).text(total.numberFormat(0,'.',','));
         }
+
+        calcGrandTotal();
     }
 
     function formatPartPrice(idx){
