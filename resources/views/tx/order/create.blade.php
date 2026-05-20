@@ -498,9 +498,9 @@
         }
 
         for(let iRow=0;iRow<$("#totalRow").val();iRow++){
-            if ($("price_part"+iRow)) {
+            if ($("#price_part"+iRow)) {
                 let qty = parseInt($("#qty"+iRow).val());
-                let price = parseFloat($("#price_part"+iRow).val().replaceAll(',',''));
+                let price = parseFloat($("#price_part"+iRow).val()?.replaceAll(',','') || 0);
                 if(!isNaN(qty) && !isNaN(price)){
                     let total = qty*price;
                     totalAmount += total;
@@ -764,6 +764,8 @@
                     $("#row"+i).remove();
                 }
             }
+
+            calcGrandTotal();
 
             // reset penomoran
             let j = 1;
