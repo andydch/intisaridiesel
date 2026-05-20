@@ -168,6 +168,9 @@
                                     @enderror
                                 </div>
                             </div>
+                            @php
+                                $branchId = (old('branch_id')?old('branch_id'):$orders->branch_id);
+                            @endphp
                             @if($userLogin->is_director=='Y')
                                 <input type="hidden" name="is_director" id="is_director" value="Y">
                                 <div class="row mb-3">
@@ -175,9 +178,6 @@
                                     <div class="col-sm-9">
                                         <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id">
                                             <option value="#">Choose...</option>
-                                            @php
-                                                $branchId = (old('branch_id')?old('branch_id'):$orders->branch_id);
-                                            @endphp
                                             @foreach ($branches as $b)
                                                 <option @if($branchId==$b->id){{ 'selected' }}@endif value="{{ $b->id }}">{{ $b->name }}</option>
                                             @endforeach
@@ -189,7 +189,7 @@
                                 </div>
                             @else
                                 <input type="hidden" name="is_director" id="is_director" value="N">
-                                <input type="hidden" name="branch_id" id="branch_id" value="{{ $userLogin->branch_id }}">
+                                <input type="hidden" name="branch_id" id="branch_id" value="{{ $branchId }}">
                             @endif
                             <div class="row mb-3">
                                 <label for="courier_id" class="col-sm-3 col-form-label">Ship By</label>
@@ -345,27 +345,24 @@
                                                         )
                                                         ->addSelect(['purchase_memo_qty' => \App\Models\Tx_purchase_memo_part::selectRaw('IFNULL(SUM(qty),0)')    // total qty dari memo yg aktif
                                                             ->leftJoin('tx_purchase_memos as tx_memo','tx_purchase_memo_parts.memo_id','=','tx_memo.id')
-                                                            ->leftJoin('userdetails as usr','tx_memo.created_by','=','usr.user_id')
                                                             ->whereColumn('tx_purchase_memo_parts.part_id','mst_parts.id')
-                                                            ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                            ->whereColumn('tx_memo.branch_id','tx_qty_parts.branch_id')
                                                             ->where('tx_purchase_memo_parts.active','=','Y')
                                                             ->where('tx_memo.memo_no','NOT LIKE','%Draft%')
                                                             ->where('tx_memo.active','=','Y')
                                                         ])
                                                         ->addSelect(['purchase_order_qty' => \App\Models\Tx_purchase_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari po yg aktif
                                                             ->leftJoin('tx_purchase_orders as tx_order','tx_purchase_order_parts.order_id','=','tx_order.id')
-                                                            ->leftJoin('userdetails as usr','tx_order.created_by','=','usr.user_id')
                                                             ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
-                                                            ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                            ->whereColumn('tx_order.branch_id','tx_qty_parts.branch_id')
                                                             ->where('tx_purchase_order_parts.active','=','Y')
                                                             ->where('tx_order.approved_by','<>',null)
                                                             ->where('tx_order.active','=','Y')
                                                         ])
                                                         ->addSelect(['purchase_ro_qty' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO yg approved
                                                             ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                            ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
                                                             ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                            ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                            ->whereColumn('tx_ro.branch_id','tx_qty_parts.branch_id')
                                                             ->where('tx_receipt_order_parts.is_partial_received','=','Y')
                                                             ->where('tx_receipt_order_parts.active','=','Y')
                                                             ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
@@ -373,9 +370,8 @@
                                                         ])
                                                         ->addSelect(['purchase_ro_qty_no_partial' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO dg is_partial_received=N
                                                             ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                            ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
                                                             ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                            ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                            ->whereColumn('tx_ro.branch_id','tx_qty_parts.branch_id')
                                                             ->where('tx_receipt_order_parts.is_partial_received','=','N')
                                                             ->where('tx_receipt_order_parts.active','=','Y')
                                                             ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
@@ -383,7 +379,7 @@
                                                         ])
                                                         ->where([
                                                             'mst_parts.id' => old('part_id'.$i),
-                                                            'tx_qty_parts.branch_id' => $userLogin->branch_id
+                                                            'tx_qty_parts.branch_id' => $branchId
                                                         ])
                                                         ->first();
                                                     @endphp
@@ -566,27 +562,24 @@
                                                     )
                                                     ->addSelect(['purchase_memo_qty' => \App\Models\Tx_purchase_memo_part::selectRaw('IFNULL(SUM(qty),0)')    // total qty dari memo yg aktif
                                                         ->leftJoin('tx_purchase_memos as tx_memo','tx_purchase_memo_parts.memo_id','=','tx_memo.id')
-                                                        ->leftJoin('userdetails as usr','tx_memo.created_by','=','usr.user_id')
                                                         ->whereColumn('tx_purchase_memo_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                        ->whereColumn('tx_memo.branch_id','tx_qty_parts.branch_id')
                                                         ->where('tx_purchase_memo_parts.active','=','Y')
                                                         ->where('tx_memo.memo_no','NOT LIKE','%Draft%')
                                                         ->where('tx_memo.active','=','Y')
                                                     ])
                                                     ->addSelect(['purchase_order_qty' => \App\Models\Tx_purchase_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari po yg aktif
                                                         ->leftJoin('tx_purchase_orders as tx_order','tx_purchase_order_parts.order_id','=','tx_order.id')
-                                                        ->leftJoin('userdetails as usr','tx_order.created_by','=','usr.user_id')
                                                         ->whereColumn('tx_purchase_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                        ->whereColumn('tx_order.branch_id','tx_qty_parts.branch_id')
                                                         ->where('tx_purchase_order_parts.active','=','Y')
                                                         ->where('tx_order.approved_by','<>',null)
                                                         ->where('tx_order.active','=','Y')
                                                     ])
                                                     ->addSelect(['purchase_ro_qty' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO yg approved
                                                         ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                        ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
                                                         ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                        ->whereColumn('tx_ro.branch_id','tx_qty_parts.branch_id')
                                                         ->where('tx_receipt_order_parts.is_partial_received','=','Y')
                                                         ->where('tx_receipt_order_parts.active','=','Y')
                                                         ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
@@ -594,9 +587,8 @@
                                                     ])
                                                     ->addSelect(['purchase_ro_qty_no_partial' => \App\Models\Tx_receipt_order_part::selectRaw('IFNULL(SUM(qty),0)')  // total qty dari RO dg is_partial_received=N
                                                         ->leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                                                        ->leftJoin('userdetails as usr','tx_ro.created_by','=','usr.user_id')
                                                         ->whereColumn('tx_receipt_order_parts.part_id','mst_parts.id')
-                                                        ->whereColumn('usr.branch_id','tx_qty_parts.branch_id')
+                                                        ->whereColumn('tx_ro.branch_id','tx_qty_parts.branch_id')
                                                         ->where('tx_receipt_order_parts.is_partial_received','=','N')
                                                         ->where('tx_receipt_order_parts.active','=','Y')
                                                         ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
@@ -604,7 +596,7 @@
                                                     ])
                                                     ->where([
                                                         'mst_parts.id' => $mp->part_id,
-                                                        'tx_qty_parts.branch_id' => $userLogin->branch_id
+                                                        'tx_qty_parts.branch_id' => $branchId
                                                     ])
                                                     ->first();
                                                 @endphp
