@@ -64,8 +64,11 @@ class StockMasterServerSideController extends Controller
             ->leftJoin('tx_sales_orders as txso', 'txsop.order_id', '=', 'txso.id')
             ->select(DB::raw('txsop.part_id, txso.branch_id, SUM(txsop.qty) as total_qty_so'))
             ->where('txsop.active', 'Y')
+            ->where('txso.need_approval', 'N')
+            ->where('txso.is_draft', 'N')
+            ->where('txso.active', 'Y')
             ->whereNotExists(function (Builder $q1) {
-                $q1->select('tx_do_parts.sales_order_id')
+                $q1->selectRaw(1)
                 ->from('tx_delivery_order_parts as tx_do_parts')
                 ->leftJoin('tx_delivery_orders as tx_do', 'tx_do_parts.delivery_order_id', '=', 'tx_do.id')
                 ->whereColumn('tx_do_parts.sales_order_id', 'txso.id')
@@ -73,9 +76,6 @@ class StockMasterServerSideController extends Controller
                 ->where('tx_do.is_draft', 'N')
                 ->where('tx_do.active', 'Y');
             })
-            ->where('txso.need_approval', 'N')
-            ->where('txso.is_draft', 'N')
-            ->where('txso.active', 'Y')
             ->groupBy('txsop.part_id')
             ->groupBy('txso.branch_id');
 
@@ -83,8 +83,11 @@ class StockMasterServerSideController extends Controller
             ->leftJoin('tx_surat_jalans as txsj', 'txsjp.surat_jalan_id', '=', 'txsj.id')
             ->select(DB::raw('txsjp.part_id, txsj.branch_id, SUM(txsjp.qty) as total_qty_sj'))
             ->where('txsj.active', 'Y')
+            ->where('txsj.need_approval', 'N')
+            ->where('txsj.is_draft', 'N')
+            ->where('txsj.active', 'Y')
             ->whereNotExists(function (Builder $q1) {
-                $q1->select('tx_do_parts.sales_order_id')
+                $q1->selectRaw(1)
                 ->from('tx_delivery_order_non_tax_parts as tx_do_parts')
                 ->leftJoin('tx_delivery_order_non_taxes as tx_do', 'tx_do_parts.delivery_order_id', '=', 'tx_do.id')
                 ->whereColumn('tx_do_parts.sales_order_id', 'txsj.id')
@@ -92,24 +95,12 @@ class StockMasterServerSideController extends Controller
                 ->where('tx_do.is_draft', 'N')
                 ->where('tx_do.active', 'Y');
             })
-            ->where('txsj.need_approval', 'N')
-            ->where('txsj.is_draft', 'N')
-            ->where('txsj.active', 'Y')
             ->groupBy('txsjp.part_id')
             ->groupBy('txsj.branch_id');
 
             $subQueryMemo = DB::table('tx_purchase_memo_parts AS tx_mop')
             ->leftJoin('tx_purchase_memos as tx_mo', 'tx_mop.memo_id', '=', 'tx_mo.id')
             ->select(DB::raw('tx_mop.part_id, tx_mo.branch_id, SUM(tx_mop.qty) as total_qty_memo'))
-            // ->whereNotExists(function(Builder $q){    // belum memiliki RO
-            //     $q->select('tx_ro_parts.po_mo_no')
-            //     ->from('tx_receipt_order_parts as tx_ro_parts')
-            //     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-            //     ->whereColumn('tx_ro_parts.po_mo_no', 'tx_mo.memo_no')
-            //     ->where('tx_ro_parts.active', 'Y')
-            //     ->where('tx_ro.is_draft', 'N')
-            //     ->where('tx_ro.active', 'Y');
-            // })
             ->where('tx_mop.active', 'Y')
             ->where('tx_mo.is_draft', 'N')
             ->where('tx_mo.active', 'Y')
@@ -119,15 +110,6 @@ class StockMasterServerSideController extends Controller
             $subQueryPo = DB::table('tx_purchase_order_parts AS tx_pop')
             ->leftJoin('tx_purchase_orders as tx_po','tx_pop.order_id','=','tx_po.id')
             ->select(DB::raw('tx_pop.part_id, tx_po.branch_id, SUM(tx_pop.qty) as total_qty_po'))
-            // ->whereNotExists(function(Builder $q){    // belum memiliki RO
-            //     $q->select('tx_ro_parts.po_mo_no')
-            //     ->from('tx_receipt_order_parts as tx_ro_parts')
-            //     ->leftJoin('tx_receipt_orders as tx_ro', 'tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-            //     ->whereColumn('tx_ro_parts.po_mo_no', 'tx_po.purchase_no')
-            //     ->where('tx_ro_parts.active', 'Y')
-            //     ->where('tx_ro.is_draft', 'N')
-            //     ->where('tx_ro.active', 'Y');
-            // })
             ->where('tx_pop.active', 'Y')
             ->whereRaw('tx_po.approved_by IS NOT NULL')
             ->where('tx_po.is_draft', 'N')
@@ -249,7 +231,7 @@ class StockMasterServerSideController extends Controller
                     ->where('tx_ro.is_draft', '=', 'N')
                     ->where('tx_ro.active', '=', 'Y')
                     ->orderBy('tx_ro.created_at','DESC')
-                    ->orderBy('tx_receipt_order_parts.created_at', 'DESC')
+                    // ->orderBy('tx_receipt_order_parts.created_at', 'DESC')
                     ->take(1)
                 ])
             // --RO final cost
