@@ -249,13 +249,28 @@ class StockMasterServerSideController extends Controller
                 return ($qRO_final_cost->first()->final_cost ?? 0);
             })
             ->addColumn('last_final_price_val', function ($sql) {
-                $qLastFinalPrice = DB::table('v_sales_all_parts')
-                    ->selectRaw('IFNULL(price, 0) AS last_final_price')
-                    ->where('part_id', $sql->part_idx)
-                    ->where('branch_id', $sql->branch_id)
-                    ->orderBy('created_at', 'DESC')
-                    ->take(1);
-                return ($qLastFinalPrice->first()->last_final_price ?? 0);
+                // 1. Query untuk mengambil data dari Sales Order (Sudah difilter per ID & Cabang)
+                $salesOrderQuery = DB::table('tx_sales_order_parts AS tx_sop')
+                    ->join('tx_sales_orders AS tx_so', 'tx_sop.order_id', '=', 'tx_so.id')
+                    ->where('tx_sop.part_id', $sql->part_idx)
+                    ->where('tx_so.branch_id', $sql->branch_id)
+                    ->where('tx_sop.active', 'Y')
+                    ->where('tx_so.active', 'Y')
+                    ->select('tx_sop.price AS price', 'tx_sop.updated_at AS created_at');
+
+                // 2. Query dari Surat Jalan, lalu UNION ALL dengan Sales Order, lalu urutkan yang terbaru
+                $latestPrice = DB::table('tx_surat_jalan_parts AS tx_sjp')
+                    ->join('tx_surat_jalans AS tx_sj', 'tx_sjp.surat_jalan_id', '=', 'tx_sj.id')
+                    ->where('tx_sjp.part_id', $sql->part_idx)
+                    ->where('tx_sj.branch_id', $sql->branch_id)
+                    ->where('tx_sjp.active', 'Y')
+                    ->where('tx_sj.active', 'Y')
+                    ->select('tx_sjp.price AS price', 'tx_sjp.updated_at AS created_at')
+                    ->unionAll($salesOrderQuery) // Gabungkan di sini
+                    ->orderBy('created_at', 'DESC') // Sort hasil gabungan yang sudah sedikit
+                    ->first(); // Mengambil 1 data teratas (LIMIT 1)
+
+                return $latestPrice ? ($latestPrice->price ?? 0) : 0;
             })
             ->addColumn('action', function ($sql) {
                 $txt = '<a style="text-decoration: underline;" href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/stock-master-part/'.urlencode($sql->slug)).'?br_id='.$sql->branch_id_tmp.'">View</a> |
