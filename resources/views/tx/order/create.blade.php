@@ -147,6 +147,9 @@
                                     @enderror
                                 </div>
                             </div>
+                            @php
+                                $branchId = (old('branch_id')?old('branch_id'):0);
+                            @endphp
                             @if($userLogin->is_director=='Y')
                                 <input type="hidden" name="is_director" id="is_director" value="Y">
                                 <div class="row mb-3">
@@ -154,9 +157,6 @@
                                     <div class="col-sm-9">
                                         <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id">
                                             <option value="#">Choose...</option>
-                                            @php
-                                                $branchId = (old('branch_id')?old('branch_id'):0);
-                                            @endphp
                                             @foreach ($branches as $b)
                                                 <option @if($branchId==$b->id){{ 'selected' }}@endif value="{{ $b->id }}">{{ $b->name }}</option>
                                             @endforeach
