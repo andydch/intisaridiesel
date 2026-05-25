@@ -4,7 +4,7 @@ namespace App\Http\Controllers\tx;
 
 use Exception;
 use App\Models\Auto_inc;
-use App\Models\Mst_part;
+// use App\Models\Mst_part;
 use App\Models\Mst_global;
 use App\Models\Userdetail;
 use App\Models\Mst_courier;
@@ -171,11 +171,11 @@ class PurchaseReturServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $couriers = Mst_courier::where([
             'active' => 'Y'
@@ -219,7 +219,7 @@ class PurchaseReturServerSideController extends Controller
             'title' => $this->title,
             'folder' => $this->folder,
             'querySupplier' => $querySupplier,
-            'parts' => $parts,
+            // 'parts' => $parts,
             'couriers' => $couriers,
             'totalRow' => (old('totalRow') ? old('totalRow') : 0),
             'invoice_no' => $invoice_no,
@@ -268,13 +268,14 @@ class PurchaseReturServerSideController extends Controller
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
-                        'qty_retur'.$i => ['required', 'numeric', 'lte:qty'.$i, new CheckOHforPurchaseRetur($request['part_id'.$i], $qReceiptOrderTmp->branch_id)],
+                        'qty_retur'.$i => ['required', 'numeric', 'lte:qty'.$i, 'min:0', new CheckOHforPurchaseRetur($request['part_id'.$i], $qReceiptOrderTmp->branch_id)],
                         // 'qty_retur'.$i => 'required|numeric|lte:qty'.$i,
                     ];
                     $errShipmentMsg = [
                         'qty_retur'.$i.'.required' => 'The qty retur field is required',
                         'qty_retur'.$i.'.numeric' => 'The qty retur field must be numeric',
                         'qty_retur'.$i.'.lte' => 'The qty retur field must be less than qty field',
+                        'qty_retur'.$i.'.min' => 'The qty retur field must be at least 0',
                     ];
                     $validateInput = array_merge($validateInput, $validateShipmentInput);
                     $errMsg = array_merge($errMsg, $errShipmentMsg);
@@ -431,7 +432,7 @@ class PurchaseReturServerSideController extends Controller
 
             if ($isThereSomePart<1){
                 DB::rollback();
-                
+
                 return redirect()
                 ->back()
                 ->withInput()
@@ -506,11 +507,11 @@ class PurchaseReturServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $couriers = Mst_courier::where([
             'active' => 'Y'
@@ -565,7 +566,7 @@ class PurchaseReturServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'querySupplier' => $querySupplier,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'couriers' => $couriers,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryPartCount),
                 'invoice_no' => $invoice_no,
@@ -605,11 +606,11 @@ class PurchaseReturServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $couriers = Mst_courier::where([
             'active' => 'Y'
@@ -693,7 +694,7 @@ class PurchaseReturServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'querySupplier' => $querySupplier,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'couriers' => $couriers,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryPartCount),
                 'invoice_no' => $invoice_no,
@@ -762,13 +763,14 @@ class PurchaseReturServerSideController extends Controller
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['part_id'.$i]) {
                     $validateShipmentInput = [
-                        'qty_retur'.$i => ['required', 'numeric', 'lte:qty'.$i, new CheckOHforPurchaseRetur($request['part_id'.$i], $qReceiptOrderTmp->branch_id)],
+                        'qty_retur'.$i => ['required', 'numeric', 'lte:qty'.$i, 'min:0', new CheckOHforPurchaseRetur($request['part_id'.$i], $qReceiptOrderTmp->branch_id)],
                         // 'qty_retur'.$i => 'required|numeric|lte:qty'.$i,
                     ];
                     $errShipmentMsg = [
                         'qty_retur'.$i.'.required' => 'The qty retur field is required',
                         'qty_retur'.$i.'.numeric' => 'The qty retur field must be numeric',
                         'qty_retur'.$i.'.lte' => 'The qty retur field must be less than qty field',
+                        'qty_retur'.$i.'.min' => 'The qty retur field must be at least 0',
                     ];
                     $validateInput = array_merge($validateInput, $validateShipmentInput);
                     $errMsg = array_merge($errMsg, $errShipmentMsg);
@@ -940,7 +942,7 @@ class PurchaseReturServerSideController extends Controller
 
             if ($isThereSomePart<1){
                 DB::rollback();
-
+                
                 return redirect()
                 ->back()
                 ->withInput()
