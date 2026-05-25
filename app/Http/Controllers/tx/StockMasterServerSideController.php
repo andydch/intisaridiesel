@@ -61,11 +61,29 @@ class StockMasterServerSideController extends Controller
         }
         if ($request->ajax()) {
             $sql = DB::table('tx_qty_parts')
-            ->leftJoin('mst_parts', 'tx_qty_parts.part_id', '=', 'mst_parts.id')
-            ->leftJoin('mst_globals as mg_01', 'mst_parts.part_type_id', '=', 'mg_01.id')
-            ->leftJoin('mst_globals as mg_02', 'mst_parts.quantity_type_id', '=', 'mg_02.id')
-            ->leftJoin('mst_globals as mg_03', 'mst_parts.brand_id', '=', 'mg_03.id')
-            ->leftJoin('mst_branches as mb', 'tx_qty_parts.branch_id', '=', 'mb.id')
+            ->join('mst_parts', function($join){
+                $join->on('tx_qty_parts.part_id', '=', 'mst_parts.id')
+                ->where('mst_parts.active', '=', 'Y');
+            })
+            ->leftJoin('mst_globals as mg_01', function($join){
+                $join->on('mst_parts.part_type_id', '=', 'mg_01.id')
+                ->where('mg_01.data_cat', '=', 'part-type')
+                ->where('mg_01.active', '=', 'Y');
+            })
+            ->leftJoin('mst_globals as mg_02', function($join){
+                $join->on('mst_parts.quantity_type_id', '=', 'mg_02.id')
+                ->where('mg_02.data_cat', '=', 'quantity-type')
+                ->where('mg_02.active', '=', 'Y');
+            })
+            ->leftJoin('mst_globals as mg_03', function($join){
+                $join->on('mst_parts.brand_id', '=', 'mg_03.id')
+                ->where('mg_03.data_cat', '=', 'brand')
+                ->where('mg_03.active', '=', 'Y');
+            })
+            ->leftJoin('mst_branches as mb', function($join){
+                $join->on('tx_qty_parts.branch_id', '=', 'mb.id')
+                ->where('mb.active', '=', 'Y');
+            })
             ->select(
                 'mst_parts.id AS part_idx',
                 'mst_parts.slug',
@@ -85,10 +103,6 @@ class StockMasterServerSideController extends Controller
                 'mg_03.title_ind as brand_name',
                 'tx_qty_parts.id as rank',
             )
-            ->selectRaw('
-                IF(LENGTH(mst_parts.part_number)<11,
-                    CONCAT(MID(mst_parts.part_number, 1, 5), "-", MID(mst_parts.part_number, 6, 5)),'.
-                'CONCAT(MID(mst_parts.part_number, 1, 5), "-", MID(mst_parts.part_number, 6, 5), "-", MID(mst_parts.part_number, 11, LENGTH(mst_parts.part_number)))) AS part_number_wd')
             ->selectRaw('mst_parts.part_name as part_name_wd')
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', $parameter[0].'%');
@@ -111,11 +125,6 @@ class StockMasterServerSideController extends Controller
             ->when($parameter[7]=='Y', function($q) use($parameter) {
                 $q->whereRaw('tx_qty_parts.qty>0');
             })
-            ->where('mst_parts.active', '=', 'Y')
-            ->where('mg_01.active', '=', 'Y')
-            ->where('mg_02.active', '=', 'Y')
-            ->where('mg_03.active', '=', 'Y')
-            ->where('mb.active', '=', 'Y')
             ->orderBy('mst_parts.part_number', 'ASC')
             ->orderBy('mb.id', 'ASC');
 
@@ -129,7 +138,13 @@ class StockMasterServerSideController extends Controller
             // opsional: untuk menghindari penghitungan ulang recordsFiltered jika tidak ada pencarian
             // ->skipTotalRecords()
             ->addColumn('part_number_with_delimiter', function ($sql) {
-                return $sql->part_number_wd;
+                $partNumber = $sql->part_number;
+                if(strlen($partNumber)<11){
+                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
+                }else{
+                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
+                }
+                return $partNumber;
             })
             ->addColumn('parts_name', function ($sql) {
                 return $sql->part_name_wd;
