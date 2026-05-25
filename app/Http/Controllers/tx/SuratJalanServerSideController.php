@@ -686,11 +686,11 @@ class SuratJalanServerSideController extends Controller
             })
             ->orderBy('name', 'ASC')
             ->get();
-            $parts = Mst_part::where([
-                'active' => 'Y'
-            ])
-            ->orderBy('part_name', 'ASC')
-            ->get();
+            // $parts = Mst_part::where([
+            //     'active' => 'Y'
+            // ])
+            // ->orderBy('part_name', 'ASC')
+            // ->get();
             $qCustomerInfo = Mst_customer::where([
                 'id' => $query->customer_id,
                 'active' => 'Y'
@@ -723,7 +723,7 @@ class SuratJalanServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'customers' => $qCustomer,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'custInfo' => $qCustomerInfo,
                 'custShipmentAddressInfo' => $qCustomerShipmentAddressInfo,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryPartCount),
