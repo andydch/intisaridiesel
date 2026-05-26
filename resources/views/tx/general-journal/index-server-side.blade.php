@@ -191,13 +191,13 @@
                 {
                     data: 'total_debit',
                     name: 'tx_general_journals.total_debit',
-                    searchable: true,
+                    searchable: false,
                     orderable: true,
                 },
                 {
                     data: 'total_kredit',
                     name: 'tx_general_journals.total_kredit',
-                    searchable: true,
+                    searchable: false,
                     orderable: true,
                 },
                 {

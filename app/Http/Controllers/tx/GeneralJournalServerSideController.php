@@ -23,7 +23,6 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -55,7 +54,6 @@ class GeneralJournalServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
         
-        // Log::info('test 1: '.$request->branch_id);
         if ($request->ajax()){
             $query = Tx_general_journal::leftJoin('userdetails AS usr','tx_general_journals.created_by','=','usr.user_id')
             ->select(
@@ -88,32 +86,36 @@ class GeneralJournalServerSideController extends Controller
                 $q->whereRaw('tx_general_journals.general_journal_date<=STR_TO_DATE("'.urldecode($request->date_ending).'", "%d/%m/%Y")');
             })
             ->when($request->branch_id!=='#' && $request->branch_id!==null, function($q) use($request, $userLogin){
-                // Log::info('test 2: '.$userLogin->branch_id);
-                $q->whereIn('tx_general_journals.id', function($q1) use($request, $userLogin){
-                    $q1->select('tx_gjd.general_journal_id')
+                $q->whereExists(function($q1) use($request, $userLogin){
+                    $q1->select(DB::raw(1))
                     ->from('tx_general_journal_details AS tx_gjd')
-                    ->leftJoin('mst_coas AS mst_c', 'tx_gjd.coa_id', '=', 'mst_c.id')
+                    ->leftJoin('mst_coas AS mst_c', function($join){
+                        $join->on('tx_gjd.coa_id', '=', 'mst_c.id')
+                        ->where('mst_c.active', 'Y');
+                    })
+                    ->whereColumn('tx_gjd.general_journal_id', 'tx_general_journals.id')
                     ->where('tx_gjd.active', 'Y')
                     ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
                         $q2->where('mst_c.branch_id', $userLogin->branch_id);
                     })
                     ->when($userLogin->is_director=='Y', function($q2) use($request){
-                        $q2->where('mst_c.branch_id', (int)$request->branch_id);
-                    })
-                    ->where('mst_c.active', 'Y');
+                        $q2->where('mst_c.branch_id', $request->branch_id);
+                    });
                 });
             })
             ->when($request->branch_id=='#' || $request->branch_id==null, function($q) use($request, $userLogin){
-                // Log::info('test 3: '.$userLogin->branch_id);
-                $q->whereIn('tx_general_journals.id', function($q1) use($request, $userLogin){
-                    $q1->select('tx_gjd.general_journal_id')
+                $q->whereExists(function($q1) use($request, $userLogin){
+                    $q1->select(DB::raw(1))
                     ->from('tx_general_journal_details AS tx_gjd')
-                    ->leftJoin('mst_coas AS mst_c', 'tx_gjd.coa_id', '=', 'mst_c.id')
+                    ->leftJoin('mst_coas AS mst_c', function($join){
+                        $join->on('tx_gjd.coa_id', '=', 'mst_c.id')
+                        ->where('mst_c.active', 'Y');
+                    })
+                    ->whereColumn('tx_gjd.general_journal_id', 'tx_general_journals.id')
                     ->where('tx_gjd.active', 'Y')
                     ->when($userLogin->is_director!='Y', function($q2) use($userLogin){
                         $q2->where('mst_c.branch_id', $userLogin->branch_id);
-                    })
-                    ->where('mst_c.active', 'Y');
+                    });
                 });
             })
             ->where('tx_general_journals.active','=','Y')
@@ -133,7 +135,7 @@ class GeneralJournalServerSideController extends Controller
                     });
                 });
             })
-            ->editColumn('journal_no_with_coa', function ($query) {
+            ->editColumn('journal_no_with_coa', function ($query) use($request){
                 $qCoa = Tx_general_journal_detail::leftJoin('mst_coas AS mcoa', 'tx_general_journal_details.coa_id', '=', 'mcoa.id')
                 ->select(
                     'mcoa.coa_code_complete AS coa_code_complete',
@@ -173,7 +175,6 @@ class GeneralJournalServerSideController extends Controller
             ->addColumn('action', function ($query) use($userLogin) {
                 $links = '';
                 if (($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y' || Auth::user()->id==1) && $query->gj_active=='Y'){
-                    // if ((strpos($query->general_journal_no,"Draft")>0 || $query->is_wt_for_appr=='Y' || $userLogin->is_director=='Y' || Auth::user()->id==1) && $query->module_no==null){
                     if ((strpos($query->general_journal_no,"Draft")>0 || $userLogin->is_director=='Y' || Auth::user()->id==1) && $query->module_no==null){
                         $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/general-journal/'.urlencode($query->general_journal_no).'/edit').'" style="text-decoration: underline;">Edit</a>';
                     }
