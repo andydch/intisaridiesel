@@ -28,7 +28,8 @@ class DispTagihanSupplierDetailController extends Controller
         ->whereNotIn('tx_ro.id', function($query) use ($request) {
             $query->select('receipt_order_id')
                 ->from('tx_payment_voucher_invoices')
-                ->where('is_full_payment', 'Y');
+                ->where('is_full_payment', 'Y')
+                ->where('active', 'Y');
         })
         ->where([
             'tx_tagihan_supplier_details.tagihan_supplier_id' => $request->tagihan_supplier_id,
