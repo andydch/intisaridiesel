@@ -20,7 +20,7 @@ class MasterInventoryExport implements FromView, ShouldAutoSize, WithStyles, Wit
 
     public function __construct($branch_id,$brand_id,$oh_is_zero)
     {
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '384M');
         ini_set('max_execution_time', 1800);
 
         $this->branch_id = $branch_id;
