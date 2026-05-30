@@ -15,12 +15,13 @@ use App\Rules\NumericCustom;
 use Illuminate\Http\Request;
 use App\Models\Mst_menu_user;
 use App\Models\Tx_surat_jalan;
-use App\Models\V_log_avg_cost;
+// use App\Models\V_log_avg_cost;
 use App\Helpers\GlobalFuncHelper;
 use App\Rules\ApprovalCheckingSJ;
 use App\Models\Tx_sales_quotation;
 use Illuminate\Support\Facades\DB;
 use App\Models\Tx_surat_jalan_part;
+use App\Models\Log_tx_qty_part;
 use App\Rules\MaxPartQtySuratJalan;
 use App\Http\Controllers\Controller;
 use App\Rules\SQnumSuratJalanUnique;
@@ -602,7 +603,7 @@ class SuratJalanServerSideController extends Controller
             }
             if ($isThereSomePart<1){
                 DB::rollback();
-
+                
                 return redirect()
                 ->back()
                 ->withInput()
@@ -679,11 +680,6 @@ class SuratJalanServerSideController extends Controller
             $qCustomer = Mst_customer::where([
                 'active' => 'Y'
             ])
-            ->where(function($q){
-                $q->where('npwp_no', '=', null)
-                ->orWhere('npwp_no', '=', '-')
-                ->orWhere('npwp_no', '=', '');
-            })
             ->orderBy('name', 'ASC')
             ->get();
             // $parts = Mst_part::where([
@@ -994,6 +990,7 @@ class SuratJalanServerSideController extends Controller
                     $initial_amount = $request['initial_amount'.$i]==null?$request['qty'.$i]:$request['initial_amount'.$i];
                     $validateShipmentInput = [
                         'part_id'.$i => 'required|numeric|'.str_replace('part_id'.$i,"",$different_rule),
+                        // 'qty'.$i => ['required','numeric','min:1', 'max:'.$request['initial_amount'.$i], new MaxPartQtySuratJalan($request['part_id'.$i],$userLogin->branch_id,$id)],
                         'qty'.$i => ['required','numeric','min:1', 'max:'.$initial_amount, new MaxPartQtySuratJalan($request['part_id'.$i], $userLogin->branch_id, $id)],
                         'price'.$i => [new NumericCustom('Price'), 'nullable'],
                     ];
@@ -1262,7 +1259,7 @@ class SuratJalanServerSideController extends Controller
             }
             if ($isThereSomePart<1){
                 DB::rollback();
-                
+
                 return redirect()
                 ->back()
                 ->withInput()
@@ -1275,28 +1272,27 @@ class SuratJalanServerSideController extends Controller
             ->whereRaw('last_avg_cost IS null OR last_avg_cost=0')
             ->get();
             foreach($qPart as $qP){
-                $avg = V_log_avg_cost::where([
-                    'part_id'=>$qP->part_id,
-                ])
-                ->whereRaw('avg_cost>0 AND updated_at<=\''.$qP->created_at.'\'')
-                ->orderBy('updated_at','DESC')
+                $partId = $qP->part_id;
+                // 1. Buat query dari Model tabel master
+                $masterQuery = Mst_part::select('id as row_id', 'id as part_id', 'avg_cost', 'updated_at')
+                ->where('id', $partId)
+                ->where('active', 'Y')
+                ->orderByDesc('updated_at')
+                ->limit(1);
+                // 2. Panggil dari Model tabel log, gabungkan dengan master, dan eksekusi
+                $avg = Log_tx_qty_part::select('row_id', 'part_id', 'avg_cost', 'updated_at')
+                ->where('part_id', $partId)
+                ->where('avg_cost', '>', 0)
+                ->orderByDesc('updated_at')
+                ->limit(1)
+                ->unionAll($masterQuery)
+                ->orderByDesc('updated_at') // ORDER BY untuk hasil gabungan (outer query)
                 ->first();
                 if ($avg){
                     $updPart = Tx_surat_jalan_part::where('id','=',$qP->id)
                     ->update([
                         'last_avg_cost'=>$avg->avg_cost,
                     ]);
-                }else{
-                    // $avg = Mst_part::where([
-                    //     'id'=>$qP->part_id,
-                    // ])
-                    // ->first();
-                    // if ($avg){
-                    //     $updPart = Tx_surat_jalan_part::where('id','=',$qP->id)
-                    //     ->update([
-                    //         'last_avg_cost'=>$avg->avg_cost,
-                    //     ]);
-                    // }
                 }
             }
 
