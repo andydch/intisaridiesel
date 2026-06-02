@@ -238,11 +238,11 @@ class DeliveryOrderServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $weighttype = Mst_global::where([
             'data_cat' => 'weight-type',
@@ -339,7 +339,7 @@ class DeliveryOrderServerSideController extends Controller
             'folder' => $this->folder,
             'uri' => $this->uri,
             'qCust' => $queryCustomer,
-            'parts' => $parts,
+            // 'parts' => $parts,
             'weighttype' => $weighttype,
             'couriers' => $couriers,
             'totalRow' => (old('totalRow') ? old('totalRow') : 0),
