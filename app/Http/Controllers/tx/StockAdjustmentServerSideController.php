@@ -355,7 +355,8 @@ class StockAdjustmentServerSideController extends Controller
                             $updPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                             ->update([
                                 'avg_cost' => $newAvgCost,
-                                'final_cost' => ($freeOH+$request['qty_adj_'.$iRowPart])*$newAvgCost,
+                                'final_cost' => $newAvgCost,
+                                'total_cost' => ($freeOH+$request['qty_adj_'.$iRowPart])*$newAvgCost,
                                 'updated_by'=> Auth::user()->id,
                             ]);
                         }
@@ -905,7 +906,8 @@ class StockAdjustmentServerSideController extends Controller
                             $updPart = Mst_part::where('id','=',$request['part_id'.$iRowPart])
                             ->update([
                                 'avg_cost' => $newAvgCost,
-                                'final_cost' => ($freeOH+$request['qty_adj_'.$iRowPart])*$newAvgCost,
+                                'final_cost' => $newAvgCost,
+                                'total_cost' => ($freeOH+$request['qty_adj_'.$iRowPart])*$newAvgCost,
                                 'updated_by'=> Auth::user()->id,
                             ]);
                         }
