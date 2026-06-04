@@ -235,21 +235,25 @@ class OrderApprovalServerSideController extends Controller
             ])
             ->orderBy('name', 'ASC')
             ->get();
+
             $branches = Mst_branch::where([
                 'active' => 'Y'
             ])
             ->orderBy('name', 'ASC')
             ->get();
+
             $companies = Mst_company::where([
                 'active' => 'Y'
             ])
             ->orderBy('name', 'ASC')
             ->get();
-            $parts = Mst_part::where([
-                'active' => 'Y'
-            ])
-            ->orderBy('part_name', 'ASC')
-            ->get();
+
+            // $parts = Mst_part::where([
+            //     'active' => 'Y'
+            // ])
+            // ->orderBy('part_name', 'ASC')
+            // ->get();
+
             if (old('supplier_id')) {
                 $supplierPic = Mst_supplier::where([
                     'id' => old('supplier_id'),
@@ -288,7 +292,7 @@ class OrderApprovalServerSideController extends Controller
                 'supplierPics' => $supplierPic,
                 'branches' => $branches,
                 'companies' => $companies,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'currency' => $currency,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryOrderPart->count()),
                 'qCurrency' => $qCurrency,
