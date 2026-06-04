@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers\tx;
 
-use App\Models\User;
-use App\Models\V_so_sj;
-use App\Models\Mst_branch;
-use App\Models\Mst_global;
-use App\Models\Tx_invoice;
-use App\Models\Userdetail;
-use App\Models\Tx_kwitansi;
-use App\Models\Mst_customer;
-use Illuminate\Http\Request;
-use App\Models\Tx_sales_order;
-use App\Models\Tx_delivery_order;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Yajra\DataTables\Facades\DataTables;
+use App\Models\Mst_branch;
+use App\Models\Mst_customer;
+use App\Models\Mst_global;
 use App\Models\Tx_delivery_order_non_tax;
+use App\Models\Tx_delivery_order;
+use App\Models\Tx_invoice;
+use App\Models\Tx_kwitansi;
+use App\Models\Tx_sales_order;
+use App\Models\User;
+use App\Models\Userdetail;
+use App\Models\V_so_sj;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Yajra\DataTables\Facades\DataTables;
 
 class SalesProgressServerSideController extends Controller
 {
@@ -59,13 +61,25 @@ class SalesProgressServerSideController extends Controller
         }
 
         if ($request->ajax()){
-            $query = V_so_sj::leftJoin('userdetails AS usr_d','v_so_sj.created_by','=','usr_d.user_id')
-            ->leftJoin('users','usr_d.user_id','=','users.id')
-            ->leftJoin('mst_customers','v_so_sj.customer_id','=','mst_customers.id')
-            ->leftJoin('userdetails AS usr_sales','mst_customers.salesman_id','=','usr_sales.user_id')
-            ->leftJoin('users as usr_salesman','usr_sales.user_id','=','usr_salesman.id')
-            ->leftJoin('mst_branches','mst_customers.branch_id','=','mst_branches.id')
-            ->leftJoin('mst_globals AS ety_type','mst_customers.entity_type_id','=','ety_type.id')
+           $query = V_so_sj::leftJoin('mst_customers', function($join){
+                $join->on('v_so_sj.customer_id','=','mst_customers.id')
+                ->where('mst_customers.active', 'Y');
+            })
+            ->leftJoin('users AS usr_sales', function($join){
+                $join->on('mst_customers.salesman_id','=','usr_sales.id');
+            })
+            ->leftJoin('userdetails AS usr_d', function($join){
+                $join->on('usr_sales.id','=','usr_d.user_id')
+                ->where('usr_d.active', 'Y');
+            })
+            ->leftJoin('mst_branches', function($join){
+                $join->on('mst_customers.branch_id','=','mst_branches.id')
+                ->where('mst_branches.active', 'Y');
+            })
+            ->leftJoin('mst_globals AS ety_type', function($join){
+                $join->on('mst_customers.entity_type_id','=','ety_type.id')
+                ->where('ety_type.active', 'Y');
+            })
             ->select(
                 'v_so_sj.tx_id',
                 'v_so_sj.surat_no',
@@ -75,51 +89,63 @@ class SalesProgressServerSideController extends Controller
                 'v_so_sj.nota_retur_no',
                 'v_so_sj.delivery_order_no',
                 'v_so_sj.created_by as createdby',
-                'usr_d.initial',
-                'usr_d.is_director',
-                'usr_d.is_branch_head',
+                'usr_d.initial as sales_initial',
+                // 'usr_d.is_director',
+                // 'usr_d.is_branch_head',
                 'mst_customers.name as cust_name',
                 'mst_customers.customer_unique_code',
                 'mst_customers.branch_id as cust_branch_id',
-                'usr_sales.initial as sales_initial',
+                // 'usr_sales.initial as sales_initial',
                 'mst_branches.initial as branch_initial',
                 'ety_type.title_ind as ety_type_name',
             )
-            ->selectRaw('CONCAT(mst_customers.customer_unique_code, \' - \', ety_type.title_ind, \'  \',mst_customers.name) as customer_complete_name')
             ->when($request->c_d!='', function($q) use($request){
                 $q->where([
-                    'mst_customers.slug'=>urldecode($request->c_d),
+                    'mst_customers.slug' => urldecode($request->c_d),
                 ]);
             })
             ->when($request->s_d!='' && $request->e_d!='', function($q) use($request){
-                $s_d = explode("/",urldecode($request->s_d));
-                $e_d = explode("/",urldecode($request->e_d));
+                $s_d = explode("/", urldecode($request->s_d));
+                $e_d = explode("/", urldecode($request->e_d));
                 $q->whereRaw('v_so_sj.surat_date>=\''.$s_d[2].'-'.$s_d[1].'-'.$s_d[0].'\' AND v_so_sj.surat_date<=\''.$e_d[2].'-'.$e_d[1].'-'.$e_d[0].'\'');
             })
             ->when($request->b_c!='', function($q) use($request){
                 $q->where([
-                    'mst_branches.slug'=>urldecode($request->b_c),
+                    'mst_branches.slug' => urldecode($request->b_c),
                 ]);
             })
             ->when($request->s_c!='', function($q) use($request){
                 $q->where([
-                    'usr_salesman.slug'=>urldecode($request->s_c),
+                    'usr_sales.slug' => urldecode($request->s_c),
                 ]);
             })
             ->orderBy('v_so_sj.surat_date', 'DESC')
             ->orderBy('v_so_sj.created_at', 'DESC');
 
+            // Cache jumlah total data selama 1 jam (3600 detik)
+            $totalRecords = Cache::remember('data_count', 3600, function () use ($query) {
+                return $query->count();
+            });
+
             return DataTables::of($query)
-            ->filterColumn('surat_no', function($query, $keyword) {
+            ->setTotalRecords($totalRecords)
+            // opsional: untuk menghindari penghitungan ulang recordsFiltered jika tidak ada pencarian - jika diaktifkan bisa mematikan pagination
+            // ->skipTotalRecords() 
+            ->filterColumn('surat_no_col', function($query, $keyword) {
                 $query->whereRaw('v_so_sj.surat_no LIKE ?', ["%{$keyword}%"]);
             })
-            ->editColumn('surat_no', function ($query) {
+            ->editColumn('surat_no_col', function ($query) {
+                // Log::warning('SQL Statement', [
+                //     'no SO/SJ' => $query->surat_no,
+                //     'SO pos' => strpos($query->surat_no, env('P_SALES_ORDER')).'::'.env('P_SALES_ORDER'),
+                //     'SJ pos' => strpos($query->surat_no, env('P_SURAT_JALAN')).'::'.env('P_SURAT_JALAN'),
+                // ]);
                 $links = '';
                 if (strpos('-'.$query->surat_no, env('P_SALES_ORDER'))>0){
                     $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/sales-order/'.$query->tx_id).'" '.
                         'style="text-decoration: underline;" target="_new">'.$query->surat_no.'</a>';
                 }
-                if (strpos('-'.$query->surat_no,env('P_SURAT_JALAN'))>0){
+                if (strpos('-'.$query->surat_no, env('P_SURAT_JALAN'))>0){
                     $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/surat-jalan/'.$query->tx_id).'" '.
                         'style="text-decoration: underline;" target="_new">'.$query->surat_no.'</a>';
                 }
@@ -131,10 +157,6 @@ class SalesProgressServerSideController extends Controller
             ->editColumn('surat_date', function ($query) {
                 return date_format(date_create($query->surat_date),"d/m/Y");
             })
-            // ->filterColumn('customer_complete_name', function($query, $keyword) {
-            //     $sql = "CONCAT(mst_customers.customer_unique_code,mst_customers.name) LIKE ?";
-            //     $query->whereRaw($sql, ["%{$keyword}%"]);
-            // })
             ->filterColumn('customer_complete_name', function($query, $keyword) {
                 $query->where(function($q) use($keyword){
                     $q->where('mst_customers.name', 'LIKE', "%{$keyword}%")
@@ -184,7 +206,7 @@ class SalesProgressServerSideController extends Controller
                 $in_kw = '';
                 if (strpos('-'.$query->invoice_no, env('P_INVOICE'))>0){
                     $qInv = Tx_invoice::where([
-                        'invoice_no'=>$query->invoice_no,
+                        'invoice_no' => $query->invoice_no,
                     ])
                     ->first();
                     if ($qInv){
@@ -194,7 +216,7 @@ class SalesProgressServerSideController extends Controller
                 }
                 if (strpos('-'.$query->invoice_no, env('P_KWITANSI'))>0){
                     $qKwi = Tx_kwitansi::where([
-                        'kwitansi_no'=>$query->invoice_no,
+                        'kwitansi_no' => $query->invoice_no,
                     ])
                     ->first();
                     if ($qKwi){
@@ -205,18 +227,18 @@ class SalesProgressServerSideController extends Controller
                 return $in_kw;
             })
             ->addColumn('status', function ($query) {
-                if (!is_null($query->invoice_no) || !is_null($query->kwitansi_no)){
+                if (!is_null($query->invoice_no)){
                     return 'IN/KW';
                 }
-                if (!is_null($query->nota_retur_no) || !is_null($query->nota_retur_no_no_ppn)){
+                if (!is_null($query->nota_retur_no)){
                     return 'NR/RE';
                 }
-                if (!is_null($query->delivery_order_no) || !is_null($query->delivery_order_no_no_ppn)){
+                if (!is_null($query->delivery_order_no)){
                     return 'FK/NP';
                 }
                 return 'SO/SJ';
             })
-            ->rawColumns(['surat_no','surat_date','customer_complete_name','fk_np','nr_re','in_kw','status'])
+            ->rawColumns(['surat_no_col', 'surat_date', 'customer_complete_name', 'fk_np', 'nr_re', 'in_kw', 'status'])
             ->toJson();
         }
 
@@ -260,8 +282,8 @@ class SalesProgressServerSideController extends Controller
             'qCustomers' => $qCustomers,
             'qBranches' => $qBranches,
             'qUsers' => $qUsers,
-            'is_director_now' => $userLogin->is_director,
-            'is_branch_head_now' => $userLogin->is_branch_head,
+            // 'is_director_now' => $userLogin->is_director,
+            // 'is_branch_head_now' => $userLogin->is_branch_head,
         ];
 
         return view('tx.'.$this->folder.'.index-server-side', $data);
