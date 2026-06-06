@@ -1196,6 +1196,7 @@ class PaymentVoucherServerSideController extends Controller
                 'admin_bank' => ($request->admin_bank?GlobalFuncHelper::moneyValidate($request->admin_bank):0),
                 'biaya_asuransi' => ($request->biaya_asuransi?GlobalFuncHelper::moneyValidate($request->biaya_asuransi):0),
                 'biaya_kirim' => ($request->biaya_kirim?GlobalFuncHelper::moneyValidate($request->biaya_kirim):0),
+                'biaya_lainnya' => ($request->biaya_lainnya?GlobalFuncHelper::moneyValidate($request->biaya_lainnya):0),
                 'diskon_pembelian' => ($request->diskon_pembelian?GlobalFuncHelper::moneyValidate($request->diskon_pembelian):0),
                 'pv_created_at' => (!is_null($payment_voucher_no)?now():null),
                 'ps_created_at' => (!is_null($payment_voucher_plan_no)?(strpos($payment_voucher_plan_no,"Draft")==0?now():null):null),
