@@ -339,7 +339,7 @@ class OrderServerSideController extends Controller
         ])
         ->first();
 
-        $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
         ->first();
 
         $suppliers = Mst_supplier::where([
@@ -878,7 +878,7 @@ class OrderServerSideController extends Controller
         $query = Tx_purchase_order::where('id', '=', $id)
         ->first();
         if ($query) {
-            $userLogin = Userdetail::where('user_id','=',$query->created_by)
+            $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
             ->first();
 
             $this->idQ = $query->quotation_id;
@@ -896,7 +896,7 @@ class OrderServerSideController extends Controller
             ->where([
                 'tx_purchase_quotations.is_draft' => 'N',
                 'tx_purchase_quotations.active' => 'Y',
-                'usr.branch_id' => $userLogin->branch_id,
+                'usr.branch_id' => $query->branch_id,
             ])
             ->orderBy('tx_purchase_quotations.created_at','DESC')
             ->get();
