@@ -367,11 +367,11 @@ class ReceiptOrderServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $weighttype = Mst_global::where([
             'data_cat' => 'weight-type',
@@ -472,7 +472,7 @@ class ReceiptOrderServerSideController extends Controller
             'title' => $this->title,
             'folder' => $this->folder,
             'querySupplier' => $querySupplier,
-            'parts' => $parts,
+            // 'parts' => $parts,
             'weighttype' => $weighttype,
             'couriers' => $couriers,
             'totalRow' => (old('totalRow') ? old('totalRow') : 0),
@@ -1547,11 +1547,11 @@ class ReceiptOrderServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $weighttype = Mst_global::where([
             'data_cat' => 'weight-type',
@@ -1606,7 +1606,7 @@ class ReceiptOrderServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'querySupplier' => $querySupplier,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'weighttype' => $weighttype,
                 'couriers' => $couriers,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $query_part->count()),
@@ -1647,11 +1647,11 @@ class ReceiptOrderServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $weighttype = Mst_global::where([
             'data_cat' => 'weight-type',
@@ -1819,7 +1819,7 @@ class ReceiptOrderServerSideController extends Controller
                 'folder' => $this->folder,
                 'querySupplier' => $querySupplier,
                 'qSupplierSelected' => $qSupplierSelected,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'weighttype' => $weighttype,
                 'couriers' => $couriers,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $query_part_count),
