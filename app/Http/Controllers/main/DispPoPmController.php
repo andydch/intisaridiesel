@@ -73,7 +73,7 @@ class DispPoPmController extends Controller
         // ->when($userLogin->is_director!='Y', function($q) use($userLogin) {
         //     $q->where('usr.branch_id','=',$userLogin->branch_id);
         // })
-        ->union($memo)
+        ->unionAll($memo)
         ->get();
 
         $data = [
