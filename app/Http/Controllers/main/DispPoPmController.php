@@ -11,7 +11,7 @@ use App\Models\Tx_purchase_memo_part;
 use App\Models\Tx_purchase_order_part;
 use App\Models\Tx_receipt_order_part;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Contracts\Database\Query\Builder;
+// use Illuminate\Contracts\Database\Query\Builder;
 
 class DispPoPmController extends Controller
 {
