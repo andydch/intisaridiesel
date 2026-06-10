@@ -18,7 +18,7 @@ use App\Models\Mst_part_brand_type;
 use App\Http\Controllers\Controller;
 use App\Models\Mst_part_subtitution;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+// use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Cviebrock\EloquentSluggable\Services\SlugService;
@@ -112,9 +112,9 @@ class StockMasterPartController extends Controller
             ->orderBy('brand_type', 'ASC')
             ->get();
         }
-        $qParts = Mst_part::where('active','=','Y')
-        ->orderBy('part_name','ASC')
-        ->get();
+        // $qParts = Mst_part::where('active','=','Y')
+        // ->orderBy('part_name','ASC')
+        // ->get();
 
         $qMinMaxStock = Mst_branch::select(
             'id as branch_id',
@@ -139,7 +139,7 @@ class StockMasterPartController extends Controller
             'qBrandTypes' => $qBrandTypes,
             'totBrandTypeRow' => old('totalBrandTypeRow')?old('totalBrandTypeRow'):0,
             'totPartSubsRow' => old('totalPartSubsRow')?old('totalPartSubsRow'):0,
-            'qParts' => $qParts,
+            // 'qParts' => $qParts,
             'qUser' => $qUser,
             'qMinMaxStock' => $qMinMaxStock->get(),
             'qMinMaxStockCount' => $qMinMaxStock->count(),

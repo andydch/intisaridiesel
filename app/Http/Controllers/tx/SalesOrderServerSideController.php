@@ -703,11 +703,11 @@ class SalesOrderServerSideController extends Controller
             ->where('active', 'Y')
             ->orderBy('name', 'ASC')
             ->get();
-            $parts = Mst_part::where([
-                'active' => 'Y'
-            ])
-            ->orderBy('part_name', 'ASC')
-            ->get();
+            // $parts = Mst_part::where([
+            //     'active' => 'Y'
+            // ])
+            // ->orderBy('part_name', 'ASC')
+            // ->get();
             $qCustomerInfo = Mst_customer::where([
                 'id' => $query->customer_id,
                 'active' => 'Y'
@@ -740,7 +740,7 @@ class SalesOrderServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'customers' => $qCustomer,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'custInfo' => $qCustomerInfo,
                 'custShipmentAddressInfo' => $qCustomerShipmentAddressInfo,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryPartCount),
