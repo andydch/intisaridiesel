@@ -9,7 +9,7 @@ use App\Models\Mst_branch;
 use App\Models\Mst_courier;
 use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
-use App\Models\Mst_part;
+// use App\Models\Mst_part;
 use App\Models\Mst_supplier_bank_information;
 use App\Models\Mst_supplier;
 use App\Models\Tx_purchase_order_oo_oh_part;
@@ -796,11 +796,11 @@ class OrderServerSideController extends Controller
             ])
             ->orderBy('name', 'ASC')
             ->get();
-            $parts = Mst_part::where([
-                'active' => 'Y'
-            ])
-            ->orderBy('part_number', 'ASC')
-            ->get();
+            // $parts = Mst_part::where([
+            //     'active' => 'Y'
+            // ])
+            // ->orderBy('part_number', 'ASC')
+            // ->get();
             if (old('supplier_id')) {
                 $supplierPic = Mst_supplier::where([
                     'id' => old('supplier_id'),
@@ -838,7 +838,7 @@ class OrderServerSideController extends Controller
                 'suppliers' => $suppliers,
                 'supplierPics' => $supplierPic,
                 'branches' => $branches,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'currency' => $currency,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryOrderPart->count()),
                 'qCurrency' => $qCurrency,
