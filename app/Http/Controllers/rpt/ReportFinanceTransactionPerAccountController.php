@@ -7,8 +7,7 @@ use App\Models\Mst_global;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\Mst_coa;
-use App\Models\Tx_general_journal;
-use App\Models\Tx_lokal_journal;
+use App\Models\Mst_company;
 use Illuminate\Support\Facades\Validator;
 
 class ReportFinanceTransactionPerAccountController extends Controller
@@ -90,18 +89,36 @@ class ReportFinanceTransactionPerAccountController extends Controller
         ])
         ->first();
 
-        if($request->view_mode=='V'){
-            $data = [
-                'title' => $this->title,
-                'folder' => $this->folder,
-                'reqs' => $request,
-                'qCurrency' => ($qCurrency?$qCurrency:[]),
-            ];
-            return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
-        }
-        if($request->view_mode=='P'){
-            return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.urlencode($request->coa_id).'/'.urlencode($request->date_start).'/'.urlencode($request->date_end));
-        }
+        $qCompany = Mst_company::where([
+            'id'=>1,
+            'active'=>'Y',
+        ])
+        ->first();
+
+        $data = [
+            'title' => $this->title,
+            'folder' => $this->folder,
+            'reqs' => $request,
+            'qCurrency' => ($qCurrency?$qCurrency:[]),
+            'qCompany' => ($qCompany?$qCompany:[]),
+            'coa_id' => urlencode($request->coa_id),
+            'date_start' => urlencode($request->date_start),
+            'date_end' => urlencode($request->date_end),
+        ];
+        return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.rpt-finance-transaction-per-account-view', $data);
+
+        // if($request->view_mode=='V'){
+        //     $data = [
+        //         'title' => $this->title,
+        //         'folder' => $this->folder,
+        //         'reqs' => $request,
+        //         'qCurrency' => ($qCurrency?$qCurrency:[]),
+        //     ];
+        //     return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
+        // }
+        // if($request->view_mode=='P'){
+        //     return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.urlencode($request->coa_id).'/'.urlencode($request->date_start).'/'.urlencode($request->date_end));
+        // }
     }
 
     /**
