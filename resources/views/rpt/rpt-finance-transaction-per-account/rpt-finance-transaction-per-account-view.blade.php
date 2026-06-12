@@ -116,7 +116,7 @@
                     <th>&nbsp;</th>
                 </tr>
                 <tr>
-                    <th colspan="7">TRANSACTION PER ACCOUNT</th>
+                    <th colspan="7" style="text-align: center;">TRANSACTION PER ACCOUNT</th>
                 </tr>
                 <tr>
                     <th colspan="7" style="text-align: center;">PERIOD:&nbsp;{{ $date_start.' s/d '.$date_end }}</th>
@@ -166,6 +166,7 @@
                             'tx_general_journal_details.coa_id'=>$coa_id,
                             'tx_general_journal_details.active'=>'Y',
                             'tx_gj.is_wt_for_appr'=>'N',
+                            'tx_gj.is_draft'=>'N',
                             'tx_gj.active'=>'Y',
                         ])
                         ->whereRaw('tx_gj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
@@ -192,12 +193,14 @@
                             'tx_lokal_journal_details.coa_id'=>$coa_id,
                             'tx_lokal_journal_details.active'=>'Y',
                             'tx_lj.is_wt_for_appr'=>'N',
+                            'tx_lj.is_draft'=>'N',
                             'tx_lj.active'=>'Y',
                         ])
                         ->whereRaw('tx_lj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_lj.general_journal_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                         ->orderBy('tx_lj.general_journal_date','DESC')
                         ->union($genJd)
+                        ->orderBy('general_journal_date','DESC')
                         ->get();
 
                         $firstRow = 1;
