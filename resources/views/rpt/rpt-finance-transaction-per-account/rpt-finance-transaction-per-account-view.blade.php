@@ -171,7 +171,7 @@
                         ])
                         ->whereRaw('tx_gj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_gj.general_journal_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                        ->orderBy('tx_gj.general_journal_date','DESC');
+                        ->orderBy('tx_gj.general_journal_date','ASC');
 
                         $lokJd = \App\Models\Tx_lokal_journal_detail::leftJoin('tx_lokal_journals as tx_lj','tx_lokal_journal_details.lokal_journal_id','=','tx_lj.id')
                         ->leftJoin('mst_coas as m_coa','tx_lokal_journal_details.coa_id','=','m_coa.id')
@@ -198,9 +198,9 @@
                         ])
                         ->whereRaw('tx_lj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_lj.general_journal_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
-                        ->orderBy('tx_lj.general_journal_date','DESC')
+                        ->orderBy('tx_lj.general_journal_date','ASC')
                         ->union($genJd)
-                        ->orderBy('general_journal_date','DESC')
+                        ->orderBy('general_journal_date','ASC')
                         ->get();
 
                         $firstRow = 1;
