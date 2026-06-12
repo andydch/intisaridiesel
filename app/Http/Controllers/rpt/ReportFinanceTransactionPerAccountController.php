@@ -95,30 +95,26 @@ class ReportFinanceTransactionPerAccountController extends Controller
         ])
         ->first();
 
+        $coas = Mst_coa::where([
+            'is_master_coa'=>'N',
+            'active'=>'Y',
+        ])
+        ->orderBy('coa_code_complete','ASC')
+        ->orderBy('coa_name','ASC')
+        ->get();
+
         $data = [
             'title' => $this->title,
             'folder' => $this->folder,
             'reqs' => $request,
             'qCurrency' => ($qCurrency?$qCurrency:[]),
             'qCompany' => ($qCompany?$qCompany:[]),
+            'coas' => ($coas?$coas:[]),
             'coa_id' => urlencode($request->coa_id),
             'date_start' => urlencode($request->date_start),
             'date_end' => urlencode($request->date_end),
         ];
         return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.rpt-finance-transaction-per-account-view', $data);
-
-        // if($request->view_mode=='V'){
-        //     $data = [
-        //         'title' => $this->title,
-        //         'folder' => $this->folder,
-        //         'reqs' => $request,
-        //         'qCurrency' => ($qCurrency?$qCurrency:[]),
-        //     ];
-        //     return view(ENV('REPORT_FOLDER_NAME').'.'.$this->folder.'.index', $data);
-        // }
-        // if($request->view_mode=='P'){
-        //     return redirect(ENV('REPORT_FOLDER_NAME').'/'.$this->folder.'-xlsx/'.urlencode($request->coa_id).'/'.urlencode($request->date_start).'/'.urlencode($request->date_end));
-        // }
     }
 
     /**
