@@ -99,19 +99,18 @@ class StockMasterStockCardController extends Controller
         // -------------------------------------------------------------
         $receiptOrders = DB::table('tx_receipt_order_parts AS rop')
             ->leftJoin('tx_receipt_orders AS ro', 'rop.receipt_order_id', '=', 'ro.id')
-            ->leftJoin('v_po_mo_no', 'rop.po_mo_no', '=', 'v_po_mo_no.po_mo_no')
-            ->leftJoin('mst_branches AS b', 'v_po_mo_no.branch_id', '=', 'b.id')
+            ->leftJoin('mst_branches AS b', 'ro.branch_id', '=', 'b.id')
             ->leftJoin('mst_suppliers AS s', 'ro.supplier_id', '=', 's.id')
             ->where('rop.active', 'Y')
-            ->where('ro.active', 'Y')
-            ->where('s.active', 'Y')
-            ->where('b.active', 'Y')
             ->where('rop.part_id', $partId)
-            ->where('ro.receipt_no', 'NOT LIKE', '%Draft%')
+            ->where('ro.active', 'Y')
+            ->where('ro.is_draft', 'N')
             ->whereBetween('ro.receipt_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN ro.branch_id IS NOT NULL THEN ro.branch_id ELSE b.id END)='.$request->branch_id);
             })
+            ->where('b.active', 'Y')
+            ->where('s.active', 'Y')
             ->select([
                 'ro.receipt_no AS doc_no', 'ro.receipt_date AS tx_date', 'rop.qty AS qty', 
                 'rop.final_cost AS price', 'rop.avg_cost AS avg_cost', 'b.name AS branch_name', 
@@ -125,20 +124,19 @@ class StockMasterStockCardController extends Controller
         $deliveryOrders = DB::table('tx_delivery_order_parts AS dop')
             ->leftJoin('tx_delivery_orders AS do', 'dop.delivery_order_id', '=', 'do.id')
             ->leftJoin('tx_sales_orders AS so', 'dop.sales_order_id', '=', 'so.id')
-            ->leftJoin('mst_branches AS b', 'so.branch_id', '=', 'b.id')
+            ->leftJoin('mst_branches AS b', 'do.branch_id', '=', 'b.id')
             ->leftJoin('mst_customers AS c', 'do.customer_id', '=', 'c.id')
             ->where('dop.active', 'Y')
-            ->where('do.is_draft', 'N')
-            ->where('do.active', 'Y')
-            ->where('c.active', 'Y')
-            ->where('b.active', 'Y')
-            ->where('so.active', 'Y')
             ->where('dop.part_id', $partId)
-            ->where('do.delivery_order_no', 'NOT LIKE', '%Draft%')
+            ->where('do.active', 'Y')
+            ->where('do.is_draft', 'N')
             ->whereBetween('do.delivery_order_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN do.branch_id IS NOT NULL THEN do.branch_id ELSE b.id END)='.$request->branch_id);
             })
+            ->where('c.active', 'Y')
+            ->where('b.active', 'Y')
+            ->where('so.active', 'Y')
             ->select([
                 'do.delivery_order_no AS doc_no', 'do.delivery_order_date AS tx_date', 'dop.qty AS qty', 
                 DB::raw('(SELECT sop.last_avg_cost FROM tx_sales_order_parts sop WHERE sop.id = dop.sales_order_part_id) AS price'), 
@@ -155,11 +153,11 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('mst_branches AS b', 'pr.branch_id', '=', 'b.id')
             ->leftJoin('mst_suppliers AS s', 'pr.supplier_id', '=', 's.id')
             ->where('prp.active', 'Y')
-            ->whereNotNull('pr.approved_by')
-            ->where('pr.active', 'Y')
             ->where('prp.part_id', $partId)
-            ->where('pr.purchase_retur_no', 'NOT LIKE', '%Draft%')
+            ->where('pr.active', 'Y')
+            ->where('pr.is_draft', 'N')
             ->whereBetween('pr.purchase_retur_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->whereNotNull('pr.approved_by')
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN pr.branch_id IS NOT NULL THEN pr.branch_id ELSE b.id END)='.$request->branch_id);
             })
@@ -179,16 +177,16 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('mst_branches AS b', 'nr.branch_id', '=', 'b.id')
             ->leftJoin('mst_customers AS cust', 'nr.customer_id', '=', 'cust.id')
             ->where('nrp.active', 'Y')
-            ->whereNotNull('nr.approved_by')
-            ->where('nr.active', 'Y')
-            ->where('b.active', 'Y')
-            ->where('cust.active', 'Y')
             ->where('nrp.part_id', $partId)
-            ->where('nr.nota_retur_no', 'NOT LIKE', '%Draft%')
+            ->where('nr.active', 'Y')
+            ->where('nr.is_draft', 'N')
             ->whereBetween(DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE)"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->whereNotNull('nr.approved_by')
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN nr.branch_id IS NOT NULL THEN nr.branch_id ELSE b.id END)='.$request->branch_id);
             })
+            ->where('b.active', 'Y')
+            ->where('cust.active', 'Y')
             ->select([
                 'nr.nota_retur_no AS doc_no', DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE) AS tx_date"), 'nrp.qty_retur AS qty', 
                 'nrp.final_price AS price', 
@@ -205,16 +203,16 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('mst_branches AS b', 'nr.branch_id', '=', 'b.id')
             ->leftJoin('mst_customers AS cust', 'nr.customer_id', '=', 'cust.id')
             ->where('nrp.active', 'Y')
-            ->whereNotNull('nr.approved_by')
-            ->where('nr.active', 'Y')
-            ->where('b.active', 'Y')
-            ->where('cust.active', 'Y')
             ->where('nrp.part_id', $partId)
-            ->where('nr.nota_retur_no', 'NOT LIKE', '%Draft%')
+            ->where('nr.active', 'Y')
+            ->where('nr.is_draft', 'N')
             ->whereBetween(DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE)"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->whereNotNull('nr.approved_by')
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN nr.branch_id IS NOT NULL THEN nr.branch_id ELSE b.id END)='.$request->branch_id);
             })
+            ->where('b.active', 'Y')
+            ->where('cust.active', 'Y')
             ->select([
                 'nr.nota_retur_no AS doc_no', DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE) AS tx_date"), 'nrp.qty_retur AS qty', 
                 'nrp.final_price AS price', 
@@ -232,16 +230,15 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('mst_customers AS cust', 'np.customer_id', '=', 'cust.id')
             ->leftJoin('tx_surat_jalans AS tx_sj', 'np_part.sales_order_id', '=', 'tx_sj.id')
             ->where('np_part.active', 'Y')
-            ->where('np.is_draft', 'N')
-            ->where('np.active', 'Y')
-            ->where('b.active', 'Y')
-            ->where('cust.active', 'Y')
             ->where('np_part.part_id', $partId)
-            ->where('np.delivery_order_no', 'NOT LIKE', '%Draft%')
+            ->where('np.active', 'Y')
+            ->where('np.is_draft', 'N')
             ->whereBetween('np.delivery_order_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN np.branch_id IS NOT NULL THEN np.branch_id ELSE b.id END)='.$request->branch_id);
             })
+            ->where('b.active', 'Y')
+            ->where('cust.active', 'Y')
             ->select([
                 'np.delivery_order_no AS doc_no', 'np.delivery_order_date AS tx_date', 'np_part.qty AS qty', 
                 DB::raw('(SELECT sjp.last_avg_cost FROM tx_surat_jalan_parts sjp WHERE sjp.id = np_part.sales_order_part_id AND sjp.part_id = np_part.part_id) AS price'), 
