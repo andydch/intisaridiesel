@@ -36,7 +36,6 @@
         <hr />
         <form name="form_submit" id="form_submit" action="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$uri_folder) }}" method="POST" enctype="application/x-www-form-urlencoded">
             @csrf
-            {{-- <input type="hidden" name="part_idx" id="part_idx" value="{{ $queryPart->id }}"> --}}
             <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-xs-12">
                 <div class="card">
                     <div class="card-body">
@@ -62,7 +61,7 @@
                                             $part_idx = request()->has('part_idx') ? $request->part_idx : 0;
                                             $partList = \App\Models\Mst_part::where('active', '=', 'Y')
                                             ->when($part_idx<>0, function($q) use($part_idx) {
-                                                $q->where('id','=', $part_idx);
+                                                $q->where('id', '=', $part_idx);
                                             })
                                             ->get();
                                         @endphp
@@ -188,49 +187,123 @@
                                                     $avg_cost = $qAvg->avg_cost;
                                                 }
 
-                                                $q = \App\Models\V_tx_qty_part::where([
-                                                    'part_id' => $request->part_idx,
-                                                ])
-                                                ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                    $q->where('branch_id','=', $request->branch_id);
-                                                })
+                                                $qLogTxQtyPart = DB::table('log_tx_qty_parts')
+                                                ->select(
+                                                    'row_id AS id',
+                                                    'part_id AS part_id',
+                                                    'qty AS qty',
+                                                    'branch_id AS branch_id',
+                                                    'avg_cost AS avg_cost',
+                                                    'updated_at AS updated_at'
+                                                )
+                                                // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                //     $q->where('branch_id', '=', $request->branch_id);
+                                                // })
                                                 ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
-                                                    // $q1->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                    //     'AND updated_at<\''.$stockcards_part_first->updated_at.'\'');
                                                     $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
                                                 })
                                                 ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
                                                     $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
-                                                    ->where('qty','>',0);
-                                                    // $q1->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                    //     'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                    // ->where('qty','>',0);
+                                                        ->where('qty', '>', 0);
                                                 })
-                                                ->orderBy('updated_at','DESC')
+                                                ->where([
+                                                    'part_id' => $request->part_idx,
+                                                    'branch_id' => $request->branch_id,
+                                                    'action' => 'U',
+                                                ])
+                                                ->orderBy('updated_at', 'DESC');
+                                                $qTxQtyPart = DB::table('tx_qty_parts')
+                                                ->select(
+                                                    'id AS id',
+                                                    'part_id AS part_id',
+                                                    'qty AS qty',
+                                                    'branch_id AS branch_id',
+                                                    'avg_cost_first AS avg_cost',
+                                                    'updated_at AS updated_at'
+                                                )
+                                                ->where([
+                                                    'part_id' => $request->part_idx,
+                                                    'branch_id' => $request->branch_id,
+                                                ])
+                                                // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                //     $q->where('branch_id', '=', $request->branch_id);
+                                                // })
+                                                ->orderBy('updated_at', 'DESC');
+                                                $q = $qLogTxQtyPart
+                                                ->unionAll($qTxQtyPart)
+                                                ->orderBy('updated_at', 'DESC')
                                                 ->first();
+
+                                                // $q = \App\Models\V_tx_qty_part::where([
+                                                //     'part_id' => $request->part_idx,
+                                                // ])
+                                                // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                //     $q->where('branch_id','=', $request->branch_id);
+                                                // })
+                                                // ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
+                                                //     $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
+                                                // })
+                                                // ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
+                                                //     $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                //         ->where('qty','>',0);
+                                                // })
+                                                // ->orderBy('updated_at','DESC')
+                                                // ->first();
                                                 if ($q){
                                                     $totQty = $q->qty;
                                                 }else{
-                                                    $q2 = \App\Models\V_tx_qty_part::where([
-                                                        'part_id' => $request->part_idx,
-                                                    ])
-                                                    ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                        $q->where('branch_id','=', $request->branch_id);
-                                                    })
+                                                    $qLogTxQtyPart = DB::table('log_tx_qty_parts')
+                                                    ->select(
+                                                        'row_id AS id',
+                                                        'part_id AS part_id',
+                                                        'qty AS qty',
+                                                        'branch_id AS branch_id',
+                                                        'avg_cost AS avg_cost',
+                                                        'updated_at AS updated_at'
+                                                    )
+                                                    // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                    //     $q->where('branch_id','=', $request->branch_id);
+                                                    // })
                                                     ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
                                                         'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                    // ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
-                                                    //     $q1->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                    //         'AND updated_at<\''.$stockcards_part_first->updated_at.'\'');
-                                                    //     // $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
+                                                    ->where([
+                                                        'part_id' => $request->part_idx,
+                                                        'branch_id' => $request->branch_id,
+                                                        'action' => 'U',
+                                                    ])
+                                                    ->orderBy('updated_at', 'ASC');
+                                                    $qTxQtyPart = DB::table('tx_qty_parts')
+                                                    ->select(
+                                                        'id AS id',
+                                                        'part_id AS part_id',
+                                                        'qty AS qty',
+                                                        'branch_id AS branch_id',
+                                                        'avg_cost_first AS avg_cost',
+                                                        'updated_at AS updated_at'
+                                                    )
+                                                    ->where([
+                                                        'part_id' => $request->part_idx,
+                                                        'branch_id' => $request->branch_id,
+                                                    ])
+                                                    // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                    //     $q->where('branch_id', '=', $request->branch_id);
                                                     // })
-                                                    // ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
-                                                    //     $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                    //         'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                    //     ->where('qty','>',0);
-                                                    // })
-                                                    ->orderBy('updated_at','ASC')
+                                                    ->orderBy('updated_at', 'ASC');
+                                                    $q2 = $qLogTxQtyPart
+                                                    ->unionAll($qTxQtyPart)
+                                                    ->orderBy('updated_at', 'ASC')
                                                     ->first();
+
+                                                    // $q2 = \App\Models\V_tx_qty_part::where([
+                                                    //     'part_id' => $request->part_idx,
+                                                    // ])
+                                                    // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                                                    //     $q->where('branch_id','=', $request->branch_id);
+                                                    // })
+                                                    // ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
+                                                    //     'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
+                                                    // ->orderBy('updated_at','ASC')
+                                                    // ->first();
                                                     if ($q2){
                                                         $totQty = $q2->qty;
                                                     }
@@ -238,7 +311,7 @@
                                             }else{
                                                 // jika cabang tidak dipilih
                                                 
-                                                $qBranch = \App\Models\Mst_branch::where('active','Y')
+                                                $qBranch = \App\Models\Mst_branch::where('active', 'Y')
                                                 ->get();
                                                 if ($qBranch){
                                                     foreach ($qBranch as $qB) {
@@ -252,45 +325,107 @@
                                                             $avg_cost = $qAvg->avg_cost;
                                                         }
 
-                                                        $q = \App\Models\V_tx_qty_part::where([
-                                                            'part_id' => $request->part_idx,
-                                                            'branch_id' => $qB->id,
-                                                        ])
+                                                        $qLogTxQtyPart = DB::table('log_tx_qty_parts')
+                                                        ->select(
+                                                            'row_id AS id',
+                                                            'part_id AS part_id',
+                                                            'qty AS qty',
+                                                            'branch_id AS branch_id',
+                                                            'avg_cost AS avg_cost',
+                                                            'updated_at AS updated_at'
+                                                        )
                                                         ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
-                                                            // $q1->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                            //     'AND updated_at<\''.$stockcards_part_first->updated_at.'\'');
                                                             $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
                                                         })
                                                         ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
                                                             $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
-                                                            ->where('qty','>',0);
-                                                            // $q1->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                            //     'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                            // ->where('qty','>',0);
+                                                            ->where('qty', '>', 0);
                                                         })
-                                                        ->orderBy('updated_at','DESC')
+                                                        ->where([
+                                                            'part_id' => $request->part_idx,
+                                                            'branch_id' => $qB->id,
+                                                            'action' => 'U',
+                                                        ])
+                                                        ->orderBy('updated_at', 'DESC');
+                                                        $qTxQtyPart = DB::table('tx_qty_parts')
+                                                        ->select(
+                                                            'id AS id',
+                                                            'part_id AS part_id',
+                                                            'qty AS qty',
+                                                            'branch_id AS branch_id',
+                                                            'avg_cost_first AS avg_cost',
+                                                            'updated_at AS updated_at'
+                                                        )
+                                                        ->where([
+                                                            'part_id' => $request->part_idx,
+                                                            'branch_id' => $qB->id,
+                                                        ])
+                                                        ->orderBy('updated_at', 'DESC');
+                                                        $q = $qLogTxQtyPart
+                                                        ->unionAll($qTxQtyPart)
+                                                        ->orderBy('updated_at', 'DESC')
                                                         ->first();
+
+                                                        // $q = \App\Models\V_tx_qty_part::where([
+                                                        //     'part_id' => $request->part_idx,
+                                                        //     'branch_id' => $qB->id,
+                                                        // ])
+                                                        // ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
+                                                        //     $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
+                                                        // })
+                                                        // ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
+                                                        //     $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                        //         ->where('qty','>',0);
+                                                        // })
+                                                        // ->orderBy('updated_at','DESC')
+                                                        // ->first();
                                                         if ($q){                                                            
                                                             $totQty += $q->qty;
                                                         }else{
-                                                            $q2 = \App\Models\V_tx_qty_part::where([
+                                                            $qLogTxQtyPart = DB::table('log_tx_qty_parts')
+                                                            ->select(
+                                                                'row_id AS id',
+                                                                'part_id AS part_id',
+                                                                'qty AS qty',
+                                                                'branch_id AS branch_id',
+                                                                'avg_cost AS avg_cost',
+                                                                'updated_at AS updated_at'
+                                                            )
+                                                            ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
+                                                                'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
+                                                            ->where([
+                                                                'part_id' => $request->part_idx,
+                                                                'branch_id' => $qB->id,
+                                                                'action' => 'U',
+                                                            ])
+                                                            ->orderBy('updated_at', 'ASC');
+                                                            $qTxQtyPart = DB::table('tx_qty_parts')
+                                                            ->select(
+                                                                'id AS id',
+                                                                'part_id AS part_id',
+                                                                'qty AS qty',
+                                                                'branch_id AS branch_id',
+                                                                'avg_cost_first AS avg_cost',
+                                                                'updated_at AS updated_at'
+                                                            )
+                                                            ->where([
                                                                 'part_id' => $request->part_idx,
                                                                 'branch_id' => $qB->id,
                                                             ])
-                                                            ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                                'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                            // ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
-                                                            //     $q1->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                            //         'AND updated_at<\''.$stockcards_part_first->updated_at.'\'');
-                                                            //     // $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
-                                                            // })
-                                                            // ->when(!$stockcards_part_first, function($q1) use($from_date, $to_date){
-                                                            //     $q1->whereRaw('updated_at<\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
-                                                            //         'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
-                                                            //     ->where('qty','>',0);
-                                                            // })
-                                                            ->orderBy('updated_at','ASC')
+                                                            ->orderBy('updated_at', 'ASC');
+                                                            $q2 = $qLogTxQtyPart
+                                                            ->unionAll($qTxQtyPart)
+                                                            ->orderBy('updated_at', 'ASC')
                                                             ->first();
+
+                                                            // $q2 = \App\Models\V_tx_qty_part::where([
+                                                            //     'part_id' => $request->part_idx,
+                                                            //     'branch_id' => $qB->id,
+                                                            // ])
+                                                            // ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
+                                                            //     'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
+                                                            // ->orderBy('updated_at','ASC')
+                                                            // ->first();
                                                             if ($q2){
                                                                 $totQty += $q2->qty;
                                                             }
@@ -318,11 +453,6 @@
                                         <tr>
                                             <td>
                                                 {{ date_format(date_create($o->tx_date), 'd/m/Y') }}
-                                                {{-- @if (strpos('doc-'.$o->doc_no,env('P_FAKTUR'))>0 || strpos('doc-'.$o->doc_no,env('P_NOTA_PENJUALAN'))>0)
-                                                    {{ date_format(date_create($o->tx_date), 'd/m/Y') }}
-                                                @else
-                                                    {{ date_format(date_create($o->updated_at), 'd/m/Y') }}
-                                                @endif --}}
                                             </td>
                                             <td>
                                                 @php
@@ -474,10 +604,9 @@
                                                         @endphp
                                                     @endif
                                                 @endif
-                                                @if (!$p)
+                                                {{-- @if (!$p)
                                                     {{ substr($o->doc_no, 0, 3)==env('P_FAKTUR')?'ada':'tidak ada' }}
-                                                    {{-- {{ $o->doc_no }} --}}
-                                                @endif
+                                                @endif --}}
                                             </td>
                                             <td>{{ $o->customer_or_supplier }}</td>
                                             <td>{{ $o->branch_name }}</td>

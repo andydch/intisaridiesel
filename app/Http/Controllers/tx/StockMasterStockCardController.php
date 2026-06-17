@@ -56,16 +56,16 @@ class StockMasterStockCardController extends Controller
             $errMsg
         )->validate();
 
-        $queryPart = Mst_part::where('id','=',$request->part_idx)
+        $queryPart = Mst_part::where('id', '=', $request->part_idx)
         ->first();
 
-        $queryBranch = Mst_branch::where('active','=','Y')
-        ->orderBy('name','ASC')
+        $queryBranch = Mst_branch::where('active', '=', 'Y')
+        ->orderBy('name', 'ASC')
         ->get();
 
-        $queryBranchBeginningBalance = Mst_branch::where('active','=','Y')
+        $queryBranchBeginningBalance = Mst_branch::where('active', '=', 'Y')
         ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-            $q->where('id','=', $request->branch_id);
+            $q->where('id', '=', $request->branch_id);
         })
         ->get();
 
@@ -109,6 +109,9 @@ class StockMasterStockCardController extends Controller
             ->where('rop.part_id', $partId)
             ->where('ro.receipt_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('ro.receipt_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN ro.branch_id IS NOT NULL THEN ro.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'ro.receipt_no AS doc_no', 'ro.receipt_date AS tx_date', 'rop.qty AS qty', 
                 'rop.final_cost AS price', 'rop.avg_cost AS avg_cost', 'b.name AS branch_name', 
@@ -133,6 +136,9 @@ class StockMasterStockCardController extends Controller
             ->where('dop.part_id', $partId)
             ->where('do.delivery_order_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('do.delivery_order_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN do.branch_id IS NOT NULL THEN do.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'do.delivery_order_no AS doc_no', 'do.delivery_order_date AS tx_date', 'dop.qty AS qty', 
                 DB::raw('(SELECT sop.last_avg_cost FROM tx_sales_order_parts sop WHERE sop.id = dop.sales_order_part_id) AS price'), 
@@ -154,6 +160,9 @@ class StockMasterStockCardController extends Controller
             ->where('prp.part_id', $partId)
             ->where('pr.purchase_retur_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('pr.purchase_retur_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN pr.branch_id IS NOT NULL THEN pr.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'pr.purchase_retur_no AS doc_no', 'pr.purchase_retur_date AS tx_date', 'prp.qty_retur AS qty', 
                 'prp.final_cost AS price', 
@@ -177,6 +186,9 @@ class StockMasterStockCardController extends Controller
             ->where('nrp.part_id', $partId)
             ->where('nr.nota_retur_no', 'NOT LIKE', '%Draft%')
             ->whereBetween(DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE)"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN nr.branch_id IS NOT NULL THEN nr.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'nr.nota_retur_no AS doc_no', DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE) AS tx_date"), 'nrp.qty_retur AS qty', 
                 'nrp.final_price AS price', 
@@ -200,6 +212,9 @@ class StockMasterStockCardController extends Controller
             ->where('nrp.part_id', $partId)
             ->where('nr.nota_retur_no', 'NOT LIKE', '%Draft%')
             ->whereBetween(DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE)"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN nr.branch_id IS NOT NULL THEN nr.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'nr.nota_retur_no AS doc_no', DB::raw("CAST(DATE_FORMAT(nr.approved_at, '%Y-%m-%d') AS DATE) AS tx_date"), 'nrp.qty_retur AS qty', 
                 'nrp.final_price AS price', 
@@ -224,6 +239,9 @@ class StockMasterStockCardController extends Controller
             ->where('np_part.part_id', $partId)
             ->where('np.delivery_order_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('np.delivery_order_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN np.branch_id IS NOT NULL THEN np.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'np.delivery_order_no AS doc_no', 'np.delivery_order_date AS tx_date', 'np_part.qty AS qty', 
                 DB::raw('(SELECT sjp.last_avg_cost FROM tx_surat_jalan_parts sjp WHERE sjp.id = np_part.sales_order_part_id AND sjp.part_id = np_part.part_id) AS price'), 
@@ -243,6 +261,9 @@ class StockMasterStockCardController extends Controller
             ->where('adj_part.part_id', $partId)
             ->where('adj.stock_adj_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('adj.stock_adj_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN adj.branch_id IS NOT NULL THEN adj.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'adj.stock_adj_no AS doc_no', 'adj.stock_adj_date AS tx_date', 
                 DB::raw('(CASE WHEN adj_part.adjustment >= 0 THEN adj_part.adjustment ELSE (adj_part.adjustment * -1) END) AS qty'), 
@@ -264,6 +285,9 @@ class StockMasterStockCardController extends Controller
             ->where('stock_part.part_id', $partId)
             ->where('stock.stock_transfer_no', 'NOT LIKE', '%Draft%')
             ->whereBetween(DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d')"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN stock.branch_from_id IS NOT NULL THEN stock.branch_from_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'stock.stock_transfer_no AS doc_no', DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d') AS tx_date"), 'stock_part.qty AS qty', 
                 DB::raw('(SELECT mp.avg_cost FROM mst_parts mp WHERE mp.id = stock_part.part_id) AS price'), 
@@ -285,6 +309,9 @@ class StockMasterStockCardController extends Controller
             ->where('stock_part.part_id', $partId)
             ->where('stock.stock_transfer_no', 'NOT LIKE', '%Draft%')
             ->whereBetween(DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d')"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN stock.branch_to_id IS NOT NULL THEN stock.branch_to_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'stock.stock_transfer_no AS doc_no', DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d') AS tx_date"), 'stock_part.qty AS qty', 
                 DB::raw('(SELECT mp.avg_cost FROM mst_parts mp WHERE mp.id = stock_part.part_id) AS price'), 
@@ -304,6 +331,9 @@ class StockMasterStockCardController extends Controller
             ->where('sap.part_id', $partId)
             ->where('sa.stock_assembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sa.stock_assembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN sa.branch_id IS NOT NULL THEN sa.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'sa.stock_assembly_no AS doc_no', 'sa.stock_assembly_date AS tx_date', 'sap.qty AS qty', 
                 'sap.final_cost AS price', 'sap.avg_cost AS avg_cost', 'b.name AS branch_name', 
@@ -321,6 +351,9 @@ class StockMasterStockCardController extends Controller
             ->where('sa.part_id', $partId)
             ->where('sa.stock_assembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sa.stock_assembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN sa.branch_id IS NOT NULL THEN sa.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'sa.stock_assembly_no AS doc_no', 'sa.stock_assembly_date AS tx_date', 'sa.qty AS qty', 
                 DB::raw('(sa.final_cost / sa.qty) AS price'), DB::raw('(sa.final_cost / sa.qty) AS avg_cost'), 'b.name AS branch_name', 
@@ -340,6 +373,9 @@ class StockMasterStockCardController extends Controller
             ->where('sdp.part_id', $partId)
             ->where('sd.stock_disassembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sd.stock_disassembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN sd.branch_id IS NOT NULL THEN sd.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'sd.stock_disassembly_no AS doc_no', 'sd.stock_disassembly_date AS tx_date', 'sdp.qty AS qty', 
                 'sdp.final_cost AS price', 'sdp.avg_cost AS avg_cost', 'b.name AS branch_name', 
@@ -357,6 +393,9 @@ class StockMasterStockCardController extends Controller
             ->where('sd.part_id', $partId)
             ->where('sd.stock_disassembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sd.stock_disassembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
+                $q->whereRaw('(CASE WHEN sd.branch_id IS NOT NULL THEN sd.branch_id ELSE b.id END)='.$request->branch_id);
+            })
             ->select([
                 'sd.stock_disassembly_no AS doc_no', 'sd.stock_disassembly_date AS tx_date', 'sd.qty AS qty', 
                 'sd.avg_cost AS price', DB::raw('(sd.avg_cost / sd.qty) AS avg_cost'), 'b.name AS branch_name', 
