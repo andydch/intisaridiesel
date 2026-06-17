@@ -177,12 +177,42 @@
                                             $to_date = explode("/",$request->to_date);
 
                                             if (request()->branch_id<>''){
-                                                $qAvg = \App\Models\V_log_avg_cost::where([
-                                                    'part_id' => $request->part_idx,
-                                                ])
+                                                $qLogTxQtyPartAvgCost = DB::table('log_tx_qty_parts')
+                                                ->select(
+                                                    'row_id AS id',
+                                                    'part_id AS part_id',
+                                                    'avg_cost AS avg_cost',
+                                                    'updated_at AS updated_at'
+                                                )
                                                 ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
-                                                ->orderBy('updated_at','ASC')
+                                                ->where([
+                                                    'part_id' => $request->part_idx,
+                                                    'action' => 'U',
+                                                ])
+                                                ->orderBy('updated_at', 'DESC');
+                                                $qMstPartAvgCost = DB::table('mst_parts')
+                                                ->select(
+                                                    'id AS row_id',
+                                                    'id AS part_id',
+                                                    'avg_cost AS avg_cost',
+                                                    'updated_at AS updated_at'
+                                                )
+                                                ->where([
+                                                    'id' => $request->part_idx,
+                                                    'active' => 'Y',
+                                                ])
+                                                ->orderBy('updated_at', 'DESC');
+                                                $qAvg = $qLogTxQtyPartAvgCost
+                                                ->unionAll($qMstPartAvgCost)
+                                                ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                ->orderBy('updated_at', 'DESC')
                                                 ->first();
+                                                // $qAvg = \App\Models\V_log_avg_cost::where([
+                                                //     'part_id' => $request->part_idx,
+                                                // ])
+                                                // ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                // ->orderBy('updated_at','ASC')
+                                                // ->first();
                                                 if ($qAvg){
                                                     $avg_cost = $qAvg->avg_cost;
                                                 }
@@ -196,9 +226,6 @@
                                                     'avg_cost AS avg_cost',
                                                     'updated_at AS updated_at'
                                                 )
-                                                // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                //     $q->where('branch_id', '=', $request->branch_id);
-                                                // })
                                                 ->when($stockcards_part_first, function($q1) use($from_date, $stockcards_part_first){
                                                     $q1->whereRaw('updated_at<\''.$stockcards_part_first->updated_at.'\'');
                                                 })
@@ -225,15 +252,11 @@
                                                     'part_id' => $request->part_idx,
                                                     'branch_id' => $request->branch_id,
                                                 ])
-                                                // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                //     $q->where('branch_id', '=', $request->branch_id);
-                                                // })
                                                 ->orderBy('updated_at', 'DESC');
                                                 $q = $qLogTxQtyPart
                                                 ->unionAll($qTxQtyPart)
                                                 ->orderBy('updated_at', 'DESC')
                                                 ->first();
-
                                                 // $q = \App\Models\V_tx_qty_part::where([
                                                 //     'part_id' => $request->part_idx,
                                                 // ])
@@ -261,9 +284,6 @@
                                                         'avg_cost AS avg_cost',
                                                         'updated_at AS updated_at'
                                                     )
-                                                    // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                    //     $q->where('branch_id','=', $request->branch_id);
-                                                    // })
                                                     ->whereRaw('updated_at>\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\' '.
                                                         'AND updated_at<\''.$to_date[2].'-'.$to_date[1].'-'.$to_date[0].' 23:59:59\'')
                                                     ->where([
@@ -285,15 +305,11 @@
                                                         'part_id' => $request->part_idx,
                                                         'branch_id' => $request->branch_id,
                                                     ])
-                                                    // ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
-                                                    //     $q->where('branch_id', '=', $request->branch_id);
-                                                    // })
                                                     ->orderBy('updated_at', 'ASC');
                                                     $q2 = $qLogTxQtyPart
                                                     ->unionAll($qTxQtyPart)
                                                     ->orderBy('updated_at', 'ASC')
                                                     ->first();
-
                                                     // $q2 = \App\Models\V_tx_qty_part::where([
                                                     //     'part_id' => $request->part_idx,
                                                     // ])
@@ -315,12 +331,42 @@
                                                 ->get();
                                                 if ($qBranch){
                                                     foreach ($qBranch as $qB) {
-                                                        $qAvg = \App\Models\V_log_avg_cost::where([
-                                                            'part_id' => $request->part_idx,
-                                                        ])
+                                                        $qLogTxQtyPartAvgCost = DB::table('log_tx_qty_parts')
+                                                        ->select(
+                                                            'row_id AS id',
+                                                            'part_id AS part_id',
+                                                            'avg_cost AS avg_cost',
+                                                            'updated_at AS updated_at'
+                                                        )
                                                         ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
-                                                        ->orderBy('updated_at','ASC')
+                                                        ->where([
+                                                            'part_id' => $request->part_idx,
+                                                            'action' => 'U',
+                                                        ])
+                                                        ->orderBy('updated_at', 'DESC');
+                                                        $qMstPartAvgCost = DB::table('mst_parts')
+                                                        ->select(
+                                                            'id AS row_id',
+                                                            'id AS part_id',
+                                                            'avg_cost AS avg_cost',
+                                                            'updated_at AS updated_at'
+                                                        )
+                                                        ->where([
+                                                            'id' => $request->part_idx,
+                                                            'active' => 'Y',
+                                                        ])
+                                                        ->orderBy('updated_at', 'DESC');
+                                                        $qAvg = $qLogTxQtyPartAvgCost
+                                                        ->unionAll($qMstPartAvgCost)
+                                                        ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                        ->orderBy('updated_at', 'DESC')
                                                         ->first();
+                                                        // $qAvg = \App\Models\V_log_avg_cost::where([
+                                                        //     'part_id' => $request->part_idx,
+                                                        // ])
+                                                        // ->whereRaw('updated_at>=\''.$from_date[2].'-'.$from_date[1].'-'.$from_date[0].' 00:00:00\'')
+                                                        // ->orderBy('updated_at','ASC')
+                                                        // ->first();
                                                         if ($qAvg){
                                                             $avg_cost = $qAvg->avg_cost;
                                                         }
@@ -365,7 +411,6 @@
                                                         ->unionAll($qTxQtyPart)
                                                         ->orderBy('updated_at', 'DESC')
                                                         ->first();
-
                                                         // $q = \App\Models\V_tx_qty_part::where([
                                                         //     'part_id' => $request->part_idx,
                                                         //     'branch_id' => $qB->id,
@@ -417,7 +462,6 @@
                                                             ->unionAll($qTxQtyPart)
                                                             ->orderBy('updated_at', 'ASC')
                                                             ->first();
-
                                                             // $q2 = \App\Models\V_tx_qty_part::where([
                                                             //     'part_id' => $request->part_idx,
                                                             //     'branch_id' => $qB->id,
