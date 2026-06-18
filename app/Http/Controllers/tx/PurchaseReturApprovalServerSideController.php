@@ -177,11 +177,11 @@ class PurchaseReturApprovalServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        $parts = Mst_part::where([
-            'active' => 'Y'
-        ])
-        ->orderBy('part_name', 'ASC')
-        ->get();
+        // $parts = Mst_part::where([
+        //     'active' => 'Y'
+        // ])
+        // ->orderBy('part_name', 'ASC')
+        // ->get();
 
         $couriers = Mst_courier::where([
             'active' => 'Y'
@@ -243,7 +243,7 @@ class PurchaseReturApprovalServerSideController extends Controller
                 'title' => $this->title,
                 'folder' => $this->folder,
                 'querySupplier' => $querySupplier,
-                'parts' => $parts,
+                // 'parts' => $parts,
                 'couriers' => $couriers,
                 'totalRow' => (old('totalRow') ? old('totalRow') : $queryPartCount),
                 'invoice_no' => $invoice_no,
