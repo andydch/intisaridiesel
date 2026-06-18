@@ -78,34 +78,27 @@ class StockMasterServerSideController extends Controller
             )
             ->where('active', 'Y')
             ->orderBy('part_number', 'ASC');
-            $sqlMstBranches = DB::table('mst_branches')
-            ->select(
-                'id',
-                'name'
-            )
-            ->where('active', 'Y')
-            ->orderBy('name', 'ASC');
             $sqlMstGlobals01 = DB::table('mst_globals')
             ->select(
                 'id',
                 'title_ind'
             )
-            ->where('data_cat', 'part-type')
-            ->where('active', 'Y');
+            ->where('active', 'Y')
+            ->where('data_cat', 'part-type');
             $sqlMstGlobals02 = DB::table('mst_globals')
             ->select(
                 'id',
-                'string_val'
+                'title_ind'
             )
-            ->where('data_cat', 'quantity-type')
-            ->where('active', 'Y');
+            ->where('active', 'Y')
+            ->where('data_cat', 'quantity-type');
             $sqlMstGlobals03 = DB::table('mst_globals')
             ->select(
                 'id',
                 'title_ind'
             )
-            ->where('data_cat', 'brand')
-            ->where('active', 'Y');
+            ->where('active', 'Y')
+            ->where('data_cat', 'brand');
 
             $sql = DB::table('tx_qty_parts')
             ->joinSub($sqlMstParts, 'mst_parts', function($join) {
@@ -120,9 +113,6 @@ class StockMasterServerSideController extends Controller
             ->leftJoinSub($sqlMstGlobals03, 'mg_03', function($join) {
                 $join->on('mst_parts.brand_id', '=', 'mg_03.id');
             })
-            ->leftJoinSub($sqlMstBranches, 'mb', function($join) {
-                $join->on('tx_qty_parts.branch_id', '=', 'mb.id');
-            })
             ->select(
                 'mst_parts.part_idx',
                 'mst_parts.slug',
@@ -136,10 +126,8 @@ class StockMasterServerSideController extends Controller
                 'tx_qty_parts.qty',
                 'tx_qty_parts.branch_id AS branch_id_tmp',
                 'tx_qty_parts.id as rank',
-                'mb.id as branch_id',
-                'mb.name as branch_name',
                 'mg_01.title_ind as part_type_name',
-                'mg_02.string_val as unit_name',
+                'mg_02.title_ind as unit_name',
                 'mg_03.title_ind as brand_name',
             )
             ->selectRaw('mst_parts.part_name as part_name_wd')
@@ -164,8 +152,7 @@ class StockMasterServerSideController extends Controller
             ->when($parameter[7]=='Y', function($q) use($parameter) {
                 $q->whereRaw('tx_qty_parts.qty>0');
             })
-            ->orderBy('mst_parts.part_number', 'ASC')
-            ->orderBy('mb.id', 'ASC');
+            ->orderBy('mst_parts.part_number', 'ASC');
 
             // Cache jumlah total data selama 1 jam (3600 detik)
             // $totalRecords = Cache::remember('data_count', 3600, function () use ($sql) {
@@ -188,6 +175,13 @@ class StockMasterServerSideController extends Controller
             ->addColumn('parts_name', function ($sql) {
                 return $sql->part_name_wd;
             })
+            ->editColumn('branch_name_temp', function ($sql) {
+                $q = Mst_branch::where('id', $sql->branch_id_tmp)->first();
+                return $q->name ?? '';
+            })
+            ->filterColumn('branch_name_temp', function($query, $keyword) {
+                $query->whereRaw('(SELECT name FROM mst_branches WHERE id = tx_qty_parts.branch_id) LIKE ?', ["%{$keyword}%"]);
+            })
             ->addColumn('SOqty', function ($sql) {
                 // sales order
                 $qtySO = DB::table('tx_sales_order_parts AS txsop')
@@ -199,7 +193,7 @@ class StockMasterServerSideController extends Controller
                 })
                 ->where('txsop.part_id', $sql->part_idx)
                 ->where('txsop.active', 'Y')
-                ->where('txso.branch_id', $sql->branch_id)
+                ->where('txso.branch_id', $sql->branch_id_tmp)
                 ->whereNotExists(function (Builder $q1) {
                     $q1->selectRaw(1)
                     ->from('tx_delivery_order_parts as tx_do_parts')
@@ -223,7 +217,7 @@ class StockMasterServerSideController extends Controller
                 })
                 ->where('txsjp.part_id', $sql->part_idx)
                 ->where('txsjp.active', 'Y')
-                ->where('txsj.branch_id', $sql->branch_id)
+                ->where('txsj.branch_id', $sql->branch_id_tmp)
                 ->whereNotExists(function (Builder $q1) {
                     $q1->selectRaw(1)
                     ->from('tx_delivery_order_non_tax_parts as tx_do_parts')
@@ -253,7 +247,7 @@ class StockMasterServerSideController extends Controller
                 })
                 ->where('tx_mop.part_id', $sql->part_idx)
                 ->where('tx_mop.active', 'Y')
-                ->where('tx_mo.branch_id', $sql->branch_id)
+                ->where('tx_mo.branch_id', $sql->branch_id_tmp)
                 ->sum('tx_mop.qty') ?? 0;
 
                 $purchase_order_qty = DB::table('tx_purchase_order_parts AS tx_pop')
@@ -265,7 +259,7 @@ class StockMasterServerSideController extends Controller
                 })
                 ->where('tx_pop.part_id', $sql->part_idx)
                 ->where('tx_pop.active', 'Y')
-                ->where('tx_po.branch_id', $sql->branch_id)
+                ->where('tx_po.branch_id', $sql->branch_id_tmp)
                 ->sum('tx_pop.qty') ?? 0;
 
                 $purchase_ro_qty = DB::table('tx_receipt_order_parts AS tx_ro_parts')
@@ -275,7 +269,7 @@ class StockMasterServerSideController extends Controller
                     ->where('tx_ro.active', 'Y');
                 })
                 ->where('tx_ro_parts.part_id', $sql->part_idx)
-                ->where('tx_ro.branch_id', $sql->branch_id)
+                ->where('tx_ro.branch_id', $sql->branch_id_tmp)
                 ->where('tx_ro_parts.active', 'Y')
                 ->sum('tx_ro_parts.qty') ?? 0;
 
@@ -296,11 +290,11 @@ class StockMasterServerSideController extends Controller
                 })
                 ->where('tx_stockp.active', 'Y')
                 ->where('tx_stockp.part_id', $sql->part_idx)
-                ->where('tx_stock.branch_to_id', $sql->branch_id)
+                ->where('tx_stock.branch_to_id', $sql->branch_id_tmp)
                 ->sum('tx_stockp.qty') ?? 0;
 
                 if($in_transit_qty>0){
-                    return '<a href="#" onclick="dispInTransitInfo('.$sql->part_idx.','.$sql->branch_id.');">'.$in_transit_qty.'</a>';
+                    return '<a href="#" onclick="dispInTransitInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$in_transit_qty.'</a>';
                 }else{
                     return $in_transit_qty;
                 }
@@ -315,7 +309,7 @@ class StockMasterServerSideController extends Controller
                 ->where('tx_receipt_order_parts.part_id', $sql->part_idx)
                 ->where('tx_receipt_order_parts.final_cost', '>', 0)
                 ->where('tx_receipt_order_parts.active', '=', 'Y')
-                ->where('tx_ro.branch_id', $sql->branch_id)
+                ->where('tx_ro.branch_id', $sql->branch_id_tmp)
                 ->orderBy('tx_ro.created_at','DESC')
                 ->take(1);
 
@@ -333,7 +327,7 @@ class StockMasterServerSideController extends Controller
                 ->select('tx_sop.price AS price', 'tx_sop.created_at AS created_at')
                 ->where('tx_sop.part_id', $sql->part_idx)
                 ->where('tx_sop.active', 'Y')
-                ->where('tx_so.branch_id', $sql->branch_id);
+                ->where('tx_so.branch_id', $sql->branch_id_tmp);
 
                 // 2. Query dari Surat Jalan, lalu UNION ALL dengan Sales Order, lalu urutkan yang terbaru
                 $latestPrice = DB::table('tx_surat_jalan_parts AS tx_sjp')
@@ -346,7 +340,7 @@ class StockMasterServerSideController extends Controller
                 ->select('tx_sjp.price AS price', 'tx_sjp.created_at AS created_at')
                 ->where('tx_sjp.part_id', $sql->part_idx)
                 ->where('tx_sjp.active', 'Y')
-                ->where('tx_sj.branch_id', $sql->branch_id)
+                ->where('tx_sj.branch_id', $sql->branch_id_tmp)
                 ->unionAll($salesOrderQuery) // Gabungkan di sini
                 ->orderBy('created_at', 'DESC') // Sort hasil gabungan yang sudah sedikit
                 ->first(); // Mengambil 1 data teratas (LIMIT 1)
@@ -447,7 +441,7 @@ class StockMasterServerSideController extends Controller
                     return '<input type="hidden" name="delRow'.$sql->rank.'" id="delRow'.$sql->rank.'">';
                 }
             })
-            ->rawColumns(['part_number_with_delimiter','parts_name','SOqty','OOqty','ITqty','last_final_price_val','price_list_val','action','del_checkbox'])
+            ->rawColumns(['part_number_with_delimiter', 'parts_name', 'branch_name_temp', 'SOqty', 'OOqty', 'ITqty', 'last_final_price_val', 'price_list_val', 'action', 'del_checkbox'])
             ->toJson();
         }
 

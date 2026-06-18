@@ -112,7 +112,7 @@
                                         @endphp
                                         @foreach ($queryPartType as $p)
                                             <option @if ($partType_id==$p->id){{ 'selected' }}@endif
-                                                value="{{ $p->id }}">{{ $p->string_val }}</option>
+                                                value="{{ $p->id }}">{{ $p->title_ind }}</option>
                                         @endforeach
                                     </select>
                                     @error('partType_id')
@@ -465,7 +465,7 @@
             });
         });
 
-        $('#stock-master-list').DataTable({
+        let table = $('#stock-master-list').DataTable({
             processing: true,
             ordering: false,
             // scroller: true,
@@ -506,8 +506,8 @@
                 },
                 {
                     // 4
-                    data: 'branch_name',
-                    name: 'mb.name',
+                    data: 'branch_name_temp',
+                    name: 'branch_name_temp',
                     searchable: true,
                     orderable: false,
                 },
@@ -542,7 +542,7 @@
                 {
                     // 9
                     data: 'unit_name',
-                    name: 'mg_02.string_val',
+                    name: 'mg_02.title_ind',
                     orderable: false,
                     searchable: false,
                 },
