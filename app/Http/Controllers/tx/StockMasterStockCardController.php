@@ -254,9 +254,9 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('tx_stock_adjustments AS adj', 'adj_part.stock_adj_id', '=', 'adj.id')
             ->leftJoin('mst_branches AS b', 'adj.branch_id', '=', 'b.id')
             ->where('adj_part.active', 'Y')
-            ->where('adj.active', 'Y')
             ->where('adj_part.part_id', $partId)
-            ->where('adj.stock_adj_no', 'NOT LIKE', '%Draft%')
+            ->where('adj.active', 'Y')
+            ->where('adj.is_draft', 'N')
             ->whereBetween('adj.stock_adj_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN adj.branch_id IS NOT NULL THEN adj.branch_id ELSE b.id END)='.$request->branch_id);
@@ -277,10 +277,10 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('tx_stock_transfers AS stock', 'stock_part.stock_transfer_id', '=', 'stock.id')
             ->leftJoin('mst_branches AS b', 'stock.branch_from_id', '=', 'b.id')
             ->where('stock_part.active', 'Y')
-            ->whereNotNull('stock.approved_by')
-            ->where('stock.active', 'Y')
             ->where('stock_part.part_id', $partId)
-            ->where('stock.stock_transfer_no', 'NOT LIKE', '%Draft%')
+            ->where('stock.active', 'Y')
+            ->where('stock.is_draft', 'N')
+            ->whereNotNull('stock.approved_by')
             ->whereBetween(DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d')"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN stock.branch_from_id IS NOT NULL THEN stock.branch_from_id ELSE b.id END)='.$request->branch_id);
@@ -300,12 +300,12 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('tx_stock_transfers AS stock', 'stock_part.stock_transfer_id', '=', 'stock.id')
             ->leftJoin('mst_branches AS b', 'stock.branch_to_id', '=', 'b.id')
             ->where('stock_part.active', 'Y')
-            ->whereNotNull('stock.approved_by')
-            ->whereNotNull('stock.received_by')
-            ->where('stock.active', 'Y')
             ->where('stock_part.part_id', $partId)
-            ->where('stock.stock_transfer_no', 'NOT LIKE', '%Draft%')
+            ->where('stock.active', 'Y')
+            ->where('stock.is_draft', 'N')
+            ->whereNotNull('stock.approved_by')
             ->whereBetween(DB::raw("DATE_FORMAT(stock.approved_at, '%Y-%m-%d')"), [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
+            ->whereNotNull('stock.received_by')
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN stock.branch_to_id IS NOT NULL THEN stock.branch_to_id ELSE b.id END)='.$request->branch_id);
             })
@@ -324,9 +324,9 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('tx_stock_assemblys AS sa', 'sap.stock_assembly_id', '=', 'sa.id')
             ->leftJoin('mst_branches AS b', 'sa.branch_id', '=', 'b.id')
             ->where('sap.active', 'Y')
-            ->where('sa.active', 'Y')
             ->where('sap.part_id', $partId)
-            ->where('sa.stock_assembly_no', 'NOT LIKE', '%Draft%')
+            ->where('sa.active', 'Y')
+            ->where('sa.is_draft', 'N')
             ->whereBetween('sa.stock_assembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN sa.branch_id IS NOT NULL THEN sa.branch_id ELSE b.id END)='.$request->branch_id);
@@ -345,8 +345,8 @@ class StockMasterStockCardController extends Controller
         $stockAssemblyHeader = DB::table('tx_stock_assemblys AS sa')
             ->leftJoin('mst_branches AS b', 'sa.branch_id', '=', 'b.id')
             ->where('sa.active', 'Y')
+            ->where('sa.is_draft', 'N')
             ->where('sa.part_id', $partId)
-            ->where('sa.stock_assembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sa.stock_assembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN sa.branch_id IS NOT NULL THEN sa.branch_id ELSE b.id END)='.$request->branch_id);
@@ -366,9 +366,9 @@ class StockMasterStockCardController extends Controller
             ->leftJoin('tx_stock_disassemblies AS sd', 'sdp.stock_disassembly_id', '=', 'sd.id')
             ->leftJoin('mst_branches AS b', 'sd.branch_id', '=', 'b.id')
             ->where('sdp.active', 'Y')
-            ->where('sd.active', 'Y')
             ->where('sdp.part_id', $partId)
-            ->where('sd.stock_disassembly_no', 'NOT LIKE', '%Draft%')
+            ->where('sd.active', 'Y')
+            ->where('sd.is_draft', 'N')
             ->whereBetween('sd.stock_disassembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN sd.branch_id IS NOT NULL THEN sd.branch_id ELSE b.id END)='.$request->branch_id);
@@ -387,8 +387,8 @@ class StockMasterStockCardController extends Controller
         $stockDisassemblyHeader = DB::table('tx_stock_disassemblies AS sd')
             ->leftJoin('mst_branches AS b', 'sd.branch_id', '=', 'b.id')
             ->where('sd.active', 'Y')
+            ->where('sd.is_draft', 'N')
             ->where('sd.part_id', $partId)
-            ->where('sd.stock_disassembly_no', 'NOT LIKE', '%Draft%')
             ->whereBetween('sd.stock_disassembly_date', [$startDate[2].'-'.$startDate[1].'-'.$startDate[0], $endDate[2].'-'.$endDate[1].'-'.$endDate[0]])
             ->when(request()->has('branch_id') && request()->branch_id<>'', function($q) use($request) {
                 $q->whereRaw('(CASE WHEN sd.branch_id IS NOT NULL THEN sd.branch_id ELSE b.id END)='.$request->branch_id);

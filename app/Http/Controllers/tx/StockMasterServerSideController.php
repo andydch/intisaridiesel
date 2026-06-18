@@ -147,7 +147,7 @@ class StockMasterServerSideController extends Controller
                 $q->where('mg_01.id', '=', $parameter[4]);
             })
             ->when($parameter[5]<>'', function($q) use($parameter) {
-                $q->where('mb.id', '=', $parameter[5]);
+                $q->where('tx_qty_parts.branch_id', '=', $parameter[5]);
             })
             ->when($parameter[7]=='Y', function($q) use($parameter) {
                 $q->whereRaw('tx_qty_parts.qty>0');
