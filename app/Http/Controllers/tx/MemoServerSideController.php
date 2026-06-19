@@ -12,7 +12,7 @@ use App\Models\Tx_qty_part;
 use App\Models\Tx_receipt_order;
 use App\Models\Mst_supplier;
 use App\Rules\NumericCustom;
-use App\Rules\IsMemoTiedWithRO_Rule;
+// use App\Rules\IsMemoTiedWithRO_Rule;
 use App\Rules\ValidateQtyMOupd_Rule;
 use Illuminate\Http\Request;
 use App\Rules\LimitMemoPrice;
@@ -51,10 +51,15 @@ class MemoServerSideController extends Controller
         ->first();
 
         if ($request->ajax()) {
-            $query = Tx_purchase_memo::leftJoin('userdetails AS usr','tx_purchase_memos.created_by','=','usr.user_id')
-            ->leftJoin('mst_suppliers','tx_purchase_memos.supplier_id','=','mst_suppliers.id')
-            ->leftJoin('mst_globals as ent','mst_suppliers.entity_type_id','=','ent.id')
-            ->select(
+            // 1. Buat subquery untuk menghitung total price (Mencegah N+1)
+            $partsSummary = DB::table('tx_purchase_memo_parts')
+            ->select('memo_id', DB::raw('SUM(qty * price) as total_price'))
+            ->where('active', 'Y')
+            ->groupBy('memo_id');
+
+            // 2. Query Utama
+            $query = DB::table('tx_purchase_memos')
+            ->select([
                 'tx_purchase_memos.id as tx_id',
                 'tx_purchase_memos.memo_no',
                 'tx_purchase_memos.memo_date',
@@ -66,23 +71,69 @@ class MemoServerSideController extends Controller
                 'mst_suppliers.name as supplier_name',
                 'mst_suppliers.supplier_code',
                 'ent.title_ind as supplier_entity_type_name',
-                )
-            ->addSelect(['total_price' => Tx_purchase_memo_part::selectRaw('SUM(qty*price)')
-                ->whereColumn('tx_purchase_memo_parts.memo_id','tx_purchase_memos.id')
-                ->where('tx_purchase_memo_parts.active','=','Y')
+                DB::raw('IFNULL(parts_summary.total_price, 0) as total_price')
             ])
-            ->where(function($q){
-                $q->where('tx_purchase_memos.active', 'Y')
-                ->orWhere(function($s){
-                    $s->where('tx_purchase_memos.active','N')
-                    ->where('tx_purchase_memos.memo_no','NOT LIKE','%Draft%');
+            // INNER JOIN ke userdetails dengan syarat branch_id = 9 (contoh)
+            ->join('userdetails as usr', function ($join) use($userLogin) {
+                $join->on('tx_purchase_memos.created_by', '=', 'usr.user_id')
+                ->when($userLogin->is_director=='N' && Auth::user()->id!=1, function($q) use($userLogin) {
+                    $q->where('usr.branch_id', '=', $userLogin->branch_id);
                 });
             })
-            ->when($userLogin->is_director=='N' && Auth::user()->id!=1, function($q) use($userLogin) {
-                $q->where('usr.branch_id','=',$userLogin->branch_id);
+            // LEFT JOIN ke supplier & entity_type
+            ->leftJoin('mst_suppliers', 'tx_purchase_memos.supplier_id', '=', 'mst_suppliers.id')
+            ->leftJoin('mst_globals as ent', 'mst_suppliers.entity_type_id', '=', 'ent.id')
+            
+            // Gabungkan subquery yang sudah dibuat di langkah 1
+            ->leftJoinSub($partsSummary, 'parts_summary', function ($join) {
+                $join->on('tx_purchase_memos.id', '=', 'parts_summary.memo_id');
             })
-            ->orderBy('tx_purchase_memos.memo_no', 'DESC')
-            ->orderBy('tx_purchase_memos.created_at', 'DESC');
+            
+            // Kondisi WHERE bersarang (Nested Where)
+            ->where(function ($query) {
+                $query->where('tx_purchase_memos.active', 'Y')
+                ->orWhere(function ($subQuery) {
+                    $subQuery->where('tx_purchase_memos.active', 'N')
+                    ->where('tx_purchase_memos.is_draft', 'N');
+                });
+            })
+            
+            // ORDER BY
+            ->orderBy('tx_purchase_memos.memo_no', 'desc')
+            ->orderBy('tx_purchase_memos.created_at', 'desc');
+
+            // $query = Tx_purchase_memo::leftJoin('userdetails AS usr','tx_purchase_memos.created_by','=','usr.user_id')
+            // ->leftJoin('mst_suppliers','tx_purchase_memos.supplier_id','=','mst_suppliers.id')
+            // ->leftJoin('mst_globals as ent','mst_suppliers.entity_type_id','=','ent.id')
+            // ->select(
+            //     'tx_purchase_memos.id as tx_id',
+            //     'tx_purchase_memos.memo_no',
+            //     'tx_purchase_memos.memo_date',
+            //     'tx_purchase_memos.active as memo_active',
+            //     'tx_purchase_memos.created_by as createdby',
+            //     'usr.initial',
+            //     'usr.is_director',
+            //     'usr.is_branch_head',
+            //     'mst_suppliers.name as supplier_name',
+            //     'mst_suppliers.supplier_code',
+            //     'ent.title_ind as supplier_entity_type_name',
+            //     )
+            // ->addSelect(['total_price' => Tx_purchase_memo_part::selectRaw('SUM(qty*price)')
+            //     ->whereColumn('tx_purchase_memo_parts.memo_id','tx_purchase_memos.id')
+            //     ->where('tx_purchase_memo_parts.active','=','Y')
+            // ])
+            // ->where(function($q){
+            //     $q->where('tx_purchase_memos.active', 'Y')
+            //     ->orWhere(function($s){
+            //         $s->where('tx_purchase_memos.active','N')
+            //         ->where('tx_purchase_memos.memo_no','NOT LIKE','%Draft%');
+            //     });
+            // })
+            // ->when($userLogin->is_director=='N' && Auth::user()->id!=1, function($q) use($userLogin) {
+            //     $q->where('usr.branch_id','=',$userLogin->branch_id);
+            // })
+            // ->orderBy('tx_purchase_memos.memo_no', 'DESC')
+            // ->orderBy('tx_purchase_memos.created_at', 'DESC');
 
             return DataTables::of($query)
             ->filterColumn('memo_date', function($query, $keyword) {
@@ -107,7 +158,7 @@ class MemoServerSideController extends Controller
                 $receipt_order_id = '';
                 $receipt_order_no = '';
                 $qRO = Tx_receipt_order::where('po_or_pm_no','LIKE','%'.$query->memo_no.'%')
-                ->where('active','=','Y')
+                ->where('active', 'Y')
                 ->first();
                 if($qRO){
                     $receipt_order_id = $qRO->id;
@@ -127,12 +178,12 @@ class MemoServerSideController extends Controller
             ->editColumn('supplier_name', function ($query) {
                 return $query->supplier_code.' - '.$query->supplier_entity_type_name.' '.$query->supplier_name;
             })
-            ->addColumn('action', function ($query) {
-                $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
-                ->first();
+            ->addColumn('action', function ($query) use($userLogin) {
+                // $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
+                // ->first();
 
-                $qRO = Tx_receipt_order_part::where('po_mo_no','=',$query->memo_no)
-                ->where('active','=','Y')
+                $qRO = Tx_receipt_order_part::where('po_mo_no', $query->memo_no)
+                ->where('active', 'Y')
                 ->first();
 
                 if(($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y') && $query->memo_active=='Y'){

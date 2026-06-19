@@ -82,19 +82,27 @@
             },
             columns: [{ // mengambil & menampilkan kolom sesuai tabel database
                     data: 'memo_no',
-                    name: 'memo_no'
+                    name: 'memo_no',
+                    orderable: false,
+                    searchable: true,
                 },
                 {
                     data: 'receipt_order_no',
-                    name: 'receipt_order_no'
+                    name: 'receipt_order_no',
+                    orderable: false,
+                    searchable: true,
                 },
                 {
                     data: 'memo_date',
-                    name: 'memo_date'
+                    name: 'memo_date',
+                    orderable: false,
+                    searchable: true,
                 },
                 {
                     data: 'supplier_name',
-                    name: 'supplier_name'
+                    name: 'supplier_name',
+                    orderable: false,
+                    searchable: true,
                 },
                 {
                     data: 'total_price',
@@ -104,7 +112,9 @@
                 },
                 {
                     data: 'initial',
-                    name: 'usr.initial'
+                    name: 'usr.initial',
+                    orderable: false,
+                    searchable: true,
                 },
                 {
                     data: 'action',
