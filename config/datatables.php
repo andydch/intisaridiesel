@@ -20,7 +20,7 @@ return [
          * Case insensitive will search the keyword in lower case format.
          * SQL: LOWER(column) LIKE LOWER(keyword)
          */
-        'case_insensitive' => true,
+        'case_insensitive' => false,
 
         /*
          * Wild card will add "%" in between every characters of the keyword.

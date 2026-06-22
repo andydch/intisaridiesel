@@ -72,7 +72,13 @@ class ReceiptOrderServerSideController extends Controller
             return redirect(route('ro.index').'/'.urlencode('::::::::'));
         }
         if ($request->ajax()) {
-            $query = Tx_receipt_order::leftJoin('userdetails AS usr','tx_receipt_orders.created_by','=','usr.user_id')
+            $query = Tx_receipt_order::join('userdetails AS usr', function ($join) use($userLogin) {
+                $join->on('tx_receipt_orders.created_by', '=', 'usr.user_id')
+                ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use($userLogin) {
+                    $q->where('usr.branch_id', $userLogin->branch_id);
+                })
+                ->where('usr.active', '=', 'Y');
+            })
             ->leftJoin('mst_suppliers','tx_receipt_orders.supplier_id','=','mst_suppliers.id')
             ->leftJoin('mst_globals as curr','tx_receipt_orders.currency_id','=','curr.id')
             ->leftJoin('mst_globals as ent','mst_suppliers.entity_type_id','=','ent.id')
@@ -103,9 +109,9 @@ class ReceiptOrderServerSideController extends Controller
                 'tx_pr.approved_by as approved_by_pr',
             )
             ->where('tx_receipt_orders.active','=','Y')
-            ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use($userLogin) {
-                $q->where('usr.branch_id','=',$userLogin->branch_id);
-            })
+            // ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use($userLogin) {
+            //     $q->where('usr.branch_id','=',$userLogin->branch_id);
+            // })
             ->when($parameter[0]<>'', function($q) use($parameter){
                 $q->where('mst_suppliers.id', '=', $parameter[0]);
             })
@@ -158,10 +164,11 @@ class ReceiptOrderServerSideController extends Controller
 
             return DataTables::of($query)
             ->filterColumn('po_mo_no', function($query, $keyword) {
-                $query->whereIn('tx_receipt_orders.id', function($q) use($keyword) {
-                    $q->select('receipt_order_id')
+                $query->orWhereExists(function ($q) use ($keyword) {
+                    $q->select(DB::raw(1))
                     ->from('tx_receipt_order_parts')
-                    ->where('active', '=', 'Y')
+                    ->whereColumn('tx_receipt_order_parts.receipt_order_id', 'tx_receipt_orders.id')
+                    ->where('active', 'Y')
                     ->where('po_mo_no', 'LIKE', "%{$keyword}%");
                 });
             })
@@ -189,7 +196,9 @@ class ReceiptOrderServerSideController extends Controller
                 return $links;
             })
             ->filterColumn('receipt_date', function($query, $keyword) {
-                $query->whereRaw('DATE_FORMAT(tx_receipt_orders.receipt_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"]);
+                if (strtotime($keyword)) {
+                    $query->whereRaw('DATE_FORMAT(tx_receipt_orders.receipt_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"]);
+                }
             })
             ->editColumn('receipt_date', function ($query) {
                 return date_format(date_create($query->receipt_date),"d/m/Y");
