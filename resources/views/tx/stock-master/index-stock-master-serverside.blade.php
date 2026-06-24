@@ -472,6 +472,20 @@
             // scrollY: 500,
             searching: true,
             serverSide: true,
+            searchDelay: 800, // Tunggu user selesai mengetik (800ms) baru kirim query
+            initComplete: function() {
+                var $searchInput = $('div.dataTables_filter input');
+                $searchInput.unbind();
+                $searchInput.bind('keyup', function(e) {
+                    if(this.value.length >= 3 || e.keyCode == 13) {
+                        // Hanya cari jika minimal 3 huruf atau tekan Enter
+                        table.search(this.value).draw();
+                    }
+                    if(this.value == "") {
+                        table.search("").draw();
+                    }
+                });
+            },
             order: [], // Mematikan pengurutan default saat pertama kali dimuat
             ajax: {
                 url: '{!! url()->current() !!}'

@@ -3,13 +3,7 @@
 namespace App\Http\Controllers\rpt;
 
 use App\Models\Mst_part;
-// use App\Models\Tx_qty_part;
-// use App\Models\V_tx_qty_part;
 use Illuminate\Http\Request;
-// use App\Models\Tx_delivery_order_part;
-// use App\Models\Tx_receipt_order_part;
-// use App\Models\Tx_purchase_memo_part;
-// use App\Models\Tx_purchase_order_part;
 use App\Models\Mst_global;
 use App\Models\Mst_branch;
 use App\Http\Controllers\Controller;

@@ -75,7 +75,7 @@ class SummaryStockPerGudangPerMerkExport implements FromView, ShouldAutoSize, Wi
         // ]);
 
         // set header background color
-        $sheet->getStyle('A5:D5')->getFill()->applyFromArray([
+        $sheet->getStyle('A5:E5')->getFill()->applyFromArray([
             'fillType' => 'solid',
             'rotation' => 0,
             'color' => ['rgb' => 'eaf1dd'],
@@ -95,9 +95,9 @@ class SummaryStockPerGudangPerMerkExport implements FromView, ShouldAutoSize, Wi
         ];
 
         // set tanggal center
-        $sheet->getStyle('D4')->applyFromArray($styleArray);
+        $sheet->getStyle('E4')->applyFromArray($styleArray);
 
-        $sheet->getStyle('A5:D'.$lastHighestRow)->applyFromArray([
+        $sheet->getStyle('A5:E'.$lastHighestRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -124,7 +124,7 @@ class SummaryStockPerGudangPerMerkExport implements FromView, ShouldAutoSize, Wi
             // 'A1' => ['font' => ['bold' => true]],
             // 'N4' => ['font' => ['bold' => true]],
             // 'H4' => ['font' => ['bold' => true]],
-            'A5:D5' => ['font' => ['bold' => true]],
+            'A5:E5' => ['font' => ['bold' => true]],
             // 'D'.$lastHighestRow => ['font' => ['bold' => true]],
             // 'M'.$lastHighestRow => ['font' => ['bold' => true]],
 

@@ -196,9 +196,7 @@ class ReceiptOrderServerSideController extends Controller
                 return $links;
             })
             ->filterColumn('receipt_date', function($query, $keyword) {
-                if (strtotime($keyword)) {
-                    $query->whereRaw('DATE_FORMAT(tx_receipt_orders.receipt_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"]);
-                }
+                $query->whereRaw('DATE_FORMAT(tx_receipt_orders.receipt_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"]);
             })
             ->editColumn('receipt_date', function ($query) {
                 return date_format(date_create($query->receipt_date),"d/m/Y");

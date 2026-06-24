@@ -6,8 +6,8 @@
             <meta name="viewport" content="width=device-width, initial-scale=1">
 
             <!-- Bootstrap CSS -->
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
-                integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+            {{-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+                integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous"> --}}
 
             <title>Summ Stock PerBranch-PerMerk</title>
     </head>
@@ -31,14 +31,14 @@
                     <th>PER DATE</th>
                     <th>{{ date_format($dateToShow, 'd-M-Y') }}</th>
                     <th>&nbsp;</th>
-                    {{-- <th>&nbsp;</th> --}}
+                    <th>&nbsp;</th>
                     <th>&nbsp;</th>
                 </tr>
                 <tr>
                     <th>BRANCH</th>
                     <th>BRAND</th>
                     <th>TOTAL COST AVG ({{ $qCurrency->string_val }})</th>
-                    {{-- <th>TOTAL FINAL PRICE ({{ $qCurrency->string_val }})</th> --}}
+                    <th>TOTAL COST SO/SJ ({{ $qCurrency->string_val }})</th>
                     <th>TOTAL PART NUMBER</th>
                 </tr>
             </thead>
@@ -48,11 +48,11 @@
                 $grandtotal_final_price = 0;
 
                 // branch
-                $branches = \App\Models\Mst_branch::where('active','=','Y')
+                $branches = \App\Models\Mst_branch::where('active', 'Y')
                 ->when($branch_id!='0', function($q) use($branch_id) {
-                    $q->where('id','=',$branch_id);
+                    $q->where('id', $branch_id);
                 })
-                ->orderBy('name','ASC')
+                ->orderBy('name', 'ASC')
                 ->get();
 
                 $branch_name = '';
@@ -68,7 +68,7 @@
                         'active' => 'Y'
                     ])
                     ->when($brand_id!='0', function($q) use($brand_id) {
-                        $q->where('id','=',$brand_id);
+                        $q->where('id', $brand_id);
                     })
                     ->orderBy('title_ind', 'ASC')
                     ->get();
@@ -93,13 +93,13 @@
                             ->orderBy('updated_at','DESC')          // ambil harga rata2 terbaru dari
                             ->limit(1)                              // data di baris pertama
                         ])
-                        // ->addSelect(['last_final_price' => \App\Models\V_sales_all_part::selectRaw('SUM(price*qty) AS tot_price')
-                        //     ->whereColumn('part_id', 'tx_qty_parts.part_id')
-                        //     ->where('branch_id', $branch->id)
-                        //     ->whereRaw('updated_at<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\'')
-                        //     // ->orderBy('updated_at','DESC')          // ambil harga terbaru dari
-                        //     // ->limit(1)                              // data di baris pertama
-                        // ])
+                        ->addSelect(['last_final_price' => \App\Models\V_sales_all_part::selectRaw('SUM(price*qty) AS tot_price')
+                            ->whereColumn('part_id', 'tx_qty_parts.part_id')
+                            ->where('branch_id', $branch->id)
+                            ->whereRaw('updated_at<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\'')
+                            // ->orderBy('updated_at','DESC')          // ambil harga terbaru dari
+                            // ->limit(1)                              // data di baris pertama
+                        ])
                         ->addSelect(['in_transit_qty' => \App\Models\Tx_stock_transfer_part::selectRaw('IFNULL(SUM(tx_stock_transfer_parts.qty),0)')
                             ->leftJoin('tx_stock_transfers as tx_stock','tx_stock_transfer_parts.stock_transfer_id','=','tx_stock.id')
                             ->whereColumn('tx_stock_transfer_parts.part_id','tx_qty_parts.part_id')
@@ -120,22 +120,22 @@
                         ->get();
                         foreach ($qParts as $qP) {
                             $total_avg_cost += ($qP->last_avg_cost*$qP->last_qty)+($qP->last_avg_cost*$qP->in_transit_qty);
-                            // $total_final_price += $qP->last_final_price;
+                            $total_final_price += $qP->last_final_price;
                             if ($qP->last_qty>0 || $qP->in_transit_qty>0){
                                 $total_part_per_brand_per_branch++;
                             }
                         }
 
                         $total_avg_cost_per_branch += $total_avg_cost;
-                        // $total_final_price_per_branch += $total_final_price;
+                        $total_final_price_per_branch += $total_final_price;
                         $grandtotal_avg_cost += $total_avg_cost;
-                        // $grandtotal_final_price += $total_final_price;
+                        $grandtotal_final_price += $total_final_price;
                     @endphp
                     <tr>
                         <td>{{ ($branch_name!=$branch->name?strtoupper($branch->name):'') }}</td>
                         <td>{{ strtoupper($brand->title_ind) }}</td>
                         <td>{{ number_format($total_avg_cost,0,'.','') }}</td>
-                        {{-- <td>{{ number_format($total_final_price,0,'.','') }}</td> --}}
+                        <td>{{ number_format($total_final_price,0,'.','') }}</td>
                         <td>{{ $total_part_per_brand_per_branch }}</td>
                     </tr>
                     @php
@@ -146,14 +146,14 @@
                     <td style="font-weight: bold;">TOTAL</td>
                     <td>&nbsp;</td>
                     <td style="text-align: right;font-weight: bold;">{{ number_format($total_avg_cost_per_branch,0,'.','') }}</td>
-                    {{-- <td style="text-align: right;font-weight: bold;">{{ number_format($total_final_price_per_branch,0,'.','') }}</td> --}}
+                    <td style="text-align: right;font-weight: bold;">{{ number_format($total_final_price_per_branch,0,'.','') }}</td>
                     <td>&nbsp;</td>
                 </tr>
                 <tr>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
-                    {{-- <td>&nbsp;</td> --}}
+                    <td>&nbsp;</td>
                     <td>&nbsp;</td>
                 </tr>
             @endforeach
@@ -163,7 +163,7 @@
                     <td style="font-weight: bold;">GRAND TOTAL</td>
                     <td>&nbsp;</td>
                     <td style="text-align: right;font-weight: bold;">{{ number_format($grandtotal_avg_cost,0,'.','') }}</td>
-                    {{-- <td style="text-align: right;font-weight: bold;">{{ number_format($grandtotal_final_price,0,'.','') }}</td> --}}
+                    <td style="text-align: right;font-weight: bold;">{{ number_format($grandtotal_final_price,0,'.','') }}</td>
                     <td>&nbsp;</td>
                 </tr>
             </tfoot>
@@ -172,8 +172,8 @@
         <!-- Optional JavaScript; choose one of the two! -->
 
         <!-- Option 1: Bootstrap Bundle with Popper -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+        {{-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script> --}}
 
         <!-- Option 2: Separate Popper and Bootstrap JS -->
         <!--
