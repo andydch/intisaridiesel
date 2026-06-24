@@ -97,6 +97,34 @@
                             ->whereColumn('part_id', 'tx_qty_parts.part_id')
                             ->where('branch_id', $branch->id)
                             ->whereRaw('updated_at<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\'')
+                            ->where(function($qN) {
+                                $qN->whereNotIn('sales_order_no', function($query) {
+                                    $query->select('sales_order_no')
+                                    ->from('tx_sales_orders')
+                                    ->where('active', 'Y')
+                                    ->whereIn('id', function($q) {
+                                        $q->select('tx_dop.sales_order_id')
+                                        ->from('tx_delivery_order_parts AS tx_dop')
+                                        ->leftJoin('tx_delivery_orders AS tx_do', 'tx_dop.delivery_order_id', '=', 'tx_do.id')
+                                        ->where('tx_dop.active', 'Y')
+                                        ->where('tx_do.is_draft', 'N')
+                                        ->where('tx_do.active', 'Y');
+                                    });
+                                })
+                                ->whereNotIn('sales_order_no', function($query) {
+                                    $query->select('surat_jalan_no')
+                                    ->from('tx_surat_jalans')
+                                    ->where('active', 'Y')
+                                    ->whereIn('id', function($q) {
+                                        $q->select('tx_dop.sales_order_id')
+                                        ->from('tx_delivery_order_non_tax_parts AS tx_dop')
+                                        ->leftJoin('tx_delivery_order_non_taxes AS tx_do', 'tx_dop.delivery_order_id', '=', 'tx_do.id')
+                                        ->where('tx_dop.active', 'Y')
+                                        ->where('tx_do.is_draft', 'N')
+                                        ->where('tx_do.active', 'Y');
+                                    });
+                                });
+                            })
                             // ->orderBy('updated_at','DESC')          // ambil harga terbaru dari
                             // ->limit(1)                              // data di baris pertama
                         ])
