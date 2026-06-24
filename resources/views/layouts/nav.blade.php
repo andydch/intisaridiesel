@@ -2050,7 +2050,7 @@
                             @endif
 
                             {{-- cash flow test --}}
-                            @php
+                            {{-- @php
                                 $queryCashFlow = \App\Models\Mst_menu_user::where([
                                     'menu_id' => 118,
                                     'user_id' => Auth::user()->id,
@@ -2060,7 +2060,7 @@
                             @endphp
                             @if ($queryCashFlow || Auth::user()->id==1)
                                 <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/rpt-cash-flow-dbg') }}"><i class="bx bx-right-arrow-alt"></i>Cash Flow (Test)</a></li>
-                            @endif
+                            @endif --}}
 
                             {{-- kartu hutang --}}
                             @php
