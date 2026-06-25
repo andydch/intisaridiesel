@@ -1100,7 +1100,7 @@
                 <li>
                     <a href="javascript:;" class="has-arrow">
                         <div class="parent-icon"><i class="bx bx-coin-stack" style="color: #73dc83;"></i></div>
-                        <div class="menu-title">Cash Flow</div>
+                        <div class="menu-title">Setup Cash Flow</div>
                     </a>
                     <ul>
                         {{-- payment plan --}}
