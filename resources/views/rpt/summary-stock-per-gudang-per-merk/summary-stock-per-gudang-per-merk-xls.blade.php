@@ -15,13 +15,13 @@
         <table>
             <thead>
                 <tr>
-                    <th colspan="4">{{ $company->name }}</th>
+                    <th colspan="5">{{ $company->name }}</th>
                 </tr>
                 <tr>
                     <th>&nbsp;</th>
                 </tr>
                 <tr>
-                    <th colspan="4" style="text-align:center;">{{ $title }}</th>
+                    <th colspan="5" style="text-align:center;">{{ $title }}</th>
                 </tr>
                 @php
                     $perDate = explode("-",$date);
@@ -79,6 +79,7 @@
                         $total_final_price = 0;
                         $part_id = 0;
                         $total_part_per_brand_per_branch = 0;
+                        // $last_avg_cost_tmp = 0;
 
                         $qParts = \App\Models\Tx_qty_part::leftJoin('mst_parts as pr', 'tx_qty_parts.part_id', '=', 'pr.id')
                         ->select(
@@ -93,12 +94,14 @@
                             ->orderBy('updated_at','DESC')          // ambil harga rata2 terbaru dari
                             ->limit(1)                              // data di baris pertama
                         ])
-                        ->addSelect(['last_final_price' => \App\Models\V_sales_all_part::selectRaw('SUM(price*qty) AS tot_price')
-                            ->whereColumn('part_id', 'tx_qty_parts.part_id')
-                            ->where('branch_id', $branch->id)
-                            ->whereRaw('updated_at<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\'')
+                        ->addSelect(['last_final_price' => \App\Models\V_sales_all_part::selectRaw('SUM((SELECT IFNULL(avg_cost,0) FROM v_log_avg_cost WHERE part_id = v_sales_all_parts.part_id AND updated_at <= \''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\' ORDER BY updated_at DESC LIMIT 1)*v_sales_all_parts.qty) AS tot_price')
+                        // ->addSelect(['last_final_price' => \App\Models\V_sales_all_part::selectRaw('SUM(v_sales_all_parts.price*v_sales_all_parts.qty) AS tot_price')
+                            ->whereColumn('v_sales_all_parts.part_id', 'tx_qty_parts.part_id')
+                            ->where('v_sales_all_parts.branch_id', $branch->id)
+                            ->whereRaw('v_sales_all_parts.sales_order_date<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].'\'')
+                            // ->whereRaw('v_sales_all_parts.updated_at<=\''.$perDate[2].'-'.$perDate[1].'-'.$perDate[0].' 23:59:59\'')
                             ->where(function($qN) {
-                                $qN->whereNotIn('sales_order_no', function($query) {
+                                $qN->whereNotIn('v_sales_all_parts.sales_order_no', function($query) {
                                     $query->select('sales_order_no')
                                     ->from('tx_sales_orders')
                                     ->where('active', 'Y')
@@ -111,7 +114,7 @@
                                         ->where('tx_do.active', 'Y');
                                     });
                                 })
-                                ->whereNotIn('sales_order_no', function($query) {
+                                ->whereNotIn('v_sales_all_parts.sales_order_no', function($query) {
                                     $query->select('surat_jalan_no')
                                     ->from('tx_surat_jalans')
                                     ->where('active', 'Y')
@@ -147,6 +150,7 @@
                         ])
                         ->get();
                         foreach ($qParts as $qP) {
+                            // $last_avg_cost_tmp = $qP->last_avg_cost;
                             $total_avg_cost += ($qP->last_avg_cost*$qP->last_qty)+($qP->last_avg_cost*$qP->in_transit_qty);
                             $total_final_price += $qP->last_final_price;
                             if ($qP->last_qty>0 || $qP->in_transit_qty>0){
@@ -165,6 +169,7 @@
                         <td>{{ number_format($total_avg_cost,0,'.','') }}</td>
                         <td>{{ number_format($total_final_price,0,'.','') }}</td>
                         <td>{{ $total_part_per_brand_per_branch }}</td>
+                        {{-- <td>{{ number_format($last_avg_cost_tmp,0,'.','') }}</td> --}}
                     </tr>
                     @php
                         $branch_name = $branch->name;
