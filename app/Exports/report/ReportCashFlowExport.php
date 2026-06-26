@@ -2,29 +2,31 @@
 
 namespace App\Exports\report;
 
-use DateTime;
-use App\Models\Mst_global;
-use App\Models\Tx_invoice;
 use App\Models\Mst_company;
-use App\Models\Tx_kwitansi;
-use Illuminate\Support\Str;
 use App\Models\Mst_customer;
+use App\Models\Mst_global;
 use App\Models\Mst_supplier;
 use App\Models\Tx_cash_flow;
+use App\Models\Tx_invoice;
+use App\Models\Tx_kwitansi;
+use App\Models\Tx_nota_retur_non_tax;
 use App\Models\Tx_nota_retur;
 use App\Models\Tx_payment_plan;
+use App\Models\Tx_payment_receipt_invoice;
 use App\Models\Tx_payment_voucher;
 use App\Models\Tx_tagihan_supplier;
 use App\Models\V_cash_flow_journal;
+use DateInterval;
+use DateTime;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Tx_nota_retur_non_tax;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\FromView;
-use App\Models\Tx_payment_receipt_invoice;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
@@ -36,8 +38,8 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
 
     public function __construct($period, $bank_id)
     {
-        ini_set('memory_limit', '128M');
-        ini_set('max_execution_time', 1800);
+        ini_set('memory_limit', '256M');
+        ini_set('max_execution_time', 3600);
 
         $this->period = $period;
         $this->bank_id = $bank_id;
@@ -227,43 +229,80 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             $startCustomerDateTimeObj = new DateTime('now');
             $startCustomer_datetime = $startCustomerDateTimeObj->format('Y-m-d H:i:s');
 
-            $qCustomers = Mst_customer::where(function($q) use($period){
-                $q->whereIn('id', function($query) use($period) {
-                    $query->select('customer_id')
-                    ->from('tx_invoices')
-                    ->whereRaw('DATE_FORMAT(invoice_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
-                    ->where([
-                        'payment_to_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ]);
+            $stringTanggal = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01';
+
+            $dateObjectNow = new DateTime($stringTanggal);
+            $dateObjectNext = new DateTime($stringTanggal);
+            // Menambahkan 1 bulan (P = Period, 1 = Angka, M = Month)
+            $dateObjectNext->add(new DateInterval('P1M'));
+
+            $qCustomers = Mst_customer::where(function($q) use($period, $dateObjectNow, $dateObjectNext){
+                $q->whereExists(function ($query) use($period, $dateObjectNow, $dateObjectNext) {
+                    $query->select(DB::raw(1))
+                        ->from('tx_invoices')
+                        ->whereColumn('tx_invoices.customer_id', 'mst_customers.id')
+                        ->whereRaw('(invoice_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND invoice_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                        ->where('payment_to_id', $this->bank_id)
+                        ->where('is_draft', 'N')
+                        ->where('active', 'Y');
                 })
-                ->orWhereIn('id', function($query) use($period) {
-                    $query->select('customer_id')
-                    ->from('tx_kwitansis')
-                    ->whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
-                    ->where([
-                        'payment_to_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ]);
+                ->orWhereExists(function ($query) use($period, $dateObjectNow, $dateObjectNext) {
+                    $query->select(DB::raw(1))
+                        ->from('tx_kwitansis')
+                        ->whereColumn('tx_kwitansis.customer_id', 'mst_customers.id')
+                        ->whereRaw('(kwitansi_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND kwitansi_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                        ->where('payment_to_id', $this->bank_id)
+                        ->where('is_draft', 'N')
+                        ->where('active', 'Y');
                 })
-                ->orWhereIn('id', function($query) use($period) {
-                    $query->select('customer_id')
-                    ->from('tx_payment_receipts')
-                    ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
-                    ->where([
-                        'coa_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ]);
+                ->orWhereExists(function ($query) use($period, $dateObjectNow, $dateObjectNext) {
+                    $query->select(DB::raw(1))
+                        ->from('tx_payment_receipts')
+                        ->whereColumn('tx_payment_receipts.customer_id', 'mst_customers.id')
+                        ->whereRaw('(payment_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND payment_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                        ->where('coa_id', $this->bank_id)
+                        ->where('is_draft', 'N')
+                        ->where('active', 'Y');
                 });
             })
-            ->where([
-                'active' => 'Y',
-            ])
+            ->where('active', 'Y')
             ->orderBy('name', 'asc')
             ->get();
+            // $qCustomers = Mst_customer::where(function($q) use($period){
+            //     $q->whereIn('id', function($query) use($period) {
+            //         $query->select('customer_id')
+            //         ->from('tx_invoices')
+            //         ->whereRaw('DATE_FORMAT(invoice_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
+            //         ->where([
+            //             'payment_to_id' => $this->bank_id,
+            //             'is_draft' => 'N',
+            //             'active' => 'Y',
+            //         ]);
+            //     })
+            //     ->orWhereIn('id', function($query) use($period) {
+            //         $query->select('customer_id')
+            //         ->from('tx_kwitansis')
+            //         ->whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
+            //         ->where([
+            //             'payment_to_id' => $this->bank_id,
+            //             'is_draft' => 'N',
+            //             'active' => 'Y',
+            //         ]);
+            //     })
+            //     ->orWhereIn('id', function($query) use($period) {
+            //         $query->select('customer_id')
+            //         ->from('tx_payment_receipts')
+            //         ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
+            //         ->where([
+            //             'coa_id' => $this->bank_id,
+            //             'is_draft' => 'N',
+            //             'active' => 'Y',
+            //         ]);
+            //     });
+            // })
+            // ->where('active', 'Y')
+            // ->orderBy('name', 'asc')
+            // ->get();
             foreach ($qCustomers as $customer) {
                 $rowInXls++;    //x
 
@@ -285,42 +324,95 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
 
                 // actual payment terkait invoice & kwitansi bulan ini
-                $totalPaymentPlan = Tx_payment_receipt_invoice::whereIn('payment_receipt_id', function($q) use($customer){
-                    $q->select('id')
+                $totalPaymentPlan = Tx_payment_receipt_invoice::whereExists(function($q) use($customer){
+                    $q->select(DB::raw(1))
                     ->from('tx_payment_receipts')
-                    ->where([
-                        'customer_id' => $customer->id,
-                        'coa_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ]);
+                    ->whereColumn('tx_payment_receipts.id', 'tx_payment_receipt_invoices.payment_receipt_id')
+                    ->where('customer_id', $customer->id)
+                    ->where('coa_id', $this->bank_id)
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y');
                 })
-                ->where(function($q) use($dayToValidateMonth, $customer){
-                    $q->whereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
-                        $q1->select('invoice_no')
-                        ->from('tx_invoices')
-                        ->whereRaw('DATE_FORMAT(invoice_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-                        ->where([
-                            'customer_id' => $customer->id,
-                            'payment_to_id' => $this->bank_id,
-                            'is_draft' => 'N',
-                            'active' => 'Y',
-                        ]);
+                ->where(function($q) use($customer, $dateObjectNow, $dateObjectNext){
+                    $q->whereExists(function ($query) use($customer, $dateObjectNow, $dateObjectNext) {
+                        $query->select(DB::raw(1))
+                            ->from('tx_invoices')
+                            ->whereRaw('(invoice_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND invoice_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                            ->where('customer_id', $customer->id)
+                            ->where('payment_to_id', $this->bank_id)
+                            ->where('is_draft', 'N')
+                            ->where('active', 'Y');
                     })
-                    ->orWhereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
-                        $q1->select('kwitansi_no')
-                        ->from('tx_kwitansis')
-                        ->whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-                        ->where([
-                            'customer_id' => $customer->id,
-                            'payment_to_id' => $this->bank_id,
-                            'is_draft' => 'N',
-                            'active' => 'Y',
-                        ]);
+                    ->orWhereExists(function ($query) use($customer, $dateObjectNow, $dateObjectNext) {
+                        $query->select(DB::raw(1))
+                            ->from('tx_kwitansis')
+                            ->whereRaw('(kwitansi_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND kwitansi_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                            ->where('customer_id', $customer->id)
+                            ->where('payment_to_id', $this->bank_id)
+                            ->where('is_draft', 'N')
+                            ->where('active', 'Y');
                     });
+                    // $q->whereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
+                    //     $q1->select('invoice_no')
+                    //     ->from('tx_invoices')
+                    //     ->whereRaw('DATE_FORMAT(invoice_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+                    //     ->where([
+                    //         'customer_id' => $customer->id,
+                    //         'payment_to_id' => $this->bank_id,
+                    //         'is_draft' => 'N',
+                    //         'active' => 'Y',
+                    //     ]);
+                    // })
+                    // ->orWhereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
+                    //     $q1->select('kwitansi_no')
+                    //     ->from('tx_kwitansis')
+                    //     ->whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+                    //     ->where([
+                    //         'customer_id' => $customer->id,
+                    //         'payment_to_id' => $this->bank_id,
+                    //         'is_draft' => 'N',
+                    //         'active' => 'Y',
+                    //     ]);
+                    // });
                 })
-                ->where('active', '=', 'Y')
+                ->where('active', 'Y')
                 ->sum('total_payment_after_vat');
+                // $totalPaymentPlan = Tx_payment_receipt_invoice::whereIn('payment_receipt_id', function($q) use($customer){
+                //     $q->select('id')
+                //     ->from('tx_payment_receipts')
+                //     ->where([
+                //         'customer_id' => $customer->id,
+                //         'coa_id' => $this->bank_id,
+                //         'is_draft' => 'N',
+                //         'active' => 'Y',
+                //     ]);
+                // })
+                // ->where(function($q) use($dayToValidateMonth, $customer){
+                //     $q->whereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
+                //         $q1->select('invoice_no')
+                //         ->from('tx_invoices')
+                //         ->whereRaw('DATE_FORMAT(invoice_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+                //         ->where([
+                //             'customer_id' => $customer->id,
+                //             'payment_to_id' => $this->bank_id,
+                //             'is_draft' => 'N',
+                //             'active' => 'Y',
+                //         ]);
+                //     })
+                //     ->orWhereIn('invoice_no', function($q1) use($dayToValidateMonth, $customer){
+                //         $q1->select('kwitansi_no')
+                //         ->from('tx_kwitansis')
+                //         ->whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+                //         ->where([
+                //             'customer_id' => $customer->id,
+                //             'payment_to_id' => $this->bank_id,
+                //             'is_draft' => 'N',
+                //             'active' => 'Y',
+                //         ]);
+                //     });
+                // })
+                // ->where('active', 'Y')
+                // ->sum('total_payment_after_vat');
                 // actual payment terkait invoice & kwitansi bulan ini
 
                 $totalPerRow = 0;
@@ -331,42 +423,37 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     $totalPaymentActualPerDay = Tx_payment_receipt_invoice::whereIn('payment_receipt_id', function($q) use($dayToValidate, $customer){
                         $q->select('id')
                         ->from('tx_payment_receipts')
-                        ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                        ->where([
-                            'customer_id' => $customer->id,
-                            'coa_id' => $this->bank_id,
-                            'is_draft' => 'N',
-                            'active' => 'Y',
-                        ]);
+                        ->where('payment_date', $dayToValidate)
+                        ->where('customer_id', $customer->id)
+                        ->where('coa_id', $this->bank_id)
+                        ->where('is_draft', 'N')
+                        ->where('active', 'Y');
                     })
-                    ->where('active', '=', 'Y')
+                    ->where('active', 'Y')
                     ->sum('total_payment_after_vat');
 
-                    $sumPlanBillingProcess = Tx_invoice::whereRaw('DATE_FORMAT(invoice_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where([
-                        'customer_id' => $customer->id,
-                        'payment_to_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ])
+                    $sumPlanBillingProcess = Tx_invoice::where('invoice_date', $dayToValidate)
+                    ->where('customer_id', $customer->id)
+                    ->where('payment_to_id', $this->bank_id)
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y')
                     ->sum('do_grandtotal_vat');
 
                     $totRetur = Tx_nota_retur::whereRaw('approved_by IS NOT NULL')
-                    ->where([
-                        'customer_id' => $customer->id,
-                        'active' => 'Y',
-                    ])
-                    ->whereIn('id', function($q) use($customer){
+                    ->where('customer_id', $customer->id)
+                    ->where('active', 'Y')
+                    ->whereIn('id', function($q) use($customer, $dayToValidate){
                         $q->select('nota_retur_id')
                         ->from('tx_nota_retur_parts')
-                        ->whereIn('sales_order_part_id', function($q1) use($customer){
+                        ->whereIn('sales_order_part_id', function($q1) use($customer, $dayToValidate){
                             $q1->select('sales_order_part_id')
                             ->from('tx_delivery_order_parts')
-                            ->whereIn('delivery_order_id', function($q2) use($customer){
+                            ->whereIn('delivery_order_id', function($q2) use($customer, $dayToValidate){
                                 $q2->select('tx_invd.fk_id')
                                 ->from('tx_invoice_details AS tx_invd')
                                 ->leftJoin('tx_invoices AS tx_inv', 'tx_invd.invoice_id', '=', 'tx_inv.id')
                                 ->where([
+                                    'tx_inv.invoice_date' => $dayToValidate,
                                     'tx_inv.customer_id' => $customer->id,
                                     'tx_inv.payment_to_id' => $this->bank_id,
                                     'tx_inv.is_draft' => 'N',
@@ -374,37 +461,34 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                                     'tx_invd.active' => 'Y',
                                 ]);
                             })
-                            ->where('active', '=', 'Y');
+                            ->where('active', 'Y');
                         })
-                        ->where('active', '=', 'Y');
+                        ->where('active', 'Y');
                     })
                     ->sum('total_after_vat');
 
-                    $sumPlanProsesTagihan = Tx_kwitansi::whereRaw('DATE_FORMAT(kwitansi_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where([
-                        'customer_id' => $customer->id,
-                        'payment_to_id' => $this->bank_id,
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ])
+                    $sumPlanProsesTagihan = Tx_kwitansi::where('kwitansi_date', $dayToValidate)
+                    ->where('customer_id', $customer->id)
+                    ->where('payment_to_id', $this->bank_id)
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y')
                     ->sum('np_total');
 
                     $totReturNonTax = Tx_nota_retur_non_tax::whereRaw('approved_by IS NOT NULL')
-                    ->where([
-                        'customer_id' => $customer->id,
-                        'active' => 'Y',
-                    ])
-                    ->whereIn('id', function($q) use($customer){
+                    ->where('customer_id', $customer->id)
+                    ->where('active', 'Y')
+                    ->whereIn('id', function($q) use($customer, $dayToValidate){
                         $q->select('nota_retur_id')
                         ->from('tx_nota_retur_part_non_taxes')
-                        ->whereIn('surat_jalan_part_id', function($q1) use($customer){
+                        ->whereIn('surat_jalan_part_id', function($q1) use($customer, $dayToValidate){
                             $q1->select('sales_order_part_id')
                             ->from('tx_delivery_order_non_tax_parts')
-                            ->whereIn('delivery_order_id', function($q2) use($customer){
+                            ->whereIn('delivery_order_id', function($q2) use($customer, $dayToValidate){
                                 $q2->select('tx_kwd.np_id')
                                 ->from('tx_kwitansi_details AS tx_kwd')
                                 ->leftJoin('tx_kwitansis AS tx_kw', 'tx_kwd.kwitansi_id', '=', 'tx_kw.id')
                                 ->where([
+                                    'tx_kw.kwitansi_date' => $dayToValidate,
                                     'tx_kw.customer_id' => $customer->id,
                                     'tx_kw.payment_to_id' => $this->bank_id,
                                     'tx_kw.is_draft' => 'N',
@@ -412,9 +496,9 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                                     'tx_kwd.active' => 'Y',
                                 ]);
                             })
-                            ->where('active', '=', 'Y');
+                            ->where('active', 'Y');
                         })
-                        ->where('active', '=', 'Y');
+                        ->where('active', 'Y');
                     })
                     ->sum('total_price');
 
@@ -442,6 +526,90 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         'font_style' => 'normal',
                         'text_align' => 'right',
                     ]);
+
+                    if ($totalPaymentActualPerDay>0 && $totalPaymentActualPerDay<$totalPaymentPlanThisDay){
+                        $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                        ->join('tx_acceptance_plans AS tx_ap', function($join) use($dateObjectNow, $dateObjectNext) {
+                            $join->on('tx_appi.acceptance_plan_id', '=', 'tx_ap.id')
+                            ->whereRaw('(tx_ap.acceptance_month>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_ap.acceptance_month<\''.$dateObjectNext->format('Y-m-d').'\')')
+                            ->where('tx_ap.bank_id', $this->bank_id)
+                            ->where('tx_ap.is_draft', '=', 'N')
+                            ->where('tx_ap.active', '=', 'Y');
+                        })
+                        ->select(
+                            'tx_appi.plan_date',
+                            'tx_appi.plan_accept',
+                        )
+                        ->where(function($q) use($customer, $dateObjectNow, $dateObjectNext){
+                            $q->whereExists(function ($query) use($customer, $dateObjectNow, $dateObjectNext) {
+                                $query->select(DB::raw(1))
+                                    ->from('tx_invoices')
+                                    ->whereRaw('(invoice_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND invoice_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                                    ->where('customer_id', $customer->id)
+                                    ->where('payment_to_id', $this->bank_id)
+                                    ->where('is_draft', 'N')
+                                    ->where('active', 'Y');
+                            })
+                            ->orWhereExists(function ($query) use($customer, $dateObjectNow, $dateObjectNext) {
+                                $query->select(DB::raw(1))
+                                    ->from('tx_kwitansis')
+                                    ->whereRaw('(kwitansi_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND kwitansi_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                                    ->where('customer_id', $customer->id)
+                                    ->where('payment_to_id', $this->bank_id)
+                                    ->where('is_draft', 'N')
+                                    ->where('active', 'Y');
+                            });
+                        })
+                        ->where('tx_appi.active', '=', 'Y')
+                        ->where('tx_appi.customer_id', $customer->id)
+                        ->orderBy('tx_appi.id', 'DESC')
+                        ->take(1)
+                        ->first();
+                        if ($qPlan){
+                            $datePlan = new DateTime($qPlan->plan_date);
+                            $qRptCashFlow = Tx_cash_flow::where([
+                                'report_code' => $randomString,
+                                'row_number' => $rowInXls,
+                                'col_number' => 2+intval($datePlan->format('d')),
+                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                'bank_id' => $this->bank_id,
+                            ])
+                            ->first();
+                            if ($qRptCashFlow){
+                                $updRptCashFlow = Tx_cash_flow::where([
+                                    'report_code' => $randomString,
+                                    'row_number' => $rowInXls,
+                                    'col_number' => 2+intval($datePlan->format('d')),
+                                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                    'bank_id' => $this->bank_id,
+                                ])
+                                ->update([
+                                    'cell_values' => number_format($qPlan->plan_accept,0,"",""),
+                                    'f_color' => '#000000',
+                                    'b_color' => '#FFFF00',
+                                    'font_size' => '12',
+                                    'font_weight' => '300',
+                                    'font_style' => 'normal',
+                                    'text_align' => 'right',
+                                ]);
+                            }else{
+                                $insRptCashFlow = Tx_cash_flow::create([
+                                    'report_code' => $randomString,
+                                    'row_number' => $rowInXls,
+                                    'col_number' => 2+intval($datePlan->format('d')),
+                                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                    'bank_id' => $this->bank_id,
+                                    'cell_values' => number_format($qPlan->plan_accept,0,"",""),
+                                    'f_color' => '#000000',
+                                    'b_color' => '#FFFF00',
+                                    'font_size' => '12',
+                                    'font_weight' => '300',
+                                    'font_style' => 'normal',
+                                    'text_align' => 'right',
+                                ]);
+                            }
+                        }
+                    }
 
                     $totalPerRow += $totalPaymentActualPerDay>0?$totalPaymentActualPerDay:$totalPaymentPlanThisDay;
                     $lastCol = 2+$iDay;
@@ -494,289 +662,227 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             ]);
             // empty row
 
-            // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
-            $startGjLj01DateTimeObj = new DateTime('now');
-            $startGjLj01_datetime = $startGjLj01DateTimeObj->format('Y-m-d H:i:s');
+            // // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
+            // $startGjLj01DateTimeObj = new DateTime('now');
+            // $startGjLj01_datetime = $startGjLj01DateTimeObj->format('Y-m-d H:i:s');
 
-            $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
-            $qJournal01 = V_cash_flow_journal::select(
-                'coa_code_complete',
-                'coa_name',
-            )
-            ->whereIn('journal_id', function($q) use($dayToValidateMonth){
-                $q->select('journal_id')
-                ->from('v_cash_flow_journal')
-                ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-                ->where('coa_id', '=', $this->bank_id);
-            })
-            ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            ->where(function($q){
-                $q->where('coa_code_complete', 'LIKE', '111%')
-                ->orWhere('coa_code_complete', 'LIKE', '112%')
-                ->orWhere('coa_code_complete', 'LIKE', '31%');
-            })
-            ->where('coa_id', '<>', $this->bank_id)
-            ->groupBy('coa_code_complete')
-            ->groupBy('coa_name')
-            ->orderBy('coa_code_complete', 'ASC')
-            ->get();
-            foreach($qJournal01 as $j01){
-                $rowInXls++;
+            // $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
 
-                // journal desc
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
-                    'f_color' => '#000000',
-                    'b_color' => '#c6e0b4',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'left',
-                ]);
+            // // GJ
+            // $qGJd = DB::table('tx_general_journal_details AS tx_gjd')
+            // ->leftJoin('tx_general_journals AS tx_gj', function($join) {
+            //     $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
+            //     ->where('tx_gj.is_draft', '=', 'N')
+            //     ->where('tx_gj.active', '=', 'Y');
+            // })
+            // ->leftJoin('mst_coas AS msc', function($join) {
+            //     $join->on('tx_gjd.coa_id', '=', 'msc.id')
+            //     ->where('msc.active', '=', 'Y');
+            // })
+            // ->select(
+            //     'tx_gjd.id AS journal_id_dtl',
+            //     'tx_gjd.general_journal_id AS journal_id',
+            //     'tx_gj.general_journal_no AS general_journal_no',
+            //     'tx_gj.general_journal_date AS general_journal_date',
+            //     'msc.coa_code_complete AS coa_code_complete',
+            //     'msc.coa_name AS coa_name',
+            //     'tx_gjd.coa_id AS coa_id',
+            //     'tx_gjd.description AS journal_desc',
+            //     'tx_gjd.debit AS debit',
+            //     'tx_gjd.kredit AS kredit',
+            //     DB::raw('"GJ" AS journal_group')
+            // )
+            // ->whereRaw('(tx_gj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_gj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            // ->where(function($q){
+            //     $q->where('msc.coa_code_complete', 'LIKE', '111%')
+            //     ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
+            //     ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
+            // })
+            // ->where('tx_gjd.active', '=', 'Y');
+            // // LJ
+            // $qLJd = DB::table('tx_lokal_journal_details AS tx_ljd')
+            // ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
+            //     $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
+            //     ->where('tx_lj.is_draft', '=', 'N')
+            //     ->where('tx_lj.active', '=', 'Y');
+            // })
+            // ->leftJoin('mst_coas AS msc', function($join) {
+            //     $join->on('tx_ljd.coa_id', '=', 'msc.id')
+            //     ->where('msc.active', '=', 'Y');
+            // })
+            // ->select(
+            //     'tx_ljd.id AS journal_id_dtl',
+            //     'tx_ljd.lokal_journal_id AS journal_id',
+            //     'tx_lj.general_journal_no AS general_journal_no',
+            //     'tx_lj.general_journal_date AS general_journal_date',
+            //     'msc.coa_code_complete AS coa_code_complete',
+            //     'msc.coa_name AS coa_name',
+            //     'tx_ljd.coa_id AS coa_id',
+            //     'tx_ljd.description AS journal_desc',
+            //     'tx_ljd.debit AS debit',
+            //     'tx_ljd.kredit AS kredit',
+            //     DB::raw('"LJ" AS journal_group')
+            // )
+            // ->whereRaw('(tx_lj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_lj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            // ->where(function($q){
+            //     $q->where('msc.coa_code_complete', 'LIKE', '111%')
+            //     ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
+            //     ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
+            // })
+            // ->where('tx_ljd.active', '=', 'Y');
+            // $unionQuery = $qGJd->unionAll($qLJd);
+            // $qJournal01 = DB::table(DB::raw("({$unionQuery->toSql()}) as combined_transactions"))
+            // ->mergeBindings($unionQuery) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
+            // ->select('coa_code_complete', 'coa_name')
+            // ->groupBy('coa_code_complete', 'coa_name')
+            // ->get();
 
-                $totalPerRow = 0;
-                $lastCol = 0;
-                for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
-                    $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
+            // // $qJournal01 = $qGJd->unionAll($qLJd)
+            // // // ->whereRaw('(general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            // // // ->where(function($q){
+            // // //     $q->where('coa_code_complete', 'LIKE', '111%')
+            // // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
+            // // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
+            // // // })
+            // // ->where('coa_id', '<>', $this->bank_id)
+            // // ->groupBy('coa_code_complete')
+            // // ->groupBy('coa_name')
+            // // ->orderBy('coa_code_complete', 'ASC')
+            // // ->get();
 
-                    // plus
-                    $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-                        $q->select('journal_id')
-                        ->from('v_cash_flow_journal')
-                        ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                        ->where('coa_id', '=', $this->bank_id)
-                        ->where('debit', '>', 0);
-                    })
-                    ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where('coa_code_complete', '=', $j01->coa_code_complete)
-                    // ->where(function($q){
-                    //     $q->where('coa_code_complete', 'LIKE', '111%')
-                    //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-                    //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-                    // })
-                    ->where('coa_id', '<>', $this->bank_id)
-                    ->where('debit', '=', 0)
-                    ->sum('kredit');
 
-                    // minus
-                    $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-                        $q->select('journal_id')
-                        ->from('v_cash_flow_journal')
-                        ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                        ->where('coa_id', '=', $this->bank_id)
-                        ->where('kredit', '>', 0);
-                    })
-                    ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where('coa_code_complete', '=', $j01->coa_code_complete)
-                    // ->where(function($q){
-                    //     $q->where('coa_code_complete', 'LIKE', '111%')
-                    //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-                    //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-                    // })
-                    ->where('coa_id', '<>', $this->bank_id)
-                    ->where('kredit', '=', 0)
-                    ->sum('debit');
 
-                    // amount
-                    $insRptCashFlow = Tx_cash_flow::create([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                        'col_number' => 2+$iDay,
-                        'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                        'bank_id' => $this->bank_id,
-                        'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
-                        'f_color' => '#000000',
-                        'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
-                        'font_size' => '12',
-                        'font_weight' => '300',
-                        'font_style' => 'normal',
-                        'text_align' => 'right',
-                    ]);
+            // // $qJournal01 = V_cash_flow_journal::select(
+            // //     'coa_code_complete',
+            // //     'coa_name',
+            // // )
+            // // ->whereIn('journal_id', function($q) use($dayToValidateMonth){
+            // //     $q->select('journal_id')
+            // //     ->from('v_cash_flow_journal')
+            // //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+            // //     ->where('coa_id', '=', $this->bank_id);
+            // // })
+            // // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+            // // ->where(function($q){
+            // //     $q->where('coa_code_complete', 'LIKE', '111%')
+            // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
+            // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
+            // // })
+            // // ->where('coa_id', '<>', $this->bank_id)
+            // // ->groupBy('coa_code_complete')
+            // // ->groupBy('coa_name')
+            // // ->orderBy('coa_code_complete', 'ASC')
+            // // ->get();
+            // foreach($qJournal01 as $j01){
+            //     $rowInXls++;
 
-                    $totalPerRow += ($sumKredit01-$sumDebet01);
-                    $lastCol = 2+$iDay;
-                }
+            //     // journal desc
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => 2,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#c6e0b4',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'left',
+            //     ]);
 
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => number_format($totalPerRow,0,"",""),
-                    'f_color' => '#000000',
-                    'b_color' => '#ffffff',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'right',
-                ]);
+            //     $totalPerRow = 0;
+            //     $lastCol = 0;
+            //     for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
+            //         $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-                if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
+            //         // plus
+            //         $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
+            //             $q->select('journal_id')
+            //             ->from('v_cash_flow_journal')
+            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //             ->where('coa_id', '=', $this->bank_id)
+            //             ->where('debit', '>', 0);
+            //         })
+            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
+            //         // ->where(function($q){
+            //         //     $q->where('coa_code_complete', 'LIKE', '111%')
+            //         //     ->orWhere('coa_code_complete', 'LIKE', '112%')
+            //         //     ->orWhere('coa_code_complete', 'LIKE', '31%');
+            //         // })
+            //         ->where('coa_id', '<>', $this->bank_id)
+            //         ->where('debit', '=', 0)
+            //         ->sum('kredit');
 
-                    $rowInXls--;
-                }
-            }
-            // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
+            //         // minus
+            //         $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
+            //             $q->select('journal_id')
+            //             ->from('v_cash_flow_journal')
+            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //             ->where('coa_id', '=', $this->bank_id)
+            //             ->where('kredit', '>', 0);
+            //         })
+            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
+            //         // ->where(function($q){
+            //         //     $q->where('coa_code_complete', 'LIKE', '111%')
+            //         //     ->orWhere('coa_code_complete', 'LIKE', '112%')
+            //         //     ->orWhere('coa_code_complete', 'LIKE', '31%');
+            //         // })
+            //         ->where('coa_id', '<>', $this->bank_id)
+            //         ->where('kredit', '=', 0)
+            //         ->sum('debit');
 
-            // empty row
-            $rowInXls++;    //5
-            $insRptCashFlow = Tx_cash_flow::create([
-                'report_code' => $randomString,
-                'row_number' => $rowInXls,
-                'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                'bank_id' => $this->bank_id,
-                'cell_values' => null,
-                'f_color' => '#000000',
-                'b_color' => '#ffffff',
-                'font_size' => '12',
-                'font_weight' => '700',
-                'font_style' => 'normal',
-                'text_align' => 'center',
-            ]);
-            // empty row
+            //         // amount
+            //         $insRptCashFlow = Tx_cash_flow::create([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //             'col_number' => 2+$iDay,
+            //             'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //             'bank_id' => $this->bank_id,
+            //             'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
+            //             'f_color' => '#000000',
+            //             'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
+            //             'font_size' => '12',
+            //             'font_weight' => '300',
+            //             'font_style' => 'normal',
+            //             'text_align' => 'right',
+            //         ]);
 
-            // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
-            $startGjLj02DateTimeObj = new DateTime('now');
-            $startGjLj02_datetime = $startGjLj02DateTimeObj->format('Y-m-d H:i:s');
+            //         $totalPerRow += ($sumKredit01-$sumDebet01);
+            //         $lastCol = 2+$iDay;
+            //     }
 
-            $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
-            $qJournal01 = V_cash_flow_journal::select(
-                'coa_code_complete',
-                'coa_name',
-            )
-            ->whereIn('journal_id', function($q) use($dayToValidateMonth){
-                $q->select('journal_id')
-                ->from('v_cash_flow_journal')
-                ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-                ->where('coa_id', '=', $this->bank_id);
-            })
-            ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            ->where(function($q){
-                $q->where('coa_code_complete', 'LIKE', '6%')
-                ->orWhere('coa_code_complete', 'LIKE', '32%')
-                ->orWhere('coa_code_complete', 'LIKE', '9%')
-                ->orWhere('coa_code_complete', 'LIKE', '2%');
-            })
-            ->where('coa_code_complete', 'NOT LIKE', '211%')
-            ->where('coa_id', '<>', $this->bank_id)
-            ->groupBy('coa_code_complete')
-            ->groupBy('coa_name')
-            ->orderBy('coa_code_complete', 'ASC')
-            ->get();
-            foreach($qJournal01 as $j01){
-                $rowInXls++;
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => $lastCol+1,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => number_format($totalPerRow,0,"",""),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#ffffff',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'right',
+            //     ]);
 
-                // journal desc
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
-                    'f_color' => '#000000',
-                    'b_color' => '#bdd7ee',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'left',
-                ]);
+            //     if ($totalPerRow==0){
+            //         // hapus yg total nya 0
+            //         $updCashFlow = Tx_cash_flow::where([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //         ])
+            //         ->delete();
+            //         // hapus yg total nya 0
 
-                $totalPerRow = 0;
-                $lastCol = 0;
-                for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
-                    $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
-
-                    // plus
-                    $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-                        $q->select('journal_id')
-                        ->from('v_cash_flow_journal')
-                        ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                        ->where('coa_id', '=', $this->bank_id)
-                        ->where('debit', '>', 0);
-                    })
-                    ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where('coa_code_complete', '=', $j01->coa_code_complete)
-                    ->where('coa_id', '<>', $this->bank_id)
-                    ->where('debit', '=', 0)
-                    ->sum('kredit');
-
-                    // minus
-                    $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-                        $q->select('journal_id')
-                        ->from('v_cash_flow_journal')
-                        ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                        ->where('coa_id', '=', $this->bank_id)
-                        ->where('kredit', '>', 0);
-                    })
-                    ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where('coa_code_complete', '=', $j01->coa_code_complete)
-                    ->where('coa_id', '<>', $this->bank_id)
-                    ->where('kredit', '=', 0)
-                    ->sum('debit');
-
-                    // amount
-                    $insRptCashFlow = Tx_cash_flow::create([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                        'col_number' => 2+$iDay,
-                        'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                        'bank_id' => $this->bank_id,
-                        'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
-                        'f_color' => '#000000',
-                        'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
-                        'font_size' => '12',
-                        'font_weight' => '300',
-                        'font_style' => 'normal',
-                        'text_align' => 'right',
-                    ]);
-
-                    $totalPerRow += ($sumKredit01-$sumDebet01);
-                    $lastCol = 2+$iDay;
-                }
-
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => number_format($totalPerRow,0,"",""),
-                    'f_color' => '#000000',
-                    'b_color' => '#ffffff',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'right',
-                ]);
-
-                if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
-
-                    $rowInXls--;
-                }
-            }
-            // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
+            //         $rowInXls--;
+            //     }
+            // }
+            // // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
 
             // empty row
             $rowInXls++;    //5
@@ -796,142 +902,289 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             ]);
             // empty row
 
-            // suppliers - x
-            $startSupplierDateTimeObj = new DateTime('now');
-            $startSupplier_datetime = $startSupplierDateTimeObj->format('Y-m-d H:i:s');
+            // // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
+            // $startGjLj02DateTimeObj = new DateTime('now');
+            // $startGjLj02_datetime = $startGjLj02DateTimeObj->format('Y-m-d H:i:s');
 
-            $qSuppliers = Mst_supplier::where(function($q) use($period){
-                $q->whereIn('id', function($q1) use($period){
-                    $q1->select('supplier_id')
-                    ->from('tx_tagihan_suppliers')
-                    ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
-                    ->where([
-                        'bank_id' => $this->bank_id,
-                        'active' => 'Y',
-                    ]);
-                })
-                ->orWhereIn('id', function($q1) use($period){
-                    $q1->select('supplier_id')
-                    ->from('tx_payment_vouchers')
-                    ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
-                    ->whereRaw('approved_by IS NOT NULL')
-                    ->where([
-                        'is_draft' => 'N',
-                        'active' => 'Y',
-                    ]);
-                });
-            })
-            ->where([
-                'active' => 'Y',
-            ])
-            ->orderBy('name','ASC')
-            ->get();
-            foreach($qSuppliers as $qS){
-                $rowInXls++;    //x
+            // $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
+            // $qJournal01 = V_cash_flow_journal::select(
+            //     'coa_code_complete',
+            //     'coa_name',
+            // )
+            // ->whereIn('journal_id', function($q) use($dayToValidateMonth){
+            //     $q->select('journal_id')
+            //     ->from('v_cash_flow_journal')
+            //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+            //     ->where('coa_id', '=', $this->bank_id);
+            // })
+            // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+            // ->where(function($q){
+            //     $q->where('coa_code_complete', 'LIKE', '6%')
+            //     ->orWhere('coa_code_complete', 'LIKE', '32%')
+            //     ->orWhere('coa_code_complete', 'LIKE', '9%')
+            //     ->orWhere('coa_code_complete', 'LIKE', '2%');
+            // })
+            // ->where('coa_code_complete', 'NOT LIKE', '211%')
+            // ->where('coa_id', '<>', $this->bank_id)
+            // ->groupBy('coa_code_complete')
+            // ->groupBy('coa_name')
+            // ->orderBy('coa_code_complete', 'ASC')
+            // ->get();
+            // foreach($qJournal01 as $j01){
+            //     $rowInXls++;
 
-                // supplier name
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => strtoupper($qS->supplier_code.' - '.$qS->name),
-                    'f_color' => '#000000',
-                    'b_color' => '#ffe699',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'left',
-                ]);
-                $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
+            //     // journal desc
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => 2,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#bdd7ee',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'left',
+            //     ]);
 
-                // total actual bayar bulan ini
-                $sumPembayaranSupplierBulanIni = Tx_payment_voucher::where('supplier_id', '=', $qS->id)
-                ->where('coa_id', '=', $this->bank_id)
-                ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-                ->whereRaw('approved_by IS NOT NULL')
-                ->where('is_draft', '=', 'N')
-                ->where('active', '=', 'Y')
-                ->sum('payment_total_after_vat');
-                // total actual bayar bulan ini
+            //     $totalPerRow = 0;
+            //     $lastCol = 0;
+            //     for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
+            //         $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-                $totalPerRow = 0;
-                $lastCol = 0;
-                for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
-                    $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
+            //         // plus
+            //         $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
+            //             $q->select('journal_id')
+            //             ->from('v_cash_flow_journal')
+            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //             ->where('coa_id', '=', $this->bank_id)
+            //             ->where('debit', '>', 0);
+            //         })
+            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
+            //         ->where('coa_id', '<>', $this->bank_id)
+            //         ->where('debit', '=', 0)
+            //         ->sum('kredit');
 
-                    $sumTagihanSupplierPerDay = Tx_tagihan_supplier::whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->where('supplier_id', '=', $qS->id)
-                    ->where('bank_id', '=', $this->bank_id)
-                    ->where('active', '=', 'Y')
-                    ->sum('grandtotal_price');
+            //         // minus
+            //         $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
+            //             $q->select('journal_id')
+            //             ->from('v_cash_flow_journal')
+            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //             ->where('coa_id', '=', $this->bank_id)
+            //             ->where('kredit', '>', 0);
+            //         })
+            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
+            //         ->where('coa_id', '<>', $this->bank_id)
+            //         ->where('kredit', '=', 0)
+            //         ->sum('debit');
 
-                    $sumPembayaranSupplierThisDay = $sumTagihanSupplierPerDay-$sumPembayaranSupplierBulanIni;
-                    if ($sumPembayaranSupplierThisDay<0){
-                        // plan tagihan hari ini < actual tagihan bulan ini
-                        $sumPembayaranSupplierThisDay = 0;
-                        $sumPembayaranSupplierBulanIni = $sumPembayaranSupplierBulanIni-$sumTagihanSupplierPerDay;
-                    }else{
-                        // plan tagihan hari ini >= actual tagihan bulan ini
-                        $sumPembayaranSupplierBulanIni = 0;
-                    }
+            //         // amount
+            //         $insRptCashFlow = Tx_cash_flow::create([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //             'col_number' => 2+$iDay,
+            //             'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //             'bank_id' => $this->bank_id,
+            //             'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
+            //             'f_color' => '#000000',
+            //             'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
+            //             'font_size' => '12',
+            //             'font_weight' => '300',
+            //             'font_style' => 'normal',
+            //             'text_align' => 'right',
+            //         ]);
 
-                    $sumPembayaranSupplierPerDay = Tx_payment_voucher::where('supplier_id', '=', $qS->id)
-                    ->where('coa_id', '=', $this->bank_id)
-                    ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-                    ->whereRaw('approved_by IS NOT NULL')
-                    ->where('is_draft', '=', 'N')
-                    ->where('active', '=', 'Y')
-                    ->sum('payment_total_after_vat');
+            //         $totalPerRow += ($sumKredit01-$sumDebet01);
+            //         $lastCol = 2+$iDay;
+            //     }
 
-                    $insRptCashFlow = Tx_cash_flow::create([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                        'col_number' => 2+$iDay,
-                        'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                        'bank_id' => $this->bank_id,
-                        'cell_values' => $sumPembayaranSupplierPerDay>0?number_format($sumPembayaranSupplierPerDay*-1,0,"",""):number_format($sumPembayaranSupplierThisDay*-1,0,"",""),
-                        'f_color' => '#000000',
-                        'b_color' => $sumPembayaranSupplierPerDay>0?'#8ea9db':'#ffffff',
-                        'font_size' => '12',
-                        'font_weight' => '300',
-                        'font_style' => 'normal',
-                        'text_align' => 'right',
-                    ]);
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => $lastCol+1,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => number_format($totalPerRow,0,"",""),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#ffffff',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'right',
+            //     ]);
 
-                    $totalPerRow += ($sumPembayaranSupplierPerDay>0?($sumPembayaranSupplierPerDay*-1):($sumPembayaranSupplierThisDay*-1));
-                    $lastCol = 2+$iDay;
-                }
+            //     if ($totalPerRow==0){
+            //         // hapus yg total nya 0
+            //         $updCashFlow = Tx_cash_flow::where([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //         ])
+            //         ->delete();
+            //         // hapus yg total nya 0
 
-                $insRptCashFlow = Tx_cash_flow::create([
-                    'report_code' => $randomString,
-                    'row_number' => $rowInXls,
-                    'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    'bank_id' => $this->bank_id,
-                    'cell_values' => number_format($totalPerRow,0,"",""),
-                    'f_color' => '#000000',
-                    'b_color' => '#ffffff',
-                    'font_size' => '12',
-                    'font_weight' => '300',
-                    'font_style' => 'normal',
-                    'text_align' => 'right',
-                ]);
+            //         $rowInXls--;
+            //     }
+            // }
+            // // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
 
-                if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
+            // empty row
+            $rowInXls++;    //5
+            $insRptCashFlow = Tx_cash_flow::create([
+                'report_code' => $randomString,
+                'row_number' => $rowInXls,
+                'col_number' => 1,
+                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'bank_id' => $this->bank_id,
+                'cell_values' => null,
+                'f_color' => '#000000',
+                'b_color' => '#ffffff',
+                'font_size' => '12',
+                'font_weight' => '700',
+                'font_style' => 'normal',
+                'text_align' => 'center',
+            ]);
+            // empty row
 
-                    $rowInXls--;
-                }
-            }
-            // suppliers - x
+            // // suppliers - x
+            // $startSupplierDateTimeObj = new DateTime('now');
+            // $startSupplier_datetime = $startSupplierDateTimeObj->format('Y-m-d H:i:s');
+
+            // $qSuppliers = Mst_supplier::where(function($q) use($period){
+            //     $q->whereIn('id', function($q1) use($period){
+            //         $q1->select('supplier_id')
+            //         ->from('tx_tagihan_suppliers')
+            //         ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
+            //         ->where([
+            //             'bank_id' => $this->bank_id,
+            //             'active' => 'Y',
+            //         ]);
+            //     })
+            //     ->orWhereIn('id', function($q1) use($period){
+            //         $q1->select('supplier_id')
+            //         ->from('tx_payment_vouchers')
+            //         ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'\'')
+            //         ->whereRaw('approved_by IS NOT NULL')
+            //         ->where([
+            //             'is_draft' => 'N',
+            //             'active' => 'Y',
+            //         ]);
+            //     });
+            // })
+            // ->where([
+            //     'active' => 'Y',
+            // ])
+            // ->orderBy('name','ASC')
+            // ->get();
+            // foreach($qSuppliers as $qS){
+            //     $rowInXls++;    //x
+
+            //     // supplier name
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => 2,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => strtoupper($qS->supplier_code.' - '.$qS->name),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#ffe699',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'left',
+            //     ]);
+            //     $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
+
+            //     // total actual bayar bulan ini
+            //     $sumPembayaranSupplierBulanIni = Tx_payment_voucher::where('supplier_id', '=', $qS->id)
+            //     ->where('coa_id', '=', $this->bank_id)
+            //     ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
+            //     ->whereRaw('approved_by IS NOT NULL')
+            //     ->where('is_draft', '=', 'N')
+            //     ->where('active', 'Y')
+            //     ->sum('payment_total_after_vat');
+            //     // total actual bayar bulan ini
+
+            //     $totalPerRow = 0;
+            //     $lastCol = 0;
+            //     for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
+            //         $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
+
+            //         $sumTagihanSupplierPerDay = Tx_tagihan_supplier::whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->where('supplier_id', '=', $qS->id)
+            //         ->where('bank_id', '=', $this->bank_id)
+            //         ->where('active', 'Y')
+            //         ->sum('grandtotal_price');
+
+            //         $sumPembayaranSupplierThisDay = $sumTagihanSupplierPerDay-$sumPembayaranSupplierBulanIni;
+            //         if ($sumPembayaranSupplierThisDay<0){
+            //             // plan tagihan hari ini < actual tagihan bulan ini
+            //             $sumPembayaranSupplierThisDay = 0;
+            //             $sumPembayaranSupplierBulanIni = $sumPembayaranSupplierBulanIni-$sumTagihanSupplierPerDay;
+            //         }else{
+            //             // plan tagihan hari ini >= actual tagihan bulan ini
+            //             $sumPembayaranSupplierBulanIni = 0;
+            //         }
+
+            //         $sumPembayaranSupplierPerDay = Tx_payment_voucher::where('supplier_id', '=', $qS->id)
+            //         ->where('coa_id', '=', $this->bank_id)
+            //         ->whereRaw('DATE_FORMAT(payment_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+            //         ->whereRaw('approved_by IS NOT NULL')
+            //         ->where('is_draft', '=', 'N')
+            //         ->where('active', 'Y')
+            //         ->sum('payment_total_after_vat');
+
+            //         $insRptCashFlow = Tx_cash_flow::create([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //             'col_number' => 2+$iDay,
+            //             'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //             'bank_id' => $this->bank_id,
+            //             'cell_values' => $sumPembayaranSupplierPerDay>0?number_format($sumPembayaranSupplierPerDay*-1,0,"",""):number_format($sumPembayaranSupplierThisDay*-1,0,"",""),
+            //             'f_color' => '#000000',
+            //             'b_color' => $sumPembayaranSupplierPerDay>0?'#8ea9db':'#ffffff',
+            //             'font_size' => '12',
+            //             'font_weight' => '300',
+            //             'font_style' => 'normal',
+            //             'text_align' => 'right',
+            //         ]);
+
+            //         $totalPerRow += ($sumPembayaranSupplierPerDay>0?($sumPembayaranSupplierPerDay*-1):($sumPembayaranSupplierThisDay*-1));
+            //         $lastCol = 2+$iDay;
+            //     }
+
+            //     $insRptCashFlow = Tx_cash_flow::create([
+            //         'report_code' => $randomString,
+            //         'row_number' => $rowInXls,
+            //         'col_number' => $lastCol+1,
+            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //         'bank_id' => $this->bank_id,
+            //         'cell_values' => number_format($totalPerRow,0,"",""),
+            //         'f_color' => '#000000',
+            //         'b_color' => '#ffffff',
+            //         'font_size' => '12',
+            //         'font_weight' => '300',
+            //         'font_style' => 'normal',
+            //         'text_align' => 'right',
+            //     ]);
+
+            //     if ($totalPerRow==0){
+            //         // hapus yg total nya 0
+            //         $updCashFlow = Tx_cash_flow::where([
+            //             'report_code' => $randomString,
+            //             'row_number' => $rowInXls,
+            //         ])
+            //         ->delete();
+            //         // hapus yg total nya 0
+
+            //         $rowInXls--;
+            //     }
+            // }
+            // // suppliers - x
 
             // empty row
             $rowInXls++;    //x
@@ -1057,9 +1310,9 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'companyName' => $companyName,
                 'start_datetime' => $start_datetime,
                 'startCustomer_datetime' => $startCustomer_datetime,
-                'startGjLj01_datetime' => $startGjLj01_datetime,
-                'startGjLj02_datetime' => $startGjLj02_datetime,
-                'startSupplier_datetime' => $startSupplier_datetime,
+                // 'startGjLj01_datetime' => $startGjLj01_datetime,
+                // 'startGjLj02_datetime' => $startGjLj02_datetime,
+                // 'startSupplier_datetime' => $startSupplier_datetime,
             ];
             return view('rpt.cash-flow.cash-flow-xlsx', $data);
         }else{

@@ -61,7 +61,7 @@ class AcceptancePlanPerInvServerSideController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function show(Request $request, $invoice_no)
@@ -141,7 +141,7 @@ class AcceptancePlanPerInvServerSideController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function edit(Request $request, $invoice_no)
@@ -223,7 +223,7 @@ class AcceptancePlanPerInvServerSideController extends Controller
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
@@ -271,15 +271,14 @@ class AcceptancePlanPerInvServerSideController extends Controller
 
         try {
             $idNew = $id;
-            if ($idNew!=''){                
-                $ins = Tx_acceptance_plan_per_invoice::where([
-                    'acceptance_plan_id'=>$idNew,
-                ])
-                ->update([
-                    'active'=>'N',
-                    'updated_by'=>Auth::user()->id,
-                ]);
-            }
+            $ins = Tx_acceptance_plan_per_invoice::where([
+                // 'acceptance_plan_id'=>$idNew,
+                'invoice_no' => $request->invoice_no,
+            ])
+            ->update([
+                'active'=>'N',
+                'updated_by'=>Auth::user()->id,
+            ]);
 
             $qInv = V_invoice::where([
                 'invoice_no'=>$request->invoice_no,
@@ -312,12 +311,12 @@ class AcceptancePlanPerInvServerSideController extends Controller
                                 'updated_by'=>Auth::user()->id,
                             ]);
                         }else{
-                            echo $request['plan_id_'.$i].'---'.$idNew.'<br>';
+                            // echo $request['plan_id_'.$i].'---'.$idNew.'<br>';
                             $upd = Tx_acceptance_plan_per_invoice::where([
                                 'id'=>$request['plan_id_'.$i],
                             ])
                             ->update([
-                                'acceptance_plan_id'=>$idNew,
+                                // 'acceptance_plan_id'=>$idNew,
                                 'plan_date'=>$ym[2].'-'.$ym[1].'-'.$ym[0],
                                 'plan_accept'=>GlobalFuncHelper::moneyValidate($request['plan_accept_'.$i]),
                                 'inv_or_kwi_id'=>$qInv->inv_id,
@@ -363,7 +362,7 @@ class AcceptancePlanPerInvServerSideController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function destroy($invoice_no)

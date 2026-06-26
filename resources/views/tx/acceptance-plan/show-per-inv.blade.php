@@ -32,13 +32,13 @@
                             </div>
                             <div class="row mb-3">
                                 <label for="" class="col-sm-2 col-form-label">Customer: </label>
-                                <label for="" class="col-sm-3 col-form-label">{{ $qInv->invoice_no }}</label>
+                                <label for="" class="col-sm-3 col-form-label">{{ $qInv->cust_name }}</label>
                                 <label for="" class="col-sm-2 col-form-label">Tagihan: </label>
                                 <label for="" class="col-sm-3 col-form-label">{{ $qCurrency->string_val.' '.number_format($qInv->tagihan,0,",",".") }}</label>
                             </div>
                             <div class="row mb-3">
-                                <label for="" class="col-sm-2 col-form-label">Supplier: </label>
-                                <label for="" class="col-sm-3 col-form-label">{{ $qInv->supplier_identity }}</label>
+                                <label for="" class="col-sm-2 col-form-label">&nbsp;</label>
+                                <label for="" class="col-sm-3 col-form-label">&nbsp;</label>
                                 <label for="" class="col-sm-2 col-form-label">Terima</label>
                                 <label for="" class="col-sm-3 col-form-label">{{ $paid_val>0?$qCurrency->string_val.' '.number_format($paid_val,0,",","."):'' }}</label>
                             </div>

@@ -269,7 +269,7 @@ class AcceptancePlanServerSideController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function show(Request $request, $id)
@@ -281,9 +281,7 @@ class AcceptancePlanServerSideController extends Controller
         ])
         ->first();
 
-        $query = Tx_acceptance_plan::where([
-            'id'=>$id,
-        ])
+        $query = Tx_acceptance_plan::where('id', $id)
         ->first();
         if ($query) {
             if ($request->ajax()){
@@ -306,9 +304,13 @@ class AcceptancePlanServerSideController extends Controller
                     DB::raw('DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY) AS due_date_acceptance'),
                 )
                 ->whereRaw('DATE_FORMAT(DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY), "%c-%Y")=\''.date_format(date_create($query->acceptance_month),"n-Y").'\'')
-                ->where([
-                    'v_invoices.payment_to_id'=>$query->bank_id,
-                ])
+                ->where('v_invoices.payment_to_id', $query->bank_id)
+                ->whereIn('v_invoices.invoice_no', function($query) use($id) {
+                    $query->select('invoice_no')
+                    ->from('tx_acceptance_plan_per_invoices')
+                    ->where('acceptance_plan_id', $id)
+                    ->where('active', 'Y');
+                })
                 ->orderBy('v_invoices.invoice_date','DESC');
 
                 return DataTables::of($q)
@@ -385,9 +387,6 @@ class AcceptancePlanServerSideController extends Controller
                     if ($Pr){
                         foreach ($Pr as $p) {
                             $paid_val .= number_format($p->bayar_tagihan,0,".",",").'<br/>';
-                            // $paid_val .= ($q->vat_val>0?
-                            //     number_format($p->bayar_tagihan+($p->bayar_tagihan*$q->vat_val/100),0,".",","):
-                            //     number_format($p->bayar_tagihan,0,".",",")).'<br/>';
                         }
                     }
                     return $paid_val;
@@ -423,23 +422,24 @@ class AcceptancePlanServerSideController extends Controller
                     return $payment_receipt_no;
                 })
                 ->addColumn('action', function ($q) use($query, $id) {
-                    $qPyV = Tx_payment_receipt::leftJoin('tx_payment_receipt_invoices as pri','tx_payment_receipts.id','=','pri.payment_receipt_id')
-                    ->select('tx_payment_receipts.payment_receipt_no')
-                    ->where([
-                        'pri.invoice_no'=>$q->invoice_no,
-                        'pri.active'=>'Y',
-                        'tx_payment_receipts.active'=>'Y',
-                    ])
-                    ->get();
-                    if (count($qPyV)>0){
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
-                            urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
-                    }else{
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'/edit?am='.
-                            urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">Edit</a>
-                            | <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
-                            urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
-                    }
+                    $links = '';
+                    // $qPyV = Tx_payment_receipt::leftJoin('tx_payment_receipt_invoices as pri','tx_payment_receipts.id','=','pri.payment_receipt_id')
+                    // ->select('tx_payment_receipts.payment_receipt_no')
+                    // ->where([
+                    //     'pri.invoice_no'=>$q->invoice_no,
+                    //     'pri.active'=>'Y',
+                    //     'tx_payment_receipts.active'=>'Y',
+                    // ])
+                    // ->get();
+                    // if (count($qPyV)>0){
+                    //     $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
+                    //         urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
+                    // }else{
+                    $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'/edit?am='.
+                        urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">Edit</a>
+                        | <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
+                        urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
+                    // }
                     return $links;
                 })
                 ->rawColumns(['invoice_no','tagihan','plan_date','customer_identity','paid_date','bayar_tagihan','rencana_bayar_tagihan','payment_receipt_no','action'])
@@ -466,7 +466,7 @@ class AcceptancePlanServerSideController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
@@ -526,7 +526,7 @@ class AcceptancePlanServerSideController extends Controller
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
@@ -664,11 +664,104 @@ class AcceptancePlanServerSideController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function destroy($id)
     {
         //
+    }
+
+    public function sync_doc($id, $date, $bank_id)
+    {
+        // Start transaction!
+        DB::beginTransaction();
+
+        try {
+            $qPerInv = V_invoice::leftJoin('mst_customers as cust','v_invoices.customer_id','=','cust.id')
+            ->select(
+                'v_invoices.inv_id',
+                'v_invoices.invoice_no',
+                'v_invoices.customer_id',
+                'v_invoices.invoice_date',
+                'v_invoices.tagihan',
+                'v_invoices.inv_identity',
+                'v_invoices.vat_val',
+                'v_invoices.payment_to_id',
+                'cust.id as cust_id',
+                'cust.name as cust_name',
+                'cust.customer_unique_code',
+                'cust.top as cust_top',
+                DB::raw('CONCAT(cust.customer_unique_code, " - ", cust.name) AS customer_identity'),
+                DB::raw('DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY) AS due_date_acceptance'),
+            )
+            ->whereRaw('DATE_FORMAT(DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY), "%Y-%m")=\''.$date.'\'')
+            ->where('v_invoices.payment_to_id', $bank_id)
+            ->whereNotIn('v_invoices.invoice_no', function($query) use($id) {
+                $query->select('invoice_no')
+                ->from('tx_acceptance_plan_per_invoices')
+                ->where('acceptance_plan_id', $id)
+                ->where('active', 'Y');
+            })
+            ->orderBy('v_invoices.invoice_date','DESC')
+            ->get();
+            foreach ($qPerInv as $qPI){
+                $qDtl = Tx_acceptance_plan_per_invoice::where([
+                    // 'acceptance_plan_id'=>$id,
+                    // 'plan_date'=>$qPI->due_date_acceptance,
+                    // 'inv_or_kwi_id'=>$qPI->inv_id,
+                    // 'inv_or_kwi'=>$qPI->inv_identity,
+                    // 'customer_id'=>$qPI->cust_id,
+                    'invoice_no'=>$qPI->invoice_no,
+                ]);
+                if (!$qDtl->first()){
+                    $insDtl = Tx_acceptance_plan_per_invoice::create([
+                        'acceptance_plan_id'=>$id,
+                        'plan_date'=>$qPI->due_date_acceptance,
+                        'plan_accept'=>$qPI->tagihan,
+                        'inv_or_kwi_id'=>$qPI->inv_id,
+                        'inv_or_kwi'=>$qPI->inv_identity,
+                        'customer_id'=>$qPI->cust_id,
+                        'invoice_no'=>$qPI->invoice_no,
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }else{
+                    $qDtl->update([
+                        'plan_date'=>$qPI->due_date_acceptance,
+                        'plan_accept'=>$qPI->tagihan,
+                        'active'=>'Y',
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
+            }
+
+        } catch(ValidationException $e){
+            // Rollback and then redirect
+            // back to form with errors
+            DB::rollback();
+            // throw $e;
+
+            return redirect()
+            ->back()
+            ->withInput()
+            ->with('status-error',ENV('ERR_MSG_01'));
+        } catch(Exception $e){
+            DB::rollback();
+            // throw $e;
+            
+            return redirect()
+            ->back()
+            ->withInput()
+            ->with('status-error',ENV('ERR_MSG_01'));
+        }
+
+        // If we reach here, then
+        // data is valid and working.
+        // Commit the queries!
+        DB::commit();
+
+        session()->flash('status', 'Synchronization has been completed.');
+        return redirect(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder.'/'.$id);
     }
 }

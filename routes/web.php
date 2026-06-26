@@ -770,6 +770,7 @@ Route::group(
 
         // acceptance plan
         Route::resource('/acceptance-plan', AcceptancePlanServerSideController::class)->except(['destroy']);
+        Route::get('/acceptance-plan/sync/{id}/{date}/{bank_id}', [AcceptancePlanServerSideController::class, 'sync_doc']);
         Route::resource('/acceptance-plan-inv', AcceptancePlanPerInvServerSideController::class)->except(['index','create','store','destroy']);
 
         // purchase inquiry

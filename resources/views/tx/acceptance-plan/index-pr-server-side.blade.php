@@ -2,7 +2,7 @@
 
 @section('style')
 <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+{{-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> --}}
 <style>
     .select2-selection {
         height: 38px !important;
@@ -32,9 +32,9 @@
         <!--end breadcrumb-->
         <h6 class="mb-0 text-uppercase">{{ $title.' - '.date_format(date_create($qPlans->acceptance_month),"F Y").' ('.$bank_name.')' }}</h6>
         <hr />
-        {{-- <div class="col-12">
-            <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/create') }}" style="margin-bottom: 15px;">Add New</a>
-        </div> --}}
+        <div class="col-12">
+            <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->acceptance_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
+        </div>
         <div class="card">
             <div class="card-body">
                 @if (session('status'))
