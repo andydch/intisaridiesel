@@ -18,7 +18,7 @@ use App\Rules\PaymentPlanPeriodDupCheck;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Tx_payment_plan_per_rc_order;
 use App\Models\Tx_payment_voucher;
-use App\Models\Tx_payment_voucher_invoice;
+// use App\Models\Tx_payment_voucher_invoice;
 use App\Models\Tx_tagihan_supplier;
 use App\Models\Mst_menu_user;
 use Illuminate\Support\Facades\Validator;
@@ -268,7 +268,7 @@ class PaymentPlanServerSideController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function show(Request $request, $id)
@@ -305,6 +305,16 @@ class PaymentPlanServerSideController extends Controller
                     'tx_tagihan_suppliers.bank_id' => $query->bank_id,
                     'tx_tagihan_suppliers.active' => 'Y',
                 ])
+                // ->whereIn('tx_tagihan_suppliers.id', function($q1) {
+                //     $q1->select('tx_tsd.tagihan_supplier_id')
+                //     ->from('tx_tagihan_supplier_details as tx_tsd')
+                //     ->whereIn('tx_tsd.receipt_order_id', function($q2) {
+                //         $q2->select('receipt_order_id')
+                //         ->from('tx_payment_plan_per_rc_orders')
+                //         ->where('active', 'Y');
+                //     })
+                //     ->where('active', 'Y');
+                // })
                 ->whereRaw('DATE_FORMAT(tx_tagihan_suppliers.tagihan_supplier_date, "%c-%Y")=\''.date_format(date_create($query->payment_month),"n-Y").'\'')
                 ->orderBy('tx_tagihan_suppliers.tagihan_supplier_date','DESC')
                 ->orderBy('tx_tagihan_suppliers.id','DESC');
@@ -344,6 +354,11 @@ class PaymentPlanServerSideController extends Controller
                         $qTsuDtl->select('tx_tsd.receipt_order_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
                         ->leftJoin('tx_tagihan_suppliers as tx_ts', 'tx_tsd.tagihan_supplier_id', '=', 'tx_ts.id')
+                        ->whereIn('tx_tsd.receipt_order_id', function($q2) {
+                            $q2->select('receipt_order_id')
+                            ->from('tx_payment_plan_per_rc_orders')
+                            ->where('active', 'Y');
+                        })
                         ->where([
                             'tx_tsd.active' => 'Y',
                             'tx_ts.id' => $q->ts_id,
@@ -384,6 +399,11 @@ class PaymentPlanServerSideController extends Controller
                         $qRO->select('tx_tsd.receipt_order_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
                         ->leftJoin('tx_tagihan_suppliers as tx_ts', 'tx_tsd.tagihan_supplier_id', '=', 'tx_ts.id')
+                        ->whereIn('tx_tsd.receipt_order_id', function($q2) {
+                            $q2->select('receipt_order_id')
+                            ->from('tx_payment_plan_per_rc_orders')
+                            ->where('active', 'Y');
+                        })
                         ->where([
                             'tx_tsd.active' => 'Y',
                             'tx_ts.id' => $q->ts_id,
@@ -516,7 +536,7 @@ class PaymentPlanServerSideController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
@@ -562,7 +582,7 @@ class PaymentPlanServerSideController extends Controller
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
@@ -637,12 +657,9 @@ class PaymentPlanServerSideController extends Controller
                 'tx_ts.bank_id as bank_id',
             )
             ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
-            ->where('tx_receipt_orders.receipt_no','NOT LIKE','%Draft%')
-            ->where([
-                'tx_receipt_orders.active'=>'Y',
-                'tx_ts.bank_id'=>$request->bank_id,
-                // 'sp.payment_from_id'=>$request->bank_id,
-            ])
+            ->where('tx_receipt_orders.is_draft', 'N')
+            ->where('tx_receipt_orders.active', 'Y')
+            ->where('tx_ts.bank_id', $request->bank_id)
             ->orderBy('tx_receipt_orders.receipt_date','DESC')
             ->get();
             foreach($q as $ro){
@@ -696,11 +713,97 @@ class PaymentPlanServerSideController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Tx_lokal_journal  $Tx_lokal_journal
+     * @param  \App\Models\Tx_lokal_journal
      * @return \Illuminate\Http\Response
      */
     public function destroy($id)
     {
         //
+    }
+
+    public function sync_doc($id, $date, $bank_id)
+    {
+        // Start transaction!
+        DB::beginTransaction();
+
+        try {
+
+            // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
+            $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
+            ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
+            ->select(
+                'tx_receipt_orders.id as ro_id',
+                'tx_receipt_orders.receipt_date',
+                // 'tx_receipt_orders.total_after_vat',
+                DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
+                // 'sp.payment_from_id as bank_id',
+                'sp.top as supplier_top',
+                DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
+                'tx_ts.bank_id as bank_id',
+            )
+            ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%Y-%m")=\''.$date.'\'')
+            ->where('tx_receipt_orders.is_draft', 'N')
+            ->where('tx_receipt_orders.active', 'Y')
+            ->where('tx_ts.bank_id', $bank_id)
+            ->whereNotIn('tx_receipt_orders.id', function($q1) use($id){
+                $q1->select('receipt_order_id')
+                ->from('tx_payment_plan_per_rc_orders')
+                ->where('payment_plan_id', $id)
+                ->where('active', 'Y');
+            })
+            ->orderBy('tx_receipt_orders.receipt_date','DESC')
+            ->get();
+            foreach($q as $ro){
+                $qDtl = Tx_payment_plan_per_rc_order::where([
+                    // 'payment_plan_id'=>$id,
+                    // 'plan_date'=>$ro->due_date_payment,
+                    'receipt_order_id'=>$ro->ro_id,
+                ]);
+                if (!$qDtl->first()){
+                    $ins = Tx_payment_plan_per_rc_order::create([
+                        'payment_plan_id'=>$id,
+                        'plan_date'=>$ro->due_date_payment,
+                        'plan_pay'=>$ro->total_after_vat,
+                        'receipt_order_id'=>$ro->ro_id,
+                        'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }else{
+                    $qDtl->update([
+                        'plan_date'=>$ro->due_date_payment,
+                        'plan_pay'=>$ro->total_after_vat,
+                        'active'=>'Y',
+                        'updated_by'=>Auth::user()->id,
+                    ]);
+                }
+            }
+            
+        } catch(ValidationException $e){
+            // Rollback and then redirect
+            // back to form with errors
+            DB::rollback();
+
+            return redirect()
+            ->back()
+            ->withInput()
+            ->with('status-error',ENV('ERR_MSG_01'));
+        } catch(Exception $e){
+            DB::rollback();
+            throw $e;
+
+            return redirect()
+            ->back()
+            ->withInput()
+            ->with('status-error',ENV('ERR_MSG_01'));
+        }
+
+        // If we reach here, then
+        // data is valid and working.
+        // Commit the queries!
+        DB::commit();
+
+        session()->flash('status', 'Synchronization has been completed.');
+        return redirect(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder.'/'.$id);
     }
 }

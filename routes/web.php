@@ -766,6 +766,7 @@ Route::group(
 
         // payment plan
         Route::resource('/payment-plan', PaymentPlanServerSideController::class)->except(['destroy']);
+        Route::get('/payment-plan/sync/{id}/{date}/{bank_id}', [PaymentPlanServerSideController::class, 'sync_doc']);
         Route::resource('/payment-plan-ro', PaymentPlanPerRCServerSideController::class)->except(['index','create','store','destroy']);
 
         // acceptance plan
