@@ -565,7 +565,8 @@ class GeneralJournalServerSideController extends Controller
             $queryGJ = Tx_general_journal_detail::where([
                 'general_journal_id'=>$query->id,
                 'active'=>'Y'
-            ]);
+            ])
+            ->orderBy('id', 'ASC');
             $data = [
                 'title'=>$this->title,
                 'folder'=>$this->folder,
@@ -623,7 +624,8 @@ class GeneralJournalServerSideController extends Controller
             $queryGJ = Tx_general_journal_detail::where([
                 'general_journal_id'=>$query->id,
                 'active'=>'Y'
-            ]);
+            ])
+            ->orderBy('id', 'ASC');
             $data = [
                 'title'=>$this->title,
                 'folder'=>$this->folder,
