@@ -2,7 +2,6 @@
 
 namespace App\Rules;
 
-use App\Models\Tx_acceptance_plan;
 use Illuminate\Contracts\Validation\InvokableRule;
 
 class MustEqualRule implements InvokableRule

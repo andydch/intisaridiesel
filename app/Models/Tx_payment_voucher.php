@@ -41,6 +41,8 @@ class Tx_payment_voucher extends Model
         'draft_at',
         'draft_to_created_at',
         'is_draft',
+        'next_plan_date',
+        'next_plan_date_status',
         'active',
         'created_by',
         'updated_by'

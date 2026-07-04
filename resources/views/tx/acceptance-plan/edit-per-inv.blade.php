@@ -84,36 +84,57 @@
                                         <tbody id="body-payment-plan">
                                             @php
                                                 $rencana_total_terima = 0;
+                                                $iRow = 0;
                                             @endphp
                                             @if (old('plan_rows_total'))
                                                 @for ($i=0;$i<old('plan_rows_total');$i++)
                                                     @if (old('plan_id_'.$i)!=null)
                                                         <tr id="row-{{ $i }}">
-                                                            <td>
+                                                            <td style="text-align: center">
                                                                 <input type="hidden" name="plan_id_{{ $i }}" id="plan_id_{{ $i }}"
                                                                     value="@if(old('plan_id_'.$i)){{ old('plan_id_'.$i) }}@else{{ 0 }}@endif">
-                                                                <input type="text" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
-                                                                    id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
-                                                                    value="{{ old('plan_date_'.$i) }}" placeholder="Plan Date" />
-                                                                @error('plan_date_'.$i)
-                                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                                @enderror
+                                                                @if ($iRow==0)
+                                                                    <label for="" class="col-form-label">{{ old('plan_date_'.$i) }}</label>
+                                                                    <input type="hidden" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
+                                                                        id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
+                                                                        value="{{ old('plan_date_'.$i) }}" placeholder="Plan Date" />
+                                                                @else
+                                                                    <input type="text" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
+                                                                        id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
+                                                                        value="{{ old('plan_date_'.$i) }}" placeholder="Plan Date" />
+                                                                    @error('plan_date_'.$i)
+                                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                                    @enderror
+                                                                @endif
                                                             </td>
-                                                            <td>
-                                                                <input type="text" class="form-control form-control @error('plan_accept_'.$i) is-invalid @enderror"
-                                                                    id="plan_accept_{{ $i }}" name="plan_accept_{{ $i }}"
-                                                                    value="{{ old('plan_accept_'.$i) }}" placeholder="Plan Payment"
-                                                                    onkeyup="formatPartPrice(this);" style="text-align: right;" />
-                                                                @error('plan_accept_'.$i)
-                                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                                @enderror
+                                                            <td style="text-align: right">
+                                                                @if ($iRow==0)
+                                                                    <label for="" class="col-form-label">{{ old('plan_accept_'.$i) }}</label>
+                                                                    <input type="hidden" class="form-control form-control @error('plan_accept_'.$i) is-invalid @enderror"
+                                                                        id="plan_accept_{{ $i }}" name="plan_accept_{{ $i }}"
+                                                                        value="{{ old('plan_accept_'.$i) }}" placeholder="Plan Payment"
+                                                                        onkeyup="formatPartPrice(this);" style="text-align: right;" />
+                                                                @else
+                                                                    <input type="text" class="form-control form-control @error('plan_accept_'.$i) is-invalid @enderror"
+                                                                        id="plan_accept_{{ $i }}" name="plan_accept_{{ $i }}"
+                                                                        value="{{ old('plan_accept_'.$i) }}" placeholder="Plan Payment"
+                                                                        onkeyup="formatPartPrice(this);" style="text-align: right;" />
+                                                                    @error('plan_accept_'.$i)
+                                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                                    @enderror
+                                                                @endif
                                                             </td>
                                                             <td style="text-align:center;vertical-align: middle;">
-                                                                <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
+                                                                @if ($iRow>0)
+                                                                    <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
+                                                                @endif
                                                             </td>
                                                         </tr>
                                                         @php
-                                                            $rencana_total_terima += floatval(str_replace(",", "", old('plan_accept_'.$i)));
+                                                            if ($iRow>0){
+                                                                $rencana_total_terima += floatval(str_replace(",", "", old('plan_accept_'.$i)));
+                                                            }
+                                                            $iRow++;
                                                         @endphp
                                                     @endif
                                                 @endfor
@@ -123,30 +144,49 @@
                                                 @endphp
                                                 @foreach ($qPaymentPlans as $qPP)
                                                     <tr id="row-{{ $i }}">
-                                                        <td>
+                                                        <td style="text-align: center;">
                                                             <input type="hidden" name="plan_id_{{ $i }}" id="plan_id_{{ $i }}" value="{{ $qPP->id }}">
-                                                            <input type="text" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
-                                                                id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
-                                                                value="{{ date_format(date_create($qPP->plan_date),"d/m/Y") }}" placeholder="Plan Date" />
-                                                            @error('plan_date_'.$i)
-                                                                <div class="invalid-feedback">{{ $message }}</div>
-                                                            @enderror
+                                                            @if ($iRow==0)
+                                                                <label for="" class="col-form-label">{{ date_format(date_create($qPP->plan_date),"d/m/Y") }}</label>
+                                                                <input type="hidden" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
+                                                                    id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
+                                                                    value="{{ date_format(date_create($qPP->plan_date),"d/m/Y") }}" placeholder="Plan Date" />
+                                                            @else
+                                                                <input type="text" class="form-control @error('plan_date_'.$i) is-invalid @enderror"
+                                                                    id="plan_date_{{ $i }}" name="plan_date_{{ $i }}"
+                                                                    value="{{ date_format(date_create($qPP->plan_date),"d/m/Y") }}" placeholder="Plan Date" />
+                                                                @error('plan_date_'.$i)
+                                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                                @enderror
+                                                            @endif
                                                         </td>
-                                                        <td>
-                                                            <input type="text" class="form-control @error('plan_accept_'.$i) is-invalid @enderror" id="plan_accept_{{ $i }}"
-                                                                name="plan_accept_{{ $i }}" value="{{ number_format($qPP->plan_accept,0,"",",") }}"
-                                                                placeholder="Plan Terima" onkeyup="formatPartPrice(this);" style="text-align: right;" />
-                                                            @error('plan_accept_'.$i)
-                                                                <div class="invalid-feedback">{{ $message }}</div>
-                                                            @enderror
+                                                        <td style="text-align: right">
+                                                            @if ($iRow==0)
+                                                                <label for="" class="col-form-label">{{ number_format($qPP->plan_accept,0,"",",") }}</label>
+                                                                <input type="hidden" class="form-control @error('plan_accept_'.$i) is-invalid @enderror" id="plan_accept_{{ $i }}"
+                                                                    name="plan_accept_{{ $i }}" value="{{ number_format($qPP->plan_accept,0,"",",") }}"
+                                                                    placeholder="Plan Terima" />
+                                                            @else
+                                                                <input type="text" class="form-control @error('plan_accept_'.$i) is-invalid @enderror" id="plan_accept_{{ $i }}"
+                                                                    name="plan_accept_{{ $i }}" value="{{ number_format($qPP->plan_accept,0,"",",") }}"
+                                                                    placeholder="Plan Terima" onkeyup="formatPartPrice(this);" style="text-align: right;" />
+                                                                @error('plan_accept_'.$i)
+                                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                                @enderror
+                                                            @endif
                                                         </td>
                                                         <td style="text-align:center;vertical-align: middle;">
-                                                            <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
+                                                            @if ($iRow>0)
+                                                                <input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}">
+                                                            @endif
                                                         </td>
                                                     </tr>
                                                     @php
-                                                        $rencana_total_terima += $qPP->plan_accept;
+                                                        if ($iRow>0){
+                                                            $rencana_total_terima += $qPP->plan_accept;
+                                                        }
                                                         $i += 1;
+                                                        $iRow++;
                                                     @endphp
                                                 @endforeach
                                             @endif
@@ -167,7 +207,8 @@
                                 <div class="col-sm-12">
                                     <input type="hidden" name="c_id" value="{{ $qInv->cust_id }}">
                                     <input type="hidden" name="i_no" value="{{ $qInv->invoice_no }}">
-                                    <input type="hidden" name="total_tagihan" value="{{ $qInv->tagihan }}">
+                                    <input type="hidden" name="total_tagihan" value="{{ $paid_val>0?$qInv->tagihan-$paid_val:$qInv->tagihan }}">
+                                    {{-- <input type="hidden" name="total_tagihan" value="{{ $qInv->tagihan }}"> --}}
                                     <input type="hidden" name="rencana_total_terima" id="rencana_total_terima" value="{{ $rencana_total_terima }}">
                                     <input type="button" id="save" class="btn btn-primary px-5" value="Save">
                                     <input type="button" id="back-btn" class="btn btn-danger px-5" value="Cancel">
@@ -213,14 +254,14 @@
             }
         }
         $("#rencana_total_terima").val(totPrice);
-        console.log("Total Rencana Terima: "+totPrice);
+        // console.log("Total Rencana Terima: "+totPrice);
         
     }
 
     function addRow(){
         let totalRow = isNaN($("#plan_rows_total").val())?0:$("#plan_rows_total").val();
         let rowNo = (parseInt(totalRow)+1);
-        let vHtml = '<tr id="row-'+totalRow+'">'+
+        let vHtml = '<tr id="row-'+totalRow+'" style="text-align: center;">'+
             '<td><input type="hidden" name="plan_id_'+totalRow+'" id="plan_id_'+totalRow+'" value="0">'+
             '<input type="text" class="form-control" id="plan_date_'+totalRow+'" name="plan_date_'+totalRow+'" readonly="" /></td>'+
             '<td><input type="text" class="form-control" style="text-align: right;" id="plan_accept_'+totalRow+'" name="plan_accept_'+totalRow+'" '+

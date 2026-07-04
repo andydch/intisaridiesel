@@ -49,8 +49,10 @@
                                     <table class="table table-bordered mb-0">
                                         <thead>
                                             <tr style="width: 100%;">
-                                                <th scope="col" style="width: 39%;">Plan Date</th>
-                                                <th scope="col" style="width: 61%;">Plan Bayar</th>
+                                                <th scope="col" style="width: 20%;">Plan Date</th>
+                                                <th scope="col" style="width: 30%;">Plan Bayar</th>
+                                                <th scope="col" style="width: 20%;">Actual Date</th>
+                                                <th scope="col" style="width: 30%;">Actual Bayar</th>
                                             </tr>
                                         </thead>
                                         <tbody id="body-payment-plan">
@@ -67,6 +69,12 @@
                                                         </td>
                                                         <td style="text-align: right">
                                                             <label for="" class="col-form-label">{{ number_format($qPP->plan_accept,0,",",".") }}</label>
+                                                        </td>
+                                                        <td style="text-align: center;">
+                                                            <label for="" class="col-form-label">{{ $qPP->payment_date?date_format(date_create($qPP->payment_date),"d/m/Y"):'' }}</label>
+                                                        </td>
+                                                        <td style="text-align: right">
+                                                            <label for="" class="col-form-label">{{ number_format($qPP->payment_total,0,",",".") }}</label>
                                                         </td>
                                                     </tr>
                                                     @php

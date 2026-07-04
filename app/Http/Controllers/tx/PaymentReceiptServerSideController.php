@@ -2,31 +2,33 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
-use App\Models\Auto_inc;
-use App\Models\Mst_global;
-use App\Models\Tx_invoice;
-use App\Models\Userdetail;
-use App\Models\Mst_customer;
-use App\Rules\NumericCustom;
-use Illuminate\Http\Request;
 use App\Helpers\GlobalFuncHelper;
-use App\Models\Tx_payment_receipt;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use App\Models\Mst_automatic_journal_detail;
+use App\Models\Auto_inc;
 use App\Models\Mst_automatic_journal_detail_ext;
-use App\Models\Tx_general_journal;
-use App\Models\Tx_general_journal_detail;
-use App\Models\Tx_lokal_journal;
-use App\Models\Tx_lokal_journal_detail;
-use App\Models\Tx_kwitansi;
-use Illuminate\Support\Facades\Auth;
-use App\Rules\SameTotPaymentAsTotInv;
-use Illuminate\Support\Facades\Validator;
-use App\Models\Tx_payment_receipt_invoice;
+use App\Models\Mst_automatic_journal_detail;
+use App\Models\Mst_customer;
+use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
+use App\Models\Tx_general_journal_detail;
+use App\Models\Tx_general_journal;
+use App\Models\Tx_invoice;
+use App\Models\Tx_kwitansi;
+use App\Models\Tx_lokal_journal_detail;
+use App\Models\Tx_lokal_journal;
+use App\Models\Tx_payment_receipt_invoice;
+use App\Models\Tx_payment_receipt;
+use App\Models\Userdetail;
+use App\Models\Tx_acceptance_plan_per_invoice;
+use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentReceipt;
+use App\Rules\NumericCustom;
+use App\Rules\SameTotPaymentAsTotInv;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -80,6 +82,7 @@ class PaymentReceiptServerSideController extends Controller
                 'tx_payment_receipts.payment_total',
                 'tx_payment_receipts.pr_created_at',
                 'tx_payment_receipts.ps_created_at',
+                'tx_payment_receipts.next_plan_date_status',
                 'tx_payment_receipts.active as pr_active',
                 'tx_payment_receipts.created_by as createdby',
                 'tx_payment_receipts.created_at as createdat',
@@ -193,18 +196,23 @@ class PaymentReceiptServerSideController extends Controller
                 ->first();
 
                 $links = '';
+                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_receipt_no)){
+                    // $links .= 'Edit Next Plan Date | ';
+                    $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt-npd/'.(!is_null($query->payment_receipt_no)?
+                        urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">Edit Next Plan Date</a> | ';
+                }
                 if (($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y' || Auth::user()->id==1) && $query->pr_active=='Y'){
                     if (is_null($query->payment_receipt_no)){
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
-                            urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no)).'/edit').'" style="text-decoration: underline;">Edit</a> |
+                        $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
+                            urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no)).'/edit').'" style="text-decoration: underline;">Edit</a> | 
                             <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
                             urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">View</a>';
                     }else{
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
+                        $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
                             urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">View</a>';
                     }
                 }else{
-                    $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
+                    $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt/'.(!is_null($query->payment_receipt_no)?
                         urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">View</a>';
                 }
                 return $links;
@@ -384,9 +392,15 @@ class PaymentReceiptServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
+                    $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
+                        GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
+                        GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
+                    $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|'.str_replace('invoice_no_'.$i,"",$different_rule),
                         'total_inv_'.$i => ['required', new NumericCustom('Total'), new CheckRemainingPaymentReceipt($request['invoice_no_'.$i],0)],
+                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($payment_total_full_per_inv_validate, $payment_total_per_inv_validate)],
                     ];
                     $errShipmentMsg = [
                         'invoice_no_'.$i.'.different' => 'Please select a valid invoice no',
@@ -582,6 +596,8 @@ class PaymentReceiptServerSideController extends Controller
             $isFullPayment = 'Y';
             $isVATforAutoJournal = '';
             $payment_total_before_tax = 0;
+            $isDiffFullVsPartialPaymentReceipt = 'N';
+            $next_plan_date = $request->next_plan_date!=''?explode("/", $request->next_plan_date):null;
             if ($request->totalRow > 0) {
                 $is_full_payment = '';
                 for ($i = 0; $i < $request->totalRow; $i++) {
@@ -591,6 +607,11 @@ class PaymentReceiptServerSideController extends Controller
                             GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
                             GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
                         $payment_total_full_per_inv = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
+                        if ($payment_total_per_inv <> $payment_total_full_per_inv) {
+                            // simpan Y jika berbeda antara total pembayaran penuh dan parsial
+                            $isDiffFullVsPartialPaymentReceipt = 'Y';
+                        }                        
 
                         if (strpos("invoice-".$request['invoice_no_'.$i],env('P_INVOICE'))>0){
                             $isVATforAutoJournal = 'Y';
@@ -612,6 +633,50 @@ class PaymentReceiptServerSideController extends Controller
                                     'created_by' => Auth::user()->id,
                                     'updated_by' => Auth::user()->id,
                                 ]);
+
+                                // update rencana penerimaan
+                                if ($request->is_draft=='N'){
+                                    $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                    ->where('invoice_no', urldecode($request['invoice_no_'.$i]))
+                                    ->whereRaw('payment_receipt_no IS NULL')
+                                    ->where('active', 'Y')
+                                    ->orderBy('id', 'ASC')
+                                    ->first();
+                                    if ($qPaD){
+                                        $updPaD = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
+                                        ->update([
+                                            'payment_receipt_no' => $payment_receipt_no,
+                                            'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                            'payment_total' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                            'updated_by' => Auth::user()->id,
+                                        ]);
+                                    }else{
+                                        // jika plan belum ada, maka insert plan baru
+                                        $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                        ->where('invoice_no', $billingProcess->invoice_no)
+                                        ->where('active', 'Y')
+                                        ->orderBy('id', 'ASC')
+                                        ->first();
+                                        if ($qPlan){
+                                            $insPaD = DB::table('tx_acceptance_plan_per_invoices')->insert([
+                                                'acceptance_plan_id' => $qPlan->acceptance_plan_id,
+                                                'plan_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'plan_accept' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                                'inv_or_kwi_id' => $qPlan->inv_or_kwi_id,
+                                                'inv_or_kwi' => $qPlan->inv_or_kwi,
+                                                'customer_id' => $qPlan->customer_id,
+                                                'invoice_no' => $billingProcess->invoice_no,
+                                                'payment_receipt_no' => $payment_receipt_no,
+                                                'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'payment_total' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                                'active' => 'Y',
+                                                'created_by' => Auth::user()->id,
+                                                'updated_by' => Auth::user()->id,
+                                            ]);
+                                        }
+                                    }
+                                }
+                                // update rencana penerimaan
                             }
                         }
 
@@ -635,8 +700,90 @@ class PaymentReceiptServerSideController extends Controller
                                     'created_by' => Auth::user()->id,
                                     'updated_by' => Auth::user()->id,
                                 ]);
+
+                                // update rencana penerimaan
+                                if ($request->is_draft=='N'){
+                                    $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                    ->where('invoice_no', $prosesTagihan->kwitansi_no)
+                                    ->whereRaw('payment_receipt_no IS NULL')
+                                    ->where('active', 'Y')
+                                    ->orderBy('id', 'ASC')
+                                    ->first();
+                                    if ($qPaD){
+                                        $updPaD = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
+                                        ->update([
+                                            'payment_receipt_no' => $payment_receipt_no,
+                                            'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                            'payment_total' => $payment_total_per_inv,
+                                            'updated_by' => Auth::user()->id,
+                                        ]);
+                                    }else{
+                                        // jika plan belum ada, maka insert plan baru
+                                        $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                        ->where('invoice_no', $prosesTagihan->invoice_no)
+                                        ->where('active', 'Y')
+                                        ->orderBy('id', 'ASC')
+                                        ->first();
+                                        if ($qPlan){
+                                            $insPaD = DB::table('tx_acceptance_plan_per_invoices')->insert([
+                                                'acceptance_plan_id' => $qPlan->acceptance_plan_id,
+                                                'plan_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'plan_accept' => $payment_total_per_inv,
+                                                'inv_or_kwi_id' => $qPlan->inv_or_kwi_id,
+                                                'inv_or_kwi' => $qPlan->inv_or_kwi,
+                                                'customer_id' => $qPlan->customer_id,
+                                                'invoice_no' => $prosesTagihan->invoice_no,
+                                                'payment_receipt_no' => $payment_receipt_no,
+                                                'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'payment_total' => $payment_total_per_inv,
+                                                'active' => 'Y',
+                                                'created_by' => Auth::user()->id,
+                                                'updated_by' => Auth::user()->id,
+                                            ]);
+                                        }
+                                    }
+                                }
+                                // update rencana penerimaan
                             }
                         }
+
+                        // matikan update next plan date utk PA sebelumnya
+                        if ($isDiffFullVsPartialPaymentReceipt=='Y' && $request->is_draft=='N'){
+                            $updPA = Tx_payment_receipt::where('id', '<', $maxId)
+                            ->whereIn('id', function ($q01) use($request, $i) {
+                                $q01->select('payment_receipt_id')
+                                ->from('tx_payment_receipt_invoices')
+                                ->where([
+                                    'invoice_no' => urldecode($request['invoice_no_'.$i]),
+                                    'active' => 'Y',
+                                ]);
+                            })
+                            ->update([
+                                'next_plan_date_status' => 'N',
+                                'updated_by' => Auth::user()->id,
+                            ]);
+
+                            // jika plan belum ada, maka insert plan baru utk next plan date
+                            $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                            ->where('invoice_no', urldecode($request['invoice_no_'.$i]))
+                            ->where('active', 'Y')
+                            ->first();
+                            if ($qPlan){
+                                $insPaD = Tx_acceptance_plan_per_invoice::create([
+                                    'acceptance_plan_id' => $qPlan->acceptance_plan_id,
+                                    'plan_date' => $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0],
+                                    'plan_accept' => $payment_total_full_per_inv-$payment_total_per_inv,
+                                    'inv_or_kwi_id' => $qPlan->inv_or_kwi_id,
+                                    'inv_or_kwi' => $qPlan->inv_or_kwi,
+                                    'customer_id' => $qPlan->customer_id,
+                                    'invoice_no' => urldecode($request['invoice_no_'.$i]),
+                                    'active' => 'Y',
+                                    'created_by' => Auth::user()->id,
+                                    'updated_by' => Auth::user()->id,
+                                ]);
+                            }
+                        }
+                        // matikan update next plan date utk PA sebelumnya
 
                         $payment_total_before_tax += $payment_total_per_inv;
                         if($isFullPayment=='Y'){
@@ -654,6 +801,8 @@ class PaymentReceiptServerSideController extends Controller
                 'payment_total_before_vat' => $payment_total_before_tax,
                 'payment_total_after_vat' => ($isVATforAutoJournal=='Y'?($payment_total_before_tax+(($payment_total_before_tax*$vat_val)/100)):$payment_total_before_tax),
                 'is_full_payment' => $isFullPayment,
+                'next_plan_date_status' => $isDiffFullVsPartialPaymentReceipt=='Y'?'Y':'N',
+                'next_plan_date' => $next_plan_date ? $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0] : null,
             ]);
 
             // simpan deskripsi utk jurnal - start
@@ -1376,6 +1525,143 @@ class PaymentReceiptServerSideController extends Controller
         }
     }
 
+    public function edit_next_plan_date($receipt_no)
+    {
+        $qCurrency = Mst_global::where([
+            'id' => 3,
+            'data_cat' => 'currency',
+            'active' => 'Y'
+        ])
+        ->first();
+
+        $customers = Mst_customer::where('active','=','Y')
+        ->orderBy('name','ASC')
+        ->get();
+
+        $query = Tx_payment_receipt::where([
+            'payment_receipt_no'=>urldecode($receipt_no),
+        ])
+        ->orWhere([
+            'payment_receipt_plan_no'=>urldecode($receipt_no),
+        ])
+        ->first();
+        if($query){
+            $queryInv = Tx_payment_receipt_invoice::where('payment_receipt_id','=',$query->id)
+            ->where('active','=','Y');
+
+            $paymentInvId = $query->id;
+            $invoices = Tx_invoice::select(
+                'id',
+                'invoice_no',
+            )
+            ->where('invoice_no','NOT LIKE','%Draft%')
+            ->whereNotIn('id', function ($q01) use ($paymentInvId) {
+                $q01->select('payment_receipt_id')
+                ->from('tx_payment_receipt_invoices')
+                ->where('payment_receipt_id','<>',$paymentInvId)
+                ->where('is_vat','=','Y')
+                ->where('is_full_payment','=','Y');
+            })
+            ->where('active','=','Y')
+            ->orderBy('invoice_no','ASC');
+
+            $invoices = Tx_kwitansi::select(
+                'id',
+                'kwitansi_no as invoice_no',
+            )
+            ->where('kwitansi_no','NOT LIKE','%Draft%')
+            ->whereNotIn('id', function ($q01) use ($paymentInvId) {
+                $q01->select('payment_receipt_id')
+                ->from('tx_payment_receipt_invoices')
+                ->where('payment_receipt_id','<>',$paymentInvId)
+                ->where('is_vat','=','N')
+                ->where('is_full_payment','=','Y');
+            })
+            ->where('active','=','Y')
+            ->orderBy('kwitansi_no','ASC')
+            ->union($invoices)
+            ->get();
+
+            $qVat = Mst_global::where([
+                'data_cat'=>'vat',
+                'active'=>'Y',
+            ])
+            ->first();
+
+            $data = [
+                'title' => $this->title,
+                'folder' => $this->folder,
+                'totalRow' => (old('totalRow')?old('totalRow'):$queryInv->count()),
+                'customers' => $customers,
+                'invoices' => $invoices,
+                'qPaymentInv' => $query,
+                'queryInv' => $queryInv->get(),
+                'qCurrency' => $qCurrency,
+                'payment_mode_string'=>explode("|", $this->payment_mode_string),
+                'payment_mode_id'=>explode("|", $this->payment_mode_id),
+                'payment_type'=>explode(",", $this->payment_type),
+                'qVat'=>$qVat,
+            ];
+
+            return view('tx.'.$this->folder.'.edit-next-plan-date', $data);
+        }else{
+            $data = [
+                'errNotif' => 'The data you are looking for is not found'
+            ];
+            return view('error-notif.not-found-notif', $data);
+        }
+    }
+
+    public function update_next_plan_date(Request $request, $receipt_no){
+        $request->validate([
+            'next_plan_date' => 'required',
+        ]);
+
+        $query = Tx_payment_receipt::where([
+            'payment_receipt_no'=>urldecode($receipt_no),
+        ])
+        ->orWhere([
+            'payment_receipt_plan_no'=>urldecode($receipt_no),
+        ])
+        ->first();
+        if($query){
+            $next_plan_date = explode("/", $request->next_plan_date);
+
+            $updPA = Tx_payment_receipt::where('id', $query->id)
+            ->update([
+                'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                'updated_by' => Auth::user()->id,
+            ]);
+
+            $qPA = Tx_acceptance_plan_per_invoice::where('payment_receipt_no', $receipt_no)
+            ->select('invoice_no')
+            ->where('active', 'Y')
+            ->first();
+            if ($qPA){
+                $query->plan_date = $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0];
+                $query->updated_by = Auth::user()->id;
+                $query->save();
+                
+                // $qPaD = Tx_acceptance_plan_per_invoice::where('invoice_no', $qPA->invoice_no)
+                // // ->where('plan_date', $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0])
+                // ->whereRaw('payment_receipt_no IS NULL')
+                // ->where('active', 'Y')
+                // ->update([
+                //     'plan_date' => $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0],
+                //     'updated_by' => Auth::user()->id,
+                // ]);
+            }
+
+            session()->flash('status', 'Next plan date has been updated successfully.');
+            return redirect(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder);
+        }else{
+            $data = [
+                'errNotif' => 'The data you are looking for is not found'
+            ];
+            return view('error-notif.not-found-notif', $data);
+        }
+    }
+
     /**
      * Show the form for editing the specified resource.
      *
@@ -1630,9 +1916,15 @@ class PaymentReceiptServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
+                    $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
+                        GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
+                        GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
+                    $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|'.str_replace('invoice_no_'.$i,"",$different_rule),
                         'total_inv_'.$i => ['required',new NumericCustom('Total'),new CheckRemainingPaymentReceipt($request['invoice_no_'.$i],$request['payment_receipt_inv_id'.$i])],
+                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($payment_total_full_per_inv_validate, $payment_total_per_inv_validate)],
                     ];
                     $errShipmentMsg = [
                         'invoice_no_'.$i.'.different' => 'Please select a valid invoice no',
@@ -1844,6 +2136,8 @@ class PaymentReceiptServerSideController extends Controller
             $isFullPayment = 'Y';
             $isVATforAutoJournal = '';
             $payment_total_before_tax = 0;
+            $isDiffFullVsPartialPaymentReceipt = 'N';
+            $next_plan_date = $request->next_plan_date!=''?explode("/", $request->next_plan_date):null;
             if ($request->totalRow > 0) {
                 $is_full_payment = '';
                 for ($i = 0; $i < $request->totalRow; $i++) {
@@ -1851,8 +2145,14 @@ class PaymentReceiptServerSideController extends Controller
                     if ($request['invoice_no_'.$i]) {
                         $is_full_payment = ((floor(GlobalFuncHelper::moneyValidate(str_replace(",","",$request['total_inv_'.$i])))<floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i])))?'N':'Y');
                         $payment_total_per_inv = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
-                            GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
+                            GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
+                            GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
                         $payment_total_full_per_inv = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
+                        if ($payment_total_per_inv <> $payment_total_full_per_inv) {
+                            // simpan Y jika berbeda antara total pembayaran penuh dan parsial
+                            $isDiffFullVsPartialPaymentReceipt = 'Y';
+                        }
 
                         if (strpos("invoice-".$request['invoice_no_'.$i],env('P_INVOICE'))>0){
                             $isVATforAutoJournal = 'Y';
@@ -1899,6 +2199,50 @@ class PaymentReceiptServerSideController extends Controller
                                         'updated_by' => Auth::user()->id,
                                     ]);
                                 }
+
+                                // update rencana penerimaan
+                                if ($request->is_draft=='N'){
+                                    $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                    ->where('invoice_no', urldecode($request['invoice_no_'.$i]))
+                                    ->whereRaw('payment_receipt_no IS NULL')
+                                    ->where('active', 'Y')
+                                    ->orderBy('id', 'ASC')
+                                    ->first();
+                                    if ($qPaD){
+                                        $updPaD = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
+                                        ->update([
+                                            'payment_receipt_no' => $payment_receipt_no,
+                                            'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                            'payment_total' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                            'updated_by' => Auth::user()->id,
+                                        ]);
+                                    }else{
+                                        // jika plan belum ada, maka insert plan baru
+                                        $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                        ->where('invoice_no', $billingProcess->invoice_no)
+                                        ->where('active', 'Y')
+                                        ->orderBy('id', 'ASC')
+                                        ->first();
+                                        if ($qPlan){
+                                            $insPaD = DB::table('tx_acceptance_plan_per_invoices')->insert([
+                                                'acceptance_plan_id' => $qPlan->acceptance_plan_id,
+                                                'plan_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'plan_accept' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                                'inv_or_kwi_id' => $qPlan->inv_or_kwi_id,
+                                                'inv_or_kwi' => $qPlan->inv_or_kwi,
+                                                'customer_id' => $qPlan->customer_id,
+                                                'invoice_no' => $billingProcess->invoice_no,
+                                                'payment_receipt_no' => $payment_receipt_no,
+                                                'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'payment_total' => ($payment_total_per_inv+(($payment_total_per_inv*$vat_val)/100)),
+                                                'active' => 'Y',
+                                                'created_by' => Auth::user()->id,
+                                                'updated_by' => Auth::user()->id,
+                                            ]);
+                                        }
+                                    }
+                                }
+                                // update rencana penerimaan
                             }
                         }
 
@@ -1946,6 +2290,50 @@ class PaymentReceiptServerSideController extends Controller
                                         'updated_by' => Auth::user()->id,
                                     ]);
                                 }
+
+                                // update rencana penerimaan
+                                if ($request->is_draft=='N'){
+                                    $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                    ->where('invoice_no', $prosesTagihan->kwitansi_no)
+                                    ->whereRaw('payment_receipt_no IS NULL')
+                                    ->where('active', 'Y')
+                                    ->orderBy('id', 'ASC')
+                                    ->first();
+                                    if ($qPaD){
+                                        $updPaD = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
+                                        ->update([
+                                            'payment_receipt_no' => $payment_receipt_no,
+                                            'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                            'payment_total' => $payment_total_per_inv,
+                                            'updated_by' => Auth::user()->id,
+                                        ]);
+                                    }else{
+                                        // jika plan belum ada, maka insert plan baru
+                                        $qPlan = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
+                                        ->where('invoice_no', $prosesTagihan->invoice_no)
+                                        ->where('active', 'Y')
+                                        ->orderBy('id', 'ASC')
+                                        ->first();
+                                        if ($qPlan){
+                                            $insPaD = DB::table('tx_acceptance_plan_per_invoices')->insert([
+                                                'acceptance_plan_id' => $qPlan->acceptance_plan_id,
+                                                'plan_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'plan_accept' => $payment_total_per_inv,
+                                                'inv_or_kwi_id' => $qPlan->inv_or_kwi_id,
+                                                'inv_or_kwi' => $qPlan->inv_or_kwi,
+                                                'customer_id' => $qPlan->customer_id,
+                                                'invoice_no' => $prosesTagihan->invoice_no,
+                                                'payment_receipt_no' => $payment_receipt_no,
+                                                'payment_date' => $payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0],
+                                                'payment_total' => $payment_total_per_inv,
+                                                'active' => 'Y',
+                                                'created_by' => Auth::user()->id,
+                                                'updated_by' => Auth::user()->id,
+                                            ]);
+                                        }
+                                    }
+                                }
+                                // update rencana penerimaan
                             }
                         }
 
@@ -1965,6 +2353,9 @@ class PaymentReceiptServerSideController extends Controller
                 'payment_total_before_vat' => $payment_total_before_tax,
                 'payment_total_after_vat' => ($isVATforAutoJournal=='Y'?($payment_total_before_tax+(($payment_total_before_tax*$vat_val)/100)):$payment_total_before_tax),
                 'is_full_payment' => $isFullPayment,
+                // next plan bisa di update selama berstatus Draft atau Plan
+                'next_plan_date_status' => $request->is_draft!='N'?($isDiffFullVsPartialPaymentReceipt=='Y'?'Y':'N') : $qPr->next_plan_date_status,
+                'next_plan_date' => $request->is_draft!='N'?($next_plan_date ? $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0] : null) : $qPr->next_plan_date,
             ]);
 
             // simpan deskripsi utk jurnal - start

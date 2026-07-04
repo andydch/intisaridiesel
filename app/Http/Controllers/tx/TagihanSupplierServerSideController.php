@@ -2,27 +2,30 @@
 
 namespace App\Http\Controllers\tx;
 
+use App\Http\Controllers\Controller;
+use App\Models\Auto_inc;
+use App\Models\Mst_branch;
+use App\Models\Mst_coa;
+use App\Models\Mst_global;
+use App\Models\Mst_menu_user;
+use App\Models\Mst_supplier;
+use App\Models\Tx_payment_voucher;
+use App\Models\Tx_purchase_retur;
+use App\Models\Tx_receipt_order;
+use App\Models\Tx_tagihan_supplier_detail;
+use App\Models\Tx_tagihan_supplier;
+use App\Models\Userdetail;
+use App\Models\Tx_payment_plan;
+use App\Models\Tx_payment_plan_per_rc_order;
+use App\Rules\CheckRencanaPembayaran;
+use App\Rules\ValdROforTagihanSupplierRules;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
-use App\Models\Mst_coa;
-use App\Models\Auto_inc;
-use App\Models\Mst_global;
-use App\Models\Userdetail;
-use App\Models\Mst_branch;
-use App\Models\Mst_supplier;
-use App\Models\Tx_receipt_order;
-use App\Models\Tx_tagihan_supplier;
-use App\Models\Tx_tagihan_supplier_detail;
-use App\Models\Tx_payment_voucher;
-use App\Models\Mst_menu_user;
-use App\Models\Tx_purchase_retur;
-use App\Rules\ValdROforTagihanSupplierRules;
+use Yajra\DataTables\Facades\DataTables;
 
 class TagihanSupplierServerSideController extends Controller
 {
@@ -384,7 +387,7 @@ class TagihanSupplierServerSideController extends Controller
         }
 
         $validateInput = [
-            'supplier_id' => 'required|numeric',
+            'supplier_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
             'receipt_order_no_all' => ['required', new ValdROforTagihanSupplierRules(0)],
             'payment_plan_date' => 'required',
             'bank_id' => 'required|numeric',
@@ -564,7 +567,7 @@ class TagihanSupplierServerSideController extends Controller
             }
 
             // update total tagihan supplier
-            $upd = Tx_tagihan_supplier::where('id','=',$maxId)
+            $upd = Tx_tagihan_supplier::where('id', '=', $maxId)
             ->update([
                 'total_price' => $totalAmount,
                 'total_price_vat' => $total_vat_val,
@@ -573,6 +576,33 @@ class TagihanSupplierServerSideController extends Controller
                 // 'grandtotal_price' => $totalAmount+($totalAmount*$vat_percent/100),
                 'is_vat' => $is_vat,
             ]);
+
+            if ($request->is_draft!='Y'){
+                // create rencana pembayaran
+                $period_date = explode('/', $request->payment_plan_date);
+
+                $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
+                ->where('bank_id', $request->bank_id)
+                ->where('is_draft', 'N')
+                ->first();
+                if ($qPp){
+                    $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
+                        'payment_plan_id' => $qPp->id,
+                        'supplier_id' => $request->supplier_id,
+                        'tagihan_supplier_id' => $maxId,
+                        'tagihan_supplier_no' => $tagihan_supplier_no,
+                        'plan_date' => $tagihan_supplier_date,
+                        'plan_pay' => $totalAmount+$total_vat_val,
+                        // 'payment_voucher_id',
+                        // 'payment_voucher_no',
+                        // 'actual_date',
+                        // 'actual_payment',
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id
+                    ]);
+                }
+            }
 
         } catch(ValidationException $e){
             // Rollback and then redirect
@@ -880,7 +910,7 @@ class TagihanSupplierServerSideController extends Controller
         }
 
         $validateInput = [
-            'supplier_id' => 'required|numeric',
+            'supplier_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
             'receipt_order_no_all' => ['required', new ValdROforTagihanSupplierRules($maxId)],
             'payment_plan_date' => 'required',
             'bank_id' => 'required|numeric',
@@ -1007,13 +1037,53 @@ class TagihanSupplierServerSideController extends Controller
             }
 
             // update total tagihan supplier
-            $upd = Tx_tagihan_supplier::where('id','=',$maxId)
+            $upd = Tx_tagihan_supplier::where('id', '=', $maxId)
             ->update([
                 'total_price' => $totalAmount,
                 'total_price_vat' => $total_vat_val,
                 'grandtotal_price' => $totalAmount+$total_vat_val,
                 'is_vat' => $is_vat,
             ]);
+
+            if ($request->is_draft!='Y'){
+                // create rencana pembayaran
+                $period_date = explode('/', $request->payment_plan_date);
+
+                $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
+                ->where('bank_id', $request->bank_id)
+                ->where('is_draft', 'N')
+                ->first();
+                if ($qPp){
+                    $qCheckRencanaPembayaran = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $maxId)
+                    ->orderBy('id', 'asc')
+                    ->first();
+                    if ($qCheckRencanaPembayaran){
+                        $updRencanaPembayaran = Tx_payment_plan_per_rc_order::where('id', $qCheckRencanaPembayaran->id)
+                        ->update([
+                            'payment_plan_id' => $qPp->id,
+                            'supplier_id' => $request->supplier_id,
+                            'tagihan_supplier_id' => $maxId,
+                            'tagihan_supplier_no' => $ts_no,
+                            'plan_date' => $tagihan_supplier_date,
+                            'plan_pay' => $totalAmount+$total_vat_val,
+                            'active' => 'Y',
+                            'updated_by' => Auth::user()->id
+                        ]);
+                    }else{
+                        $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
+                            'payment_plan_id' => $qPp->id,
+                            'supplier_id' => $request->supplier_id,
+                            'tagihan_supplier_id' => $maxId,
+                            'tagihan_supplier_no' => $ts_no,
+                            'plan_date' => $tagihan_supplier_date,
+                            'plan_pay' => $totalAmount+$total_vat_val,
+                            'active' => 'Y',
+                            'created_by' => Auth::user()->id,
+                            'updated_by' => Auth::user()->id
+                        ]);
+                    }
+                }
+            }
 
         } catch(ValidationException $e){
             // Rollback and then redirect

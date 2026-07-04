@@ -32,9 +32,11 @@
         <!--end breadcrumb-->
         <h6 class="mb-0 text-uppercase">{{ $title.' - '.date_format(date_create($qPlans->payment_month),"F Y").' ('.$bank_name.')' }}</h6>
         <hr />
-        <div class="col-12">
-            <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->payment_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
-        </div>
+        @if (Auth::user()->id==1)
+            <div class="col-12">
+                <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->payment_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
+            </div>
+        @endif
         <div class="card">
             <div class="card-body">
                 @if (session('status'))
@@ -56,6 +58,7 @@
                                 <th style="text-align: center !important;">Paid Date</th>
                                 <th style="text-align: center !important;">Bayar ({{ $qCurrency->string_val }})</th>
                                 <th style="text-align: center !important;">PV No</th>
+                                <th style="text-align: center !important;">Action</th>
                             </tr>
                         </thead>
                     </table>
@@ -95,7 +98,7 @@
             columns: [
                 {
                     data: 'tagihan_supplier_no',
-                    name: 'tx_tagihan_suppliers.tagihan_supplier_no',
+                    name: 'sub.tagihan_supplier_no',
                     orderable: false,
                     searchable: true,
                 },
@@ -118,10 +121,10 @@
                     searchable: true,
                 },
                 {
-                    data: 'grandtotal_price',
-                    name: 'tx_tagihan_suppliers.grandtotal_price',
+                    data: 'plan_pay',
+                    name: 'plan_pay',
                     orderable: false,
-                    searchable: true,
+                    searchable: false,
                 },
                 {
                     data: 'plan_date',
@@ -130,31 +133,34 @@
                     searchable: true,
                 },
                 {
-                    data: 'paid_date',
-                    name: 'paid_date',
+                    data: 'actual_date',
+                    name: 'actual_date',
                     orderable: false,
                     searchable: true,
                 },
                 {
-                    data: 'paid_value',
-                    name: 'paid_value',
+                    data: 'actual_payment',
+                    name: 'actual_payment',
                     orderable: false,
                     searchable: false,
                 },
                 {
-                    data: 'pv_no',
-                    name: 'pv_no',
+                    data: 'payment_voucher_no',
+                    name: 'payment_voucher_no',
                     orderable: false,
+                    searchable: true,
+                },
+                {
+                    data: 'action',
+                    name: 'action',
+                    orderable: false,
+                    searchable: false,
                 }
             ],
             columnDefs: [
                 {
-                    targets: [0,2,5,6,8],
+                    targets: [0,1,2,3,5,6,8,9],
                     className: 'text-center',
-                },
-                {
-                    targets: [1,3],
-                    className: 'text-left',
                 },
                 {
                     targets: [7],
@@ -163,7 +169,7 @@
                 {
                     targets: [4],
                     className: 'text-right',
-                    render: $.fn.dataTable.render.number(',','.',0,''),
+                    // render: $.fn.dataTable.render.number(',','.',0,''),
                 }
             ],
         });

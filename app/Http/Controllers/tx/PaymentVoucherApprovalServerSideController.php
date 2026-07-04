@@ -21,6 +21,7 @@ use App\Models\Tx_payment_voucher_invoice;
 use App\Models\Tx_lokal_journal;
 use App\Models\Tx_lokal_journal_detail;
 use App\Models\Mst_menu_user;
+use App\Models\Tx_payment_plan_per_rc_order;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -373,6 +374,15 @@ class PaymentVoucherApprovalServerSideController extends Controller
                 ])
                 ->first();
                 if ($q){
+                    // update flag approval di rencana pembayaran
+                    $upd = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $q->id)
+                    ->where('active', 'Y')
+                    ->update([
+                        'is_pv_approved' => 'Y',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                    // update flag approval di rencana pembayaran
+
                     $branch_id = '';
                     $methodNm = '';
 

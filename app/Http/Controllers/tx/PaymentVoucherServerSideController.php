@@ -2,26 +2,28 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
+use App\Helpers\GlobalFuncHelper;
+use App\Http\Controllers\Controller;
 use App\Models\Auto_inc;
 use App\Models\Mst_global;
-use App\Models\Userdetail;
+use App\Models\Mst_menu_user;
 use App\Models\Mst_supplier;
-use App\Rules\NumericCustom;
-use Illuminate\Http\Request;
-use App\Models\Tx_receipt_order;
-use App\Helpers\GlobalFuncHelper;
-use App\Models\Tx_payment_voucher;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use App\Models\Tx_general_journal;
 use App\Models\Tx_lokal_journal;
-use Illuminate\Support\Facades\Auth;
-use App\Rules\SameTotPaymentAsTotInv;
-use Illuminate\Support\Facades\Validator;
 use App\Models\Tx_payment_voucher_invoice;
-use App\Models\Mst_menu_user;
+use App\Models\Tx_payment_voucher;
+use App\Models\Tx_receipt_order;
+use App\Models\Userdetail;
+use App\Models\Tx_payment_plan_per_rc_order;
+use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentVoucher;
+use App\Rules\NumericCustom;
+use App\Rules\SameTotPaymentAsTotInv;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -84,6 +86,7 @@ class PaymentVoucherServerSideController extends Controller
                 'tx_payment_vouchers.pv_created_at',
                 'tx_payment_vouchers.ps_created_at',
                 'tx_payment_vouchers.approved_by',
+                'tx_payment_vouchers.next_plan_date_status',
                 'tx_payment_vouchers.created_by as createdby',
                 'tx_payment_vouchers.created_at as createdat',
                 'tx_payment_vouchers.active as pv_active',
@@ -192,18 +195,22 @@ class PaymentVoucherServerSideController extends Controller
                 ->first();
 
                 $links = '';
+                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_voucher_no)){
+                    $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher-npd/'.(!is_null($query->payment_voucher_no)?
+                        urlencode($query->payment_voucher_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">Edit Next Plan Date</a> | ';
+                }
                 if (($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y') && $query->pv_active=='Y'){
                     if (!is_null($query->approved_by)){
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
+                        $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
                             $query->payment_voucher_no:$query->payment_voucher_plan_no)).'" style="text-decoration: underline;">View</a>';
                     }else{
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
+                        $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
                             $query->payment_voucher_no:$query->payment_voucher_plan_no).'/edit').'" style="text-decoration: underline;">Edit</a> |
                             <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
                             $query->payment_voucher_no:$query->payment_voucher_plan_no)).'" style="text-decoration: underline;">View</a>';
                     }
                 }else{
-                    $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
+                    $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode(!is_null($query->payment_voucher_no)?
                         $query->payment_voucher_no:$query->payment_voucher_plan_no)).'" style="text-decoration: underline;">View</a>';
                 }
                 return $links;
@@ -407,9 +414,13 @@ class PaymentVoucherServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
+                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
                     $validateShipmentInput = [
-                        'invoice_no_'.$i=>'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
-                        'total_inv_'.$i=>['required',new NumericCustom('Total'),new CheckRemainingPaymentVoucher($request['invoice_no_'.$i],0,0)],
+                        'invoice_no_'.$i => 'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
+                        'total_inv_'.$i => ['required',new NumericCustom('Total'), new CheckRemainingPaymentVoucher($request['invoice_no_'.$i],0,0)],
+                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
                     ];
                     $errShipmentMsg = [
                         'invoice_no_'.$i.'.different' => 'You cannot choose the same invoice number',
@@ -560,6 +571,7 @@ class PaymentVoucherServerSideController extends Controller
 
             $payment_date = explode("/", $request->payment_date);
             $reference_date = explode("/", $request->reference_date);
+            $next_plan_date = explode("/", $request->next_plan_date);
             $ins = Tx_payment_voucher::create([
                 'payment_voucher_no' => $payment_voucher_no,
                 'payment_voucher_plan_no' => $payment_voucher_plan_no,
@@ -586,6 +598,7 @@ class PaymentVoucherServerSideController extends Controller
                 'draft_at' => $draft_at,
                 'draft_to_created_at' => $draft_to_created_at,
                 'is_draft' => $request->is_draft,
+                'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
                 'active' => 'Y',
                 'created_by' => Auth::user()->id,
                 'updated_by' => Auth::user()->id,
@@ -596,12 +609,18 @@ class PaymentVoucherServerSideController extends Controller
 
             $isFullPayment = 'Y';
             $vat_impor_final = 0;
+            $isDiffFullVsPartialPaymentReceipt = 'N';
             if ($request->totalRow>0) {
                 $paymentTotal = 0;
                 for ($i = 0; $i < $request->totalRow; $i++) {
                     $total_inv = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
                     $total_inv_o = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
                     $total_inv_before_retur = GlobalFuncHelper::moneyValidate($request['total_inv_before_retur_'.$i]);
+
+                    if ($total_inv <> $total_inv_o) {
+                        // simpan Y jika berbeda antara total pembayaran penuh dan parsial
+                        $isDiffFullVsPartialPaymentReceipt = 'Y';
+                    }
 
                     if ($request['invoice_no_'.$i]) {
                         $ro = Tx_receipt_order::where('id', '=', $request['invoice_no_'.$i])
@@ -662,7 +681,59 @@ class PaymentVoucherServerSideController extends Controller
                 'payment_total_after_vat' => $ro->supplier_type_id==10?$paymentTotal+$vat_impor_final:
                     ($paymentTotal+($paymentTotal*($request->ro_vat/100))),
                 'is_full_payment' => $isFullPayment,
+                'next_plan_date_status' => $isDiffFullVsPartialPaymentReceipt=='Y'?'Y':'N',
             ]);
+
+            // update rencana penerimaan
+            if ($request->is_draft=='N'){
+                $qTAgSup = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $request->tagihan_supplier_id)
+                ->whereRaw('payment_voucher_id IS NULL')
+                ->orderBy('id', 'ASC')
+                ->where('active', 'Y')
+                ->first();
+                if ($qTAgSup){
+                    $sumTot = Tx_payment_voucher_invoice::where('payment_voucher_id', $maxId)
+                    ->where('active', 'Y')
+                    ->sum('total_payment_after_vat');
+
+                    $upd = Tx_payment_plan_per_rc_order::where('id', $qTAgSup->id)
+                    ->update([
+                        'payment_voucher_id' => $maxId,
+                        'payment_voucher_no' => $payment_voucher_no,
+                        'actual_date' => (!is_null($request->payment_date)?$payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0]:null),
+                        'actual_payment' => $sumTot,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+
+                    // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+                    $updPA = Tx_payment_voucher::where('id', '<', $maxId)
+                    ->where('tagihan_supplier_id', $request->tagihan_supplier_id)
+                    ->update([
+                        'next_plan_date_status' => 'N',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                    // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+
+                    // siapkan plan selanjutnya jika dibutuhkan
+                    if ($isDiffFullVsPartialPaymentReceipt=='Y'){
+
+                        $diffTot = $qTAgSup->plan_pay - $sumTot;     // selisih sbg next payment plan
+                        $insNextPlan = Tx_payment_plan_per_rc_order::create([
+                            'payment_plan_id' => $qTAgSup->payment_plan_id,
+                            'supplier_id' => $qTAgSup->supplier_id,
+                            'tagihan_supplier_id' => $qTAgSup->tagihan_supplier_id,
+                            'tagihan_supplier_no' => $qTAgSup->tagihan_supplier_no,
+                            'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                            'plan_pay' => $diffTot,
+                            'active' => 'Y',
+                            'created_by' => Auth::user()->id,
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                    }
+                    // siapkan plan selanjutnya jika dibutuhkan
+                }
+            }
+            // update rencana penerimaan
 
         } catch(ValidationException $e){
             // Rollback and then redirect
@@ -747,6 +818,100 @@ class PaymentVoucherServerSideController extends Controller
             ];
 
             return view('tx.'.$this->folder.'.show', $data);
+        }else{
+            $data = [
+                'errNotif' => 'The data you are looking for is not found'
+            ];
+            return view('error-notif.not-found-notif', $data);
+        }
+    }
+
+    public function edit_next_plan_date($voucher_no)
+    {
+        $qCurrency = Mst_global::where([
+            'id' => 3,
+            'data_cat' => 'currency',
+            'active' => 'Y'
+        ])
+        ->first();
+
+        $qVat = Mst_global::where([
+            'data_cat' => 'vat',
+            'active' => 'Y',
+        ])
+        ->first();
+
+        $query = Tx_payment_voucher::where('payment_voucher_no', '=', urldecode($voucher_no))
+        ->orWhere('payment_voucher_plan_no', '=', urldecode($voucher_no))
+        ->first();
+        if($query){
+            $queryInv = Tx_payment_voucher_invoice::where('payment_voucher_id', '=', $query->id)
+            ->where('active', '=', 'Y');
+
+            $paymentInvId = $query->id;
+            $receiptOrders = Tx_receipt_order::where('receipt_no','NOT LIKE','%Draft%')
+            ->whereNotIn('id', function ($q01) use ($paymentInvId) {
+                $q01->select('receipt_order_id')
+                ->from('tx_payment_voucher_invoices')
+                ->where('payment_voucher_id','<>', $paymentInvId)
+                ->where('is_full_payment', '=', 'Y')
+                ->where('active', '=', 'Y');
+            })
+            ->where('active', '=', 'Y')
+            ->orderBy('invoice_no','ASC')
+            ->get();
+
+            $data = [
+                'title' => $this->title,
+                'folder' => $this->folder,
+                'totalRow' => (old('totalRow')?old('totalRow'):$queryInv->count()),
+                'qPaymentInv' => $query,
+                'queryInv' => $queryInv->get(),
+                'qCurrency' => $qCurrency,
+                'payment_mode_string' => explode("|", $this->payment_mode_string),
+                'payment_mode_id' => explode("|", $this->payment_mode_id),
+                'payment_type' => explode(",", $this->payment_type),
+                'qVat' => $qVat,                
+            ];
+
+            return view('tx.'.$this->folder.'.edit-next-plan-date', $data);
+        }else{
+            $data = [
+                'errNotif' => 'The data you are looking for is not found'
+            ];
+            return view('error-notif.not-found-notif', $data);
+        }
+    }
+
+    public function update_next_plan_date(Request $request, $voucher_no){
+        $request->validate([
+            'next_plan_date' => 'required',
+        ]);
+
+        $query = Tx_payment_voucher::where([
+            'payment_voucher_no' => urldecode($voucher_no),
+        ])
+        ->orWhere([
+            'payment_voucher_plan_no' => urldecode($voucher_no),
+        ])
+        ->first();
+        if($query){
+            $next_plan_date = explode("/", $request->next_plan_date);
+
+            $updPV = Tx_payment_voucher::where('id', $query->id)
+            ->update([
+                'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                'updated_by' => Auth::user()->id,
+            ]);
+
+            $upd = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $query->id)
+            ->update([
+                'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                'updated_by' => Auth::user()->id,
+            ]);
+
+            session()->flash('status', 'Next plan date has been updated successfully.');
+            return redirect(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder);
         }else{
             $data = [
                 'errNotif' => 'The data you are looking for is not found'
@@ -919,8 +1084,8 @@ class PaymentVoucherServerSideController extends Controller
                 'payment_mode_id' => explode("|", $this->payment_mode_id),
                 'payment_type' => explode(",", $this->payment_type),
                 'qVat' => $qVat,
-                'userLogin' => $userLogin,
                 'pvId' => $query->id,
+                'userLogin' => $userLogin,
             ];
 
             return view('tx.'.$this->folder.'.edit', $data);
@@ -1177,6 +1342,7 @@ class PaymentVoucherServerSideController extends Controller
 
             $payment_date = explode("/", $request->payment_date);
             $reference_date = explode("/", $request->reference_date);
+            $next_plan_date = explode("/", $request->next_plan_date);
             $upd = Tx_payment_voucher::where([
                 'id' => $qPv->id,
             ])
@@ -1201,6 +1367,7 @@ class PaymentVoucherServerSideController extends Controller
                 'pv_created_at' => (!is_null($payment_voucher_no)?now():null),
                 'ps_created_at' => (!is_null($payment_voucher_plan_no)?(strpos($payment_voucher_plan_no,"Draft")==0?now():null):null),
                 'vat_num' => ($request->payment_type_id=='P'?$qVat->numeric_val:0),
+                // 'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
                 'active' => 'Y',
                 'updated_by' => Auth::user()->id,
             ]);
@@ -1215,6 +1382,7 @@ class PaymentVoucherServerSideController extends Controller
 
             $isFullPayment='Y';
             $vat_impor_final = 0;
+            $isDiffFullVsPartialPaymentReceipt = 'N';
             if ($request->totalRow>0) {
                 $paymentTotal = 0;
 
@@ -1224,6 +1392,11 @@ class PaymentVoucherServerSideController extends Controller
                         $total_inv_o = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
                         $total_inv_before_retur = GlobalFuncHelper::moneyValidate($request['total_inv_before_retur_'.$i]);
 
+                        if ($total_inv <> $total_inv_o) {
+                            // simpan Y jika berbeda antara total pembayaran penuh dan parsial
+                            $isDiffFullVsPartialPaymentReceipt = 'Y';
+                        }
+
                         $ro = Tx_receipt_order::where('id', '=', $request['invoice_no_'.$i])
                         ->first();
                         if($ro){
@@ -1232,7 +1405,8 @@ class PaymentVoucherServerSideController extends Controller
                             $total_inv_before_retur = is_numeric($total_inv_before_retur)?$total_inv_before_retur:0;
 
                             $total_payment_after_vat = $total_inv+($total_inv*($request->ro_vat/100));
-                            $total_payment_before_retur_after_vat = (float)$total_inv+((float)$total_inv*($request->ro_vat/100));
+                            $total_payment_before_retur_after_vat = (float)$total_inv_o+((float)$total_inv_o*($request->ro_vat/100));
+                            // $total_payment_before_retur_after_vat = (float)$total_inv+((float)$total_inv*($request->ro_vat/100));
 
                             $vat_impor = 0;
                             if ($ro->supplier_type_id==10){
@@ -1248,7 +1422,7 @@ class PaymentVoucherServerSideController extends Controller
                                     'description' => $request['desc_'.$i],
                                     'total_payment' => $total_inv,
                                     'total_payment_after_vat' => $total_payment_after_vat,
-                                    'total_payment_before_retur' => $total_inv,
+                                    'total_payment_before_retur' => $total_inv_o,
                                     'total_payment_before_retur_after_vat' => $total_payment_before_retur_after_vat,
                                     // 'total_payment' => (($total_inv>$total_inv_o)?$total_inv_o:$total_inv),
                                     // 'total_payment_after_vat' => (float)((floor($total_inv)>floor($total_inv_o))?$total_inv_o:$total_inv)+
@@ -1270,7 +1444,7 @@ class PaymentVoucherServerSideController extends Controller
                                     'description' => $request['desc_'.$i],
                                     'total_payment' => $total_inv,
                                     'total_payment_after_vat' => $total_payment_after_vat,
-                                    'total_payment_before_retur' => $total_inv,
+                                    'total_payment_before_retur' => $total_inv_o,
                                     'total_payment_before_retur_after_vat' => $total_payment_before_retur_after_vat,
                                     // 'total_payment' => (($total_inv>$total_inv_o)?$total_inv_o:$total_inv),
                                     // 'total_payment_after_vat' => (float)((floor($total_inv)>floor($total_inv_o))?$total_inv_o:$total_inv)+
@@ -1310,7 +1484,77 @@ class PaymentVoucherServerSideController extends Controller
                 'payment_total_after_vat' => $ro->supplier_type_id==10?$paymentTotal+$vat_impor_final:
                     ($paymentTotal+($paymentTotal*($request->ro_vat/100))),
                 'is_full_payment' => $isFullPayment,
+                // 'next_plan_date_status' => $isDiffFullVsPartialPaymentReceipt=='Y'?'Y':'N',
             ]);
+
+            // update rencana penerimaan
+            if ($request->is_draft=='N'){
+                $qTAgSup = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $request->tagihan_supplier_id)
+                ->where('payment_voucher_id', $qPv->id)
+                ->where('active', 'Y')
+                ->first();
+                if ($qTAgSup){
+                    $sumTot = Tx_payment_voucher_invoice::where('payment_voucher_id', $qPv->id)
+                    ->where('active', 'Y')
+                    ->sum('total_payment_after_vat');
+
+                    $upd = Tx_payment_plan_per_rc_order::where('id', $qTAgSup->id)
+                    ->update([
+                        'payment_voucher_id' => $qPv->id,
+                        'payment_voucher_no' => urldecode($voucher_no),
+                        'actual_date' => (!is_null($request->payment_date)?$payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0]:null),
+                        'actual_payment' => $sumTot,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+
+                    // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+                    $updPA = Tx_payment_voucher::where('id', '<', $qPv->id)
+                    ->where('tagihan_supplier_id', $qPv->tagihan_supplier_id)
+                    ->update([
+                        'next_plan_date_status' => 'N',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                    // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+
+                    // siapkan plan selanjutnya jika dibutuhkan
+                    if ($isDiffFullVsPartialPaymentReceipt=='Y'){
+
+                        $diffTot = $qTAgSup->plan_pay - $sumTot;     // selisih sbg next payment plan
+                        $qTAgSupCheck = Tx_payment_plan_per_rc_order::where([
+                            'payment_plan_id' => $qTAgSup->payment_plan_id,
+                            'supplier_id' => $qTAgSup->supplier_id,
+                            'tagihan_supplier_id' => $qTAgSup->tagihan_supplier_id,
+                            'tagihan_supplier_no' => $qTAgSup->tagihan_supplier_no,
+                        ])
+                        ->whereRaw('payment_voucher_id IS NULL')
+                        ->orderBy('id', 'asc')
+                        ->first();
+                        if ($qTAgSupCheck){
+                            $updTAgSupCheck = Tx_payment_plan_per_rc_order::where('id', $qTAgSupCheck->id)
+                            ->update([
+                                'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                                'plan_pay' => $diffTot,
+                                'active' => 'Y',
+                                'updated_by' => Auth::user()->id,
+                            ]);
+                        }else{
+                            $insNextPlan = Tx_payment_plan_per_rc_order::create([
+                                'payment_plan_id' => $qTAgSup->payment_plan_id,
+                                'supplier_id' => $qTAgSup->supplier_id,
+                                'tagihan_supplier_id' => $qTAgSup->tagihan_supplier_id,
+                                'tagihan_supplier_no' => $qTAgSup->tagihan_supplier_no,
+                                'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                                'plan_pay' => $diffTot,
+                                'active' => 'Y',
+                                'created_by' => Auth::user()->id,
+                                'updated_by' => Auth::user()->id,
+                            ]);
+                        }
+                    }
+                    // siapkan plan selanjutnya jika dibutuhkan
+                }
+            }
+            // update rencana penerimaan
 
         } catch(ValidationException $e){
             // Rollback and then redirect

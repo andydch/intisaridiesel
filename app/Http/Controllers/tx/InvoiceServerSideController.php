@@ -2,27 +2,29 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
+use App\Http\Controllers\Controller;
 use App\Models\Auto_inc;
 use App\Models\Mst_branch;
-use App\Models\Mst_global;
 use App\Models\Mst_coa;
-use App\Models\Tx_invoice;
-use App\Models\Userdetail;
 use App\Models\Mst_customer;
-use Illuminate\Http\Request;
+use App\Models\Mst_global;
+use App\Models\Mst_menu_user;
 use App\Models\Tx_delivery_order;
 use App\Models\Tx_invoice_detail;
-use App\Rules\CheckApprovedRetur;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
-use App\Models\Tx_payment_receipt_invoice;
-use App\Models\Mst_menu_user;
+use App\Models\Tx_invoice;
 use App\Models\Tx_nota_retur;
+use App\Models\Tx_payment_receipt_invoice;
+use App\Models\Userdetail;
+use App\Models\Tx_acceptance_plan_per_invoice;
+use App\Rules\CheckApprovedRetur;
+use App\Rules\CheckRencanaPenerimaan;
+use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Yajra\DataTables\Facades\DataTables;
 
 class InvoiceServerSideController extends Controller
 {
@@ -71,9 +73,11 @@ class InvoiceServerSideController extends Controller
                 'usr_sales.initial as sales_initial',
                 'ety_type.title_ind as ety_type_name',
             )
-            ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, function($q) use ($userLogin) {
-                $q->where('usr.branch_id','=', $userLogin->branch_id);
-            })
+            ->when($userLogin->is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=24, 
+                function($q) use ($userLogin) {
+                    $q->where('usr.branch_id','=', $userLogin->branch_id);
+                }
+            )
             ->orderBy('tx_invoices.is_draft', 'DESC')
             ->orderBy('tx_invoices.invoice_no', 'DESC');
 
@@ -127,10 +131,7 @@ class InvoiceServerSideController extends Controller
                 ->first();
 
                 $links = '';
-                if (($query->createdby==Auth::user()->id || 
-                    Auth::user()->id==1 || 
-                    $userLogin->is_director=='Y' || 
-                    $userLogin->is_branch_head=='Y') && $query->inv_active=='Y'){
+                if (($query->createdby==Auth::user()->id || Auth::user()->id==1 || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y') && $query->inv_active=='Y'){
                     if (strpos($query->invoice_no,"Draft")>0){
                         $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/invoice/'.$query->tx_id.'/edit?hf=2').'" style="text-decoration: underline;">Edit</a> |
                             <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/invoice/'.$query->tx_id).'" style="text-decoration: underline;">View</a> |
@@ -187,7 +188,7 @@ class InvoiceServerSideController extends Controller
                         'tx_payment_receipt_invoices.active'=>'Y',
                         'tx_pr.active'=>'Y',
                     ])
-                    ->orderBy('tx_pr.updated_at','DESC')
+                    ->orderBy('tx_pr.id','DESC')
                     ->first();
                     if ($qPyReceipt){
                         if ($qPyReceipt->is_full_payment=='Y'){
@@ -234,7 +235,7 @@ class InvoiceServerSideController extends Controller
         $is_director = '';
         $branch_id = '';
         $finance_admin_id = 0;
-        $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
         ->first();
         if ($userLogin){
             $is_director = $userLogin->is_director;
@@ -249,7 +250,9 @@ class InvoiceServerSideController extends Controller
         ])
         ->first();
 
-        $queryCustomer = Mst_customer::when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
+        // $finance_admin_id=37
+        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, 
+        function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
             ]);
@@ -286,33 +289,6 @@ class InvoiceServerSideController extends Controller
         ->orderBy('name','ASC')
         ->get();
 
-        // $qPaymentTo = Mst_coa::select(
-        //     'id',
-        //     'coa_code',
-        //     'coa_code_complete',
-        //     'coa_name',
-        // )
-        // ->where(function($q1) {
-        //     $q1->where('coa_code_complete','LIKE','111%')
-        //     ->orWhere('coa_code_complete','LIKE','112%');
-        //     // ->orWhere('coa_code_complete','LIKE','215%');
-        // })
-        // ->where(function($q2) {
-        //     $q2->where('local','=','A')
-        //     ->orWhere('local','=','P');
-        // })
-        // ->when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
-        //     $c1->where([
-        //         'branch_id'=>$branch_id,
-        //     ]);
-        // })
-        // ->where([
-        //     'coa_level' => 5,
-        //     'active' => 'Y',
-        // ])
-        // ->orderBy('coa_name', 'ASC')
-        // ->get();
-
         $qPaymentTo = Mst_coa::select(
             'id',
             'coa_code',
@@ -343,7 +319,7 @@ class InvoiceServerSideController extends Controller
                 });
             });
         })
-        ->when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
+        ->when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
             ]);
@@ -391,7 +367,7 @@ class InvoiceServerSideController extends Controller
         }
 
         $validateInput = [
-            'customer_id' => 'required|numeric',
+            'customer_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
             'all_selected_FK' => ['required', new CheckApprovedRetur()],
             'invoice_date' => 'required',
             'payment_to_id' => 'required|numeric',
@@ -603,6 +579,30 @@ class InvoiceServerSideController extends Controller
                 }
             }
 
+            // create/update rencana penerimaan
+            if($request->is_draft!='Y'){
+                $qPa = DB::table('tx_acceptance_plans AS tx_ap')
+                ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
+                ->where('bank_id', $request->payment_to_id)
+                ->where('is_draft', 'N')
+                ->first();
+                if ($qPa){
+                    $insPad = Tx_acceptance_plan_per_invoice::create([
+                        'acceptance_plan_id' => $qPa->id,
+                        'inv_or_kwi_id' => $ins->id,
+                        'inv_or_kwi' => 'i',
+                        'customer_id' => $request->customer_id,
+                        'invoice_no' => $invoice_no,
+                        'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                        'plan_accept' => $request->totalValafterVAT,
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+            }
+            // create/update rencana penerimaan
+
         } catch(ValidationException $e){
             // Rollback and then redirect
             // back to form with errors
@@ -734,7 +734,8 @@ class InvoiceServerSideController extends Controller
         ])
         ->first();
 
-        $queryCustomer = Mst_customer::when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
+        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, 
+        function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
             ]);
@@ -814,33 +815,6 @@ class InvoiceServerSideController extends Controller
                 }
             }
 
-            // $qPaymentTo = Mst_coa::select(
-            //     'id',
-            //     'coa_code',
-            //     'coa_code_complete',
-            //     'coa_name',
-            // )
-            // ->where(function($q1) {
-            //     $q1->where('coa_code_complete','LIKE','111%')
-            //     ->orWhere('coa_code_complete','LIKE','112%');
-            // })
-            // ->where(function($q2) {
-            //     $q2->where('local','=','A')
-            //     ->orWhere('local','=','P');
-            // })
-            // ->when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
-            //     $c1->where([
-            //         'branch_id'=>$branch_id,
-            //     ]);
-            // })
-            // ->where([
-            //     'coa_level' => 5,
-            //     // 'local' => 'P',
-            //     'active' => 'Y',
-            // ])
-            // ->orderBy('coa_name', 'ASC')
-            // ->get();
-
             $qPaymentTo = Mst_coa::select(
                 'id',
                 'coa_code',
@@ -871,7 +845,7 @@ class InvoiceServerSideController extends Controller
                     });
                 });
             })
-            ->when($is_director!='Y' && $finance_admin_id!=37, function($c1) use($branch_id) {
+            ->when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, function($c1) use($branch_id) {
                 $c1->where([
                     'branch_id'=>$branch_id,
                 ]);
@@ -933,7 +907,7 @@ class InvoiceServerSideController extends Controller
         }
         
         $validateInput = [
-            'customer_id' => 'required|numeric',
+            'customer_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
             'all_selected_FK' => ['required', new CheckApprovedRetur()],
             'invoice_date' => 'required',
             'payment_to_id' => 'required|numeric',
@@ -971,9 +945,9 @@ class InvoiceServerSideController extends Controller
             ->first();
 
             $draft = false;
-            $orders = Tx_invoice::where('id', '=', $id)
-                ->where('invoice_no','LIKE','%Draft%')
-                ->first();
+            $orders = Tx_invoice::where('id', $id)
+            ->where('invoice_no', 'LIKE', '%Draft%')
+            ->first();
             if($orders){
                 // looking for draft order no
                 $draft = true;
@@ -1051,7 +1025,7 @@ class InvoiceServerSideController extends Controller
             $FKarr = explode(",",$request->all_selected_FK);
             foreach($FKarr as $fk){
                 if($fk!=''){
-                    $qDO = Tx_delivery_order::where('delivery_order_no','=',$fk)
+                    $qDO = Tx_delivery_order::where('delivery_order_no', $fk)
                     ->first();
                     if($qDO){
                         $allSO .= $qDO->sales_order_no_all;
@@ -1059,8 +1033,8 @@ class InvoiceServerSideController extends Controller
                 }
             }
 
-            $invoice_date = explode('/',$request->invoice_date);
-            $upd = Tx_invoice::where('id','=',$id)
+            $invoice_date = explode('/', $request->invoice_date);
+            $upd = Tx_invoice::where('id', $id)
             ->update([
                 'invoice_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
                 'do_total' => $request->totalValbeforeVAT,
@@ -1154,6 +1128,48 @@ class InvoiceServerSideController extends Controller
                     }
                 }
             }
+
+            // create/update rencana penerimaan
+            if($request->is_draft!='Y' && $draft){
+                $qPa = DB::table('tx_acceptance_plans AS tx_ap')
+                ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
+                ->where('bank_id', $request->payment_to_id)
+                ->where('is_draft', 'N')
+                ->first();
+                if ($qPa){
+                    $qPaD = DB::table('tx_acceptance_plan_per_invoices')
+                    ->where('acceptance_plan_id', $qPa->id)
+                    ->where('inv_or_kwi_id', $id)
+                    ->where('inv_or_kwi', 'i')
+                    ->where('customer_id', $request->customer_id)
+                    ->where('invoice_no', $invoice_no)
+                    ->orderBy('id', 'ASC')
+                    ->first();
+                    if ($qPaD){
+                        $updPaD->where('id', $qPaD->id)
+                        ->update([
+                            'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                            'plan_accept' => $request->totalValafterVAT,
+                            'active' => 'Y',
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                    }else{
+                        $insPad = Tx_acceptance_plan_per_invoice::create([
+                            'acceptance_plan_id' => $qPa->id,
+                            'inv_or_kwi_id' => $id,
+                            'inv_or_kwi' => 'i',
+                            'customer_id' => $request->customer_id,
+                            'invoice_no' => $invoice_no,
+                            'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                            'plan_accept' => $request->totalValafterVAT,
+                            'active' => 'Y',
+                            'created_by' => Auth::user()->id,
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                    }
+                }
+            }
+            // create/update rencana penerimaan
 
         } catch(ValidationException $e){
             // Rollback and then redirect

@@ -32,9 +32,11 @@
         <!--end breadcrumb-->
         <h6 class="mb-0 text-uppercase">{{ $title.' - '.date_format(date_create($qPlans->acceptance_month),"F Y").' ('.$bank_name.')' }}</h6>
         <hr />
-        <div class="col-12">
-            <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->acceptance_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
-        </div>
+        @if (Auth::user()->id==1)
+            <div class="col-12">
+                <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->acceptance_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
+            </div>
+        @endif
         <div class="card">
             <div class="card-body">
                 @if (session('status'))
@@ -55,7 +57,7 @@
                                 <th style="text-align: center !important;">Plan Terima ({{ $qCurrency->string_val }})</th>
                                 <th style="text-align: center !important;">Paid Date</th>
                                 <th style="text-align: center !important;">Terima ({{ $qCurrency->string_val }})</th>
-                                <th style="text-align: center !important;">PAU No</th>
+                                <th style="text-align: center !important;">{{ ENV('P_PAYMENT_RECEIPT') }} No</th>
                                 <th style="text-align: center !important;">Action</th>
                             </tr>
                         </thead>
@@ -101,8 +103,8 @@
             },
             columns: [                
                 {
-                    data: 'invoice_no',
-                    name: 'v_invoices.invoice_no',
+                    data: 'invoice_no_tmp',
+                    name: 'invoice_no_tmp',
                     orderable: false,
                     searchable: true,
                 },
@@ -114,9 +116,9 @@
                 },
                 {
                     data: 'tagihan',
-                    name: 'v_invoices.tagihan',
+                    name: 'tagihan',
                     orderable: false,
-                    searchable: true,
+                    searchable: false,
                 },
                 {
                     data: 'plan_date',

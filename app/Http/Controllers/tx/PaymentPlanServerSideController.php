@@ -203,39 +203,39 @@ class PaymentPlanServerSideController extends Controller
                 'updated_by'=>Auth::user()->id,
             ]);
 
-            // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
-            $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
-            ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
-            ->select(
-                'tx_receipt_orders.id as ro_id',
-                'tx_receipt_orders.receipt_date',
-                // 'tx_receipt_orders.total_after_vat',
-                DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
-                // 'sp.payment_from_id as bank_id',
-                'sp.top as supplier_top',
-                DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
-                'tx_ts.bank_id as bank_id',
-            )
-            ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
-            ->where('tx_receipt_orders.receipt_no','NOT LIKE','%Draft%')
-            ->where([
-                'tx_receipt_orders.active'=>'Y',
-                'tx_ts.bank_id'=>$request->bank_id,
-                // 'sp.payment_from_id'=>$request->bank_id,
-            ])
-            ->orderBy('tx_receipt_orders.receipt_date','DESC')
-            ->get();
-            foreach($q as $ro){
-                $inDtls = Tx_payment_plan_per_rc_order::create([
-                    'payment_plan_id'=>$ins->id,
-                    'plan_date'=>$ro->due_date_payment,
-                    'plan_pay'=>$ro->total_after_vat,
-                    'receipt_order_id'=>$ro->ro_id,
-                    'active'=>'Y',
-                    'created_by'=>Auth::user()->id,
-                    'updated_by'=>Auth::user()->id,
-                ]);
-            }
+            // // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
+            // $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
+            // ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
+            // ->select(
+            //     'tx_receipt_orders.id as ro_id',
+            //     'tx_receipt_orders.receipt_date',
+            //     // 'tx_receipt_orders.total_after_vat',
+            //     DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
+            //     // 'sp.payment_from_id as bank_id',
+            //     'sp.top as supplier_top',
+            //     DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
+            //     'tx_ts.bank_id as bank_id',
+            // )
+            // ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
+            // ->where('tx_receipt_orders.receipt_no','NOT LIKE','%Draft%')
+            // ->where([
+            //     'tx_receipt_orders.active'=>'Y',
+            //     'tx_ts.bank_id'=>$request->bank_id,
+            //     // 'sp.payment_from_id'=>$request->bank_id,
+            // ])
+            // ->orderBy('tx_receipt_orders.receipt_date','DESC')
+            // ->get();
+            // foreach($q as $ro){
+            //     $inDtls = Tx_payment_plan_per_rc_order::create([
+            //         'payment_plan_id'=>$ins->id,
+            //         'plan_date'=>$ro->due_date_payment,
+            //         'plan_pay'=>$ro->total_after_vat,
+            //         'receipt_order_id'=>$ro->ro_id,
+            //         'active'=>'Y',
+            //         'created_by'=>Auth::user()->id,
+            //         'updated_by'=>Auth::user()->id,
+            //     ]);
+            // }
 
         } catch(ValidationException $e){
             // Rollback and then redirect
@@ -281,63 +281,127 @@ class PaymentPlanServerSideController extends Controller
         ->first();
 
         $query = Tx_payment_plan::where([
-            'id'=>$id,
+            'id' => $id,
         ])
         ->first();
         if ($query) {
             if ($request->ajax()){
-                $q = Tx_tagihan_supplier::leftJoin('mst_suppliers as sp','tx_tagihan_suppliers.supplier_id','=','sp.id')
-                ->leftJoin('mst_globals as gb','sp.entity_type_id','=','gb.id')
+                $txPppRcOSubQuery = Tx_payment_plan_per_rc_order::select('payment_plan_id', 'tagihan_supplier_id', 'tagihan_supplier_no', 'supplier_id')
+                ->where('active', 'Y')
+                ->groupBy('payment_plan_id', 'tagihan_supplier_id', 'tagihan_supplier_no', 'supplier_id');
+                $q = Tx_payment_plan::leftJoinSub($txPppRcOSubQuery, 'sub', function ($join) use($id) {
+                    $join->on('tx_payment_plans.id', '=', 'sub.payment_plan_id')
+                    ->where('tx_payment_plans.id', '=', $id)
+                    ->where('tx_payment_plans.active', 'Y');
+                })
+                ->leftJoin('mst_suppliers AS msp', function($join) {
+                    $join->on('sub.supplier_id', '=', 'msp.id')
+                    ->where('msp.active', 'Y');
+                })
+                ->leftJoin('mst_globals as gb', function($join) {
+                    $join->on('msp.entity_type_id', '=', 'gb.id')
+                    ->where('gb.active', 'Y');
+                })
                 ->select(
-                    'tx_tagihan_suppliers.id as ts_id',
-                    'tx_tagihan_suppliers.tagihan_supplier_no',
-                    'tx_tagihan_suppliers.tagihan_supplier_date',
-                    'tx_tagihan_suppliers.total_price',
-                    'tx_tagihan_suppliers.total_price_vat',
-                    'tx_tagihan_suppliers.grandtotal_price',
-                    'tx_tagihan_suppliers.is_vat',
-                    'sp.name as supplier_name',
-                    'sp.supplier_code',
-                    'tx_tagihan_suppliers.bank_id as bank_id',
-                    // 'sp.payment_from_id as bank_id',
+                    'sub.tagihan_supplier_id AS tagihan_supplier_id',
+                    'sub.tagihan_supplier_no AS tagihan_supplier_no',
+                    'msp.name',
+                    'msp.supplier_code',
+                    'msp.name as supplier_name',
+                    'gb.title_ind',
                 )
-                ->where([
-                    'tx_tagihan_suppliers.bank_id' => $query->bank_id,
-                    'tx_tagihan_suppliers.active' => 'Y',
-                ])
-                // ->whereIn('tx_tagihan_suppliers.id', function($q1) {
-                //     $q1->select('tx_tsd.tagihan_supplier_id')
-                //     ->from('tx_tagihan_supplier_details as tx_tsd')
-                //     ->whereIn('tx_tsd.receipt_order_id', function($q2) {
-                //         $q2->select('receipt_order_id')
-                //         ->from('tx_payment_plan_per_rc_orders')
-                //         ->where('active', 'Y');
-                //     })
-                //     ->where('active', 'Y');
-                // })
-                ->whereRaw('DATE_FORMAT(tx_tagihan_suppliers.tagihan_supplier_date, "%c-%Y")=\''.date_format(date_create($query->payment_month),"n-Y").'\'')
-                ->orderBy('tx_tagihan_suppliers.tagihan_supplier_date','DESC')
-                ->orderBy('tx_tagihan_suppliers.id','DESC');
+                ->where('sub.payment_plan_id', $id);
 
                 return DataTables::of($q)
-                ->filterColumn('plan_date', function($q, $keyword) {
-                    $q->whereRaw('DATE_FORMAT(tx_tagihan_suppliers.tagihan_supplier_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"]);
+                ->addColumn('plan_pay', function ($q) {
+                    $plan_pay = '';
+                    $qSubCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $q->tagihan_supplier_id)
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC');
+                    foreach($qSubCts->get() as $qC){
+                        $plan_pay .= number_format($qC->plan_pay, 0, ".", ",").'<br/>';
+                    }
+                    return $plan_pay;
+                })
+                ->filterColumn('plan_date', function ($q, $keyword) {
+                    $q->whereIn('sub.tagihan_supplier_id', function($q1) use($keyword) {
+                        $q1->select('tagihan_supplier_id')
+                        ->from('tx_payment_plan_per_rc_orders')
+                        ->whereRaw('DATE_FORMAT(plan_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"])
+                        ->where('active', 'Y');
+                    });
                 })
                 ->editColumn('plan_date', function ($q) {
-                    $plan_date = date_create($q->tagihan_supplier_date);
-                    return date_format($plan_date,"d/m/Y");
+                    $plan_date = '';
+                    $qSubCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $q->tagihan_supplier_id)
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC');
+                    foreach($qSubCts->get() as $qC){
+                        $plan_date .= date_format(date_create($qC->plan_date), "d/m/Y").'<br/>';
+                    }
+                    return $plan_date;
+                })
+                ->filterColumn('payment_voucher_no', function ($q, $keyword) {
+                    $q->whereIn('sub.tagihan_supplier_id', function($q1) use($keyword) {
+                        $q1->select('tagihan_supplier_id')
+                        ->from('tx_payment_plan_per_rc_orders')
+                        ->whereRaw('payment_voucher_no LIKE ?', ["%{$keyword}%"])
+                        // ->where('is_pv_approved', 'Y')
+                        ->where('active', 'Y');
+                    });
+                })
+                ->editColumn('payment_voucher_no', function ($q) {
+                    $pv_no = '';
+                    $qSubCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $q->tagihan_supplier_id)
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC');
+                    foreach($qSubCts->get() as $qC){
+                        $pv_no .= $qC->payment_voucher_no.'<br/>';
+                        // $pv_no .= $qC->is_pv_approved=='Y'?$qC->payment_voucher_no.'<br/>':'<br/>';
+                    }
+                    return $pv_no;
+                })
+                ->addColumn('actual_payment', function ($q) {
+                    $actual_payment = '';
+                    $qSubCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $q->tagihan_supplier_id)
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC');
+                    foreach($qSubCts->get() as $qC){
+                        $actual_payment .= $qC->is_pv_approved=='Y'? number_format($qC->actual_payment, 0, ".", ",").'<br/>' : '<br/>';
+                    }
+                    return $actual_payment;
+                })
+                ->filterColumn('actual_date', function ($q, $keyword) {
+                    $q->whereIn('sub.tagihan_supplier_id', function($q1) use($keyword) {
+                        $q1->select('tagihan_supplier_id')
+                        ->from('tx_payment_plan_per_rc_orders')
+                        ->whereRaw('DATE_FORMAT(actual_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"])
+                        ->where('is_pv_approved', 'Y')
+                        ->where('active', 'Y');
+                    });
+                })
+                ->editColumn('actual_date', function ($q) {
+                    $actual_date = '';
+                    $qSubCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $q->tagihan_supplier_id)
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC');
+                    foreach($qSubCts->get() as $qC){
+                        $actual_date .= $qC->is_pv_approved=='Y'?date_format(date_create($qC->actual_date), "d/m/Y").'<br/>':'<br/>';
+                    }
+                    return $actual_date;
                 })
                 ->filterColumn('supplier_name', function($q, $keyword) {
                     $q->where(function($q) use ($keyword) {
-                        $q->where('sp.name', 'like', "%{$keyword}%")
-                        ->orWhere('sp.supplier_code', 'like', "%{$keyword}%");
+                        $q->where('msp.name', 'like', "%{$keyword}%")
+                        ->orWhere('msp.supplier_code', 'like', "%{$keyword}%")
+                        ->orWhere('gb.title_ind', 'like', "%{$keyword}%");
                     });
                 })
                 ->editColumn('supplier_name', function ($q) {
                     return $q->supplier_code.' - '.$q->title_ind.' '.$q->supplier_name;
                 })
                 ->filterColumn('receipt_orders_no', function ($q, $keyword) {
-                    $q->whereIn('tx_tagihan_suppliers.id', function($q) use($keyword) {
+                    $q->whereIn('sub.tagihan_supplier_id', function($q) use($keyword) {
                         $q->select('tx_tsd.tagihan_supplier_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
                         ->leftJoin('tx_receipt_orders as tx_ro', 'tx_tsd.receipt_order_id', '=', 'tx_ro.id')
@@ -353,22 +417,13 @@ class PaymentPlanServerSideController extends Controller
                     ->whereIn('id', function($qTsuDtl) use($q){
                         $qTsuDtl->select('tx_tsd.receipt_order_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
-                        ->leftJoin('tx_tagihan_suppliers as tx_ts', 'tx_tsd.tagihan_supplier_id', '=', 'tx_ts.id')
-                        ->whereIn('tx_tsd.receipt_order_id', function($q2) {
-                            $q2->select('receipt_order_id')
-                            ->from('tx_payment_plan_per_rc_orders')
-                            ->where('active', 'Y');
-                        })
                         ->where([
                             'tx_tsd.active' => 'Y',
-                            'tx_ts.id' => $q->ts_id,
-                            'tx_ts.active' => 'Y',
+                            'tx_tsd.tagihan_supplier_id' => $q->tagihan_supplier_id,
                         ]);
                     })
-                    ->where('receipt_no', 'NOT LIKE', '%Draft%')
-                    ->where([
-                        'active' => 'Y',
-                    ])
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y')
                     ->orderBy('receipt_no', 'desc')
                     ->get();
                     if ($qRO){
@@ -383,7 +438,7 @@ class PaymentPlanServerSideController extends Controller
                     return str_replace(",","<br/>",$ro_numbers);
                 })
                 ->filterColumn('receipt_orders_invoices', function ($q, $keyword) {
-                    $q->whereIn('tx_tagihan_suppliers.id', function($qTsuDtl) use($keyword) {
+                    $q->whereIn('sub.tagihan_supplier_id', function($qTsuDtl) use($keyword) {
                         $qTsuDtl->select('tx_tsd.tagihan_supplier_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
                         ->leftJoin('tx_receipt_orders as tx_ro', 'tx_tsd.receipt_order_id', '=', 'tx_ro.id')
@@ -395,25 +450,16 @@ class PaymentPlanServerSideController extends Controller
                     $qRO = Tx_receipt_order::select(
                         'invoice_no',                    
                     )
-                    ->whereIn('id', function($qRO) use($q){
-                        $qRO->select('tx_tsd.receipt_order_id')
+                    ->whereIn('id', function($qTsuDtl) use($q){
+                        $qTsuDtl->select('tx_tsd.receipt_order_id')
                         ->from('tx_tagihan_supplier_details as tx_tsd')
-                        ->leftJoin('tx_tagihan_suppliers as tx_ts', 'tx_tsd.tagihan_supplier_id', '=', 'tx_ts.id')
-                        ->whereIn('tx_tsd.receipt_order_id', function($q2) {
-                            $q2->select('receipt_order_id')
-                            ->from('tx_payment_plan_per_rc_orders')
-                            ->where('active', 'Y');
-                        })
                         ->where([
                             'tx_tsd.active' => 'Y',
-                            'tx_ts.id' => $q->ts_id,
-                            'tx_ts.active' => 'Y',
+                            'tx_tsd.tagihan_supplier_id' => $q->tagihan_supplier_id,
                         ]);
                     })
-                    ->where('receipt_no', 'NOT LIKE', '%Draft%')
-                    ->where([
-                        'active' => 'Y',
-                    ])
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y')
                     ->orderBy('receipt_no', 'desc')
                     ->get();
                     if ($qRO){
@@ -426,92 +472,19 @@ class PaymentPlanServerSideController extends Controller
                     }
                     return str_replace(",","<br/>",$inv_numbers);
                 })
-                ->filterColumn('paid_date', function ($q, $keyword) {
-                    $q->whereIn('tx_tagihan_suppliers.id', function($q1) use($keyword) {
-                        $q1->select('tagihan_supplier_id')
-                        ->from('tx_payment_vouchers')
-                        ->whereRaw('DATE_FORMAT(payment_date, "%d/%m/%Y") LIKE ?', ["%{$keyword}%"])
-                        ->whereRaw('payment_voucher_no IS NOT NULL')
-                        ->where([
-                            'active' => 'Y',
-                        ]);
-                    });
-                })
-                ->editColumn('paid_date', function ($q) {
-                    $qPv = Tx_payment_voucher::select(
-                        'payment_date',
-                    )
-                    ->whereRaw('payment_voucher_no IS NOT NULL')
-                    ->where([
-                        'tagihan_supplier_id' => $q->ts_id,
-                        'active' => 'Y',
-                    ])
-                    ->first();
-                    if ($qPv){
-                        $date = date_create($qPv->reference_date);
-                        return date_format($date, "d/m/Y");
-                    }
-                    return '';
-                })
-                ->addColumn('paid_value', function ($q) {
-                    $qPv = Tx_payment_voucher::select(
-                        'payment_total_after_vat',
-                        'admin_bank',
-                        'biaya_asuransi',
-                        'biaya_kirim',
-                        'diskon_pembelian',
-                        'vat_num',
-                    )
-                    ->whereRaw('payment_voucher_no IS NOT NULL')
-                    ->where([
-                        'tagihan_supplier_id' => $q->ts_id,
-                        'active' => 'Y',
-                    ])
-                    ->first();
-                    if ($qPv){
-                        return number_format($qPv->payment_total_after_vat+
-                            $qPv->admin_bank+
-                            $qPv->biaya_asuransi+
-                            $qPv->biaya_kirim-
-                            $qPv->diskon_pembelian, 0, ".", ",");
-                    }
-                    return '';
-                })
-                ->filterColumn('pv_no', function ($q, $keyword) {
-                    $q->whereIn('tx_tagihan_suppliers.id', function($q1) use($keyword) {
-                        $q1->select('tx_pv.tagihan_supplier_id')
-                        ->from('tx_payment_vouchers as tx_pv')
-                        ->where('tx_pv.payment_voucher_no', 'LIKE', "%{$keyword}%")
-                        ->whereRaw('tx_pv.payment_voucher_no IS NOT NULL')
-                        ->where([
-                            'tx_pv.active' => 'Y',
-                        ]);
-                    });
-                })
-                ->editColumn('pv_no', function ($q) {
-                    $qPv = Tx_payment_voucher::select(
-                        'payment_voucher_no',
-                    )
-                    ->whereRaw('payment_voucher_no IS NOT NULL')
-                    ->where([
-                        'tagihan_supplier_id' => $q->ts_id,
-                        'active' => 'Y',
-                    ])
-                    ->first();
-                    if ($qPv){
-                        return '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher/'.urlencode($qPv->payment_voucher_no)).'" target="_new" '.
-                            'style="text-decoration: underline;">'.$qPv->payment_voucher_no.'</a>';
-                    }
-                    return '';
+                ->addColumn('action', function ($q) use($id){
+                    $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder.'/vcts/'.urlencode($q->tagihan_supplier_no)).'/?ap='.$id.'" style="text-decoration: underline;">View</a>';
+                    return $links;
                 })
                 ->rawColumns([
+                    'plan_pay',
                     'plan_date',
-                    'supplier_name',
                     'receipt_orders_no',
                     'receipt_orders_invoices',
-                    'paid_date',
-                    'paid_value',
-                    'pv_no',
+                    'payment_voucher_no',
+                    'actual_payment',
+                    'actual_date',
+                    'action',
                 ])
                 ->toJson();
             }
@@ -526,6 +499,37 @@ class PaymentPlanServerSideController extends Controller
             return view('tx.'.$this->folder.'.index-ro-server-side', $data);
 
         } else {
+            $data = [
+                'errNotif'=>'The data you are looking for is not found'
+            ];
+            return view('error-notif.not-found-notif', $data);
+        }
+    }
+
+    public function show_tagihan_supplier(Request $request, $tagihan_supplier_no)
+    {
+        $qCurrency = Mst_global::where([
+            'id'=>3,
+            'data_cat'=>'currency',
+            'active'=>'Y'
+        ])
+        ->first();
+
+        $qCts = Tx_payment_plan_per_rc_order::where('tagihan_supplier_no', $tagihan_supplier_no)
+        ->where('active', 'Y')
+        ->orderBy('id', 'ASC')
+        ->first();
+        if ($qCts){
+            $data = [
+                'title'=>$this->title,
+                'folder'=>$this->folder,
+                // 'bank_name'=>$query->bank->coa_name,
+                'qCurrency'=>$qCurrency,
+                'qCts'=>$qCts,
+                'ap'=>$request->ap,
+            ];
+            return view('tx.'.$this->folder.'.show-per-cts', $data);
+        }else{
             $data = [
                 'errNotif'=>'The data you are looking for is not found'
             ];
@@ -643,44 +647,44 @@ class PaymentPlanServerSideController extends Controller
                 'updated_by'=>Auth::user()->id,
             ]);
 
-            // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
-            $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
-            ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
-            ->select(
-                'tx_receipt_orders.id as ro_id',
-                'tx_receipt_orders.receipt_date',
-                // 'tx_receipt_orders.total_after_vat',
-                DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
-                // 'sp.payment_from_id as bank_id',
-                'sp.top as supplier_top',
-                DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
-                'tx_ts.bank_id as bank_id',
-            )
-            ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
-            ->where('tx_receipt_orders.is_draft', 'N')
-            ->where('tx_receipt_orders.active', 'Y')
-            ->where('tx_ts.bank_id', $request->bank_id)
-            ->orderBy('tx_receipt_orders.receipt_date','DESC')
-            ->get();
-            foreach($q as $ro){
-                $qDtl = Tx_payment_plan_per_rc_order::where([
-                    'payment_plan_id'=>$id,
-                    'plan_date'=>$ro->due_date_payment,
-                    'receipt_order_id'=>$ro->ro_id,
-                ])
-                ->first();
-                if (!$qDtl){
-                    $ins = Tx_payment_plan_per_rc_order::create([
-                        'payment_plan_id'=>$id,
-                        'plan_date'=>$ro->due_date_payment,
-                        'plan_pay'=>$ro->total_after_vat,
-                        'receipt_order_id'=>$ro->ro_id,
-                        'active'=>'Y',
-                        'created_by'=>Auth::user()->id,
-                        'updated_by'=>Auth::user()->id,
-                    ]);
-                }
-            }
+            // // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
+            // $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
+            // ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
+            // ->select(
+            //     'tx_receipt_orders.id as ro_id',
+            //     'tx_receipt_orders.receipt_date',
+            //     // 'tx_receipt_orders.total_after_vat',
+            //     DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
+            //     // 'sp.payment_from_id as bank_id',
+            //     'sp.top as supplier_top',
+            //     DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
+            //     'tx_ts.bank_id as bank_id',
+            // )
+            // ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
+            // ->where('tx_receipt_orders.is_draft', 'N')
+            // ->where('tx_receipt_orders.active', 'Y')
+            // ->where('tx_ts.bank_id', $request->bank_id)
+            // ->orderBy('tx_receipt_orders.receipt_date','DESC')
+            // ->get();
+            // foreach($q as $ro){
+            //     $qDtl = Tx_payment_plan_per_rc_order::where([
+            //         'payment_plan_id'=>$id,
+            //         'plan_date'=>$ro->due_date_payment,
+            //         'receipt_order_id'=>$ro->ro_id,
+            //     ])
+            //     ->first();
+            //     if (!$qDtl){
+            //         $ins = Tx_payment_plan_per_rc_order::create([
+            //             'payment_plan_id'=>$id,
+            //             'plan_date'=>$ro->due_date_payment,
+            //             'plan_pay'=>$ro->total_after_vat,
+            //             'receipt_order_id'=>$ro->ro_id,
+            //             'active'=>'Y',
+            //             'created_by'=>Auth::user()->id,
+            //             'updated_by'=>Auth::user()->id,
+            //         ]);
+            //     }
+            // }
 
         } catch(ValidationException $e){
             // Rollback and then redirect
@@ -727,54 +731,116 @@ class PaymentPlanServerSideController extends Controller
         DB::beginTransaction();
 
         try {
-
-            // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
-            $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
-            ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
-            ->select(
-                'tx_receipt_orders.id as ro_id',
-                'tx_receipt_orders.receipt_date',
-                // 'tx_receipt_orders.total_after_vat',
-                DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
-                // 'sp.payment_from_id as bank_id',
-                'sp.top as supplier_top',
-                DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
-                'tx_ts.bank_id as bank_id',
-            )
-            ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%Y-%m")=\''.$date.'\'')
-            ->where('tx_receipt_orders.is_draft', 'N')
-            ->where('tx_receipt_orders.active', 'Y')
-            ->where('tx_ts.bank_id', $bank_id)
-            ->whereNotIn('tx_receipt_orders.id', function($q1) use($id){
-                $q1->select('receipt_order_id')
+            // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
+            $qCts = Tx_tagihan_supplier::whereNotIn('id', function($q1) {
+                $q1->select('tagihan_supplier_id')
                 ->from('tx_payment_plan_per_rc_orders')
-                ->where('payment_plan_id', $id)
                 ->where('active', 'Y');
             })
-            ->orderBy('tx_receipt_orders.receipt_date','DESC')
+            ->whereNotIn('id', function($q1) {
+                $q1->select('tagihan_supplier_id')
+                ->from('tx_payment_vouchers')
+                ->whereRaw('payment_voucher_no IS NOT null')
+                ->where('is_draft', 'N')
+                ->where('active', 'Y');
+            })
+            ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            ->where('active', 'Y')
+            ->orderBy('id', 'ASC')
             ->get();
-            foreach($q as $ro){
-                $qDtl = Tx_payment_plan_per_rc_order::where([
-                    // 'payment_plan_id'=>$id,
-                    // 'plan_date'=>$ro->due_date_payment,
-                    'receipt_order_id'=>$ro->ro_id,
+            foreach($qCts as $qC){
+                $ins = Tx_payment_plan_per_rc_order::create([
+                    'payment_plan_id' => $id,
+                    'supplier_id' => $qC->supplier_id,
+                    'tagihan_supplier_id' => $qC->id,
+                    'tagihan_supplier_no' => $qC->tagihan_supplier_no,
+                    'plan_date' => $qC->tagihan_supplier_date,
+                    'plan_pay' => $qC->grandtotal_price,
+                    'active' => 'Y',
+                    'created_by' => Auth::user()->id,
+                    'updated_by' => Auth::user()->id,
                 ]);
-                if (!$qDtl->first()){
+            }
+
+            $next_cts_payment = 0;
+            $next_cts_id = 0;
+            $next_pv_payment = 0;
+            // kumpulkan semua PV aktif yang memiliki ID dari tagihan supplier
+            // PV boleh berstatus approved atau belum
+            // PV yg dibaca adalah yang belum pernah masuk ke rencana pembayaran
+            $qPvCts = Tx_payment_voucher::leftJoin('tx_tagihan_suppliers AS tx_ts', function($join) use($bank_id){
+                $join->on('tx_ts.id', '=', 'tx_payment_vouchers.tagihan_supplier_id')
+                ->where('tx_ts.bank_id', $bank_id)
+                ->where('tx_ts.active', 'Y');
+            })
+            ->select(
+                'tx_payment_vouchers.id AS pv_id', 
+                'tx_payment_vouchers.payment_voucher_no', 
+                'tx_payment_vouchers.payment_date', 
+                'tx_payment_vouchers.payment_total_after_vat', 
+                'tx_payment_vouchers.coa_id',
+                'tx_payment_vouchers.tagihan_supplier_id',
+                'tx_payment_vouchers.supplier_id',
+                'tx_payment_vouchers.approved_by',
+                'tx_ts.id AS cts_id',
+                'tx_ts.tagihan_supplier_no',
+                'tx_ts.tagihan_supplier_date',
+                'tx_ts.grandtotal_price',
+                'tx_ts.bank_id',
+            )
+            ->whereNotIn('tx_payment_vouchers.id', function($q1) {
+                $q1->select('payment_voucher_id')
+                ->from('tx_payment_plan_per_rc_orders')
+                ->where('active', 'Y');
+            })
+            ->where('tx_payment_vouchers.coa_id', $bank_id)
+            ->where('tx_payment_vouchers.active', 'Y')
+            ->whereRaw('DATE_FORMAT(tx_ts.tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            ->orderBy('tx_ts.id', 'ASC')
+            ->orderBy('tx_payment_vouchers.id', 'ASC')
+            ->get();
+            foreach($qPvCts as $qPC){
+                if ($next_cts_id==$qPC->cts_id){
+                    // ID cts masih sama
                     $ins = Tx_payment_plan_per_rc_order::create([
-                        'payment_plan_id'=>$id,
-                        'plan_date'=>$ro->due_date_payment,
-                        'plan_pay'=>$ro->total_after_vat,
-                        'receipt_order_id'=>$ro->ro_id,
-                        'active'=>'Y',
-                        'created_by'=>Auth::user()->id,
-                        'updated_by'=>Auth::user()->id,
+                        'payment_plan_id' => $id,
+                        'supplier_id' => $qPC->supplier_id,
+                        'tagihan_supplier_id' => $qPC->cts_id,
+                        'tagihan_supplier_no' => $qPC->tagihan_supplier_no,
+                        'plan_date' => $qPC->payment_date,
+                        'plan_pay' => $next_cts_payment,
+                        'payment_voucher_id' => $qPC->pv_id,
+                        'payment_voucher_no' => $qPC->payment_voucher_no,
+                        'actual_date' => $qPC->payment_date,
+                        'actual_payment' => $qPC->payment_total_after_vat,
+                        'is_pv_approved' => $qPC->approved_by!=null?'Y':'N',
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
                     ]);
+
+                    $next_cts_payment = $next_cts_payment - $qPC->payment_total_after_vat;
                 }else{
-                    $qDtl->update([
-                        'plan_date'=>$ro->due_date_payment,
-                        'plan_pay'=>$ro->total_after_vat,
-                        'active'=>'Y',
-                        'updated_by'=>Auth::user()->id,
+                    // ID cts berbeda, ambil ID baru
+                    $next_cts_id = $qPC->cts_id;
+                    $next_cts_payment = $qPC->grandtotal_price - $qPC->payment_total_after_vat;
+                    $next_pv_payment = $qPC->payment_total_after_vat;
+
+                    $ins = Tx_payment_plan_per_rc_order::create([
+                        'payment_plan_id' => $id,
+                        'supplier_id' => $qPC->supplier_id,
+                        'tagihan_supplier_id' => $qPC->cts_id,
+                        'tagihan_supplier_no' => $qPC->tagihan_supplier_no,
+                        'plan_date' => $qPC->tagihan_supplier_date,
+                        'plan_pay' => $qPC->grandtotal_price,
+                        'payment_voucher_id' => $qPC->pv_id,
+                        'payment_voucher_no' => $qPC->payment_voucher_no,
+                        'actual_date' => $qPC->payment_date,
+                        'actual_payment' => $qPC->payment_total_after_vat,
+                        'is_pv_approved' => $qPC->approved_by!=null?'Y':'N',
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
                     ]);
                 }
             }

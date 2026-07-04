@@ -96,6 +96,10 @@
                                 <label for="" class="col-sm-3 col-form-label">Remark</label>
                                 <label for="" class="col-sm-9 col-form-label">{{ $qPaymentInv->remark }}</label>
                             </div>
+                            <div class="row mb-3">
+                                <label for="" class="col-sm-3 col-form-label">Next Plan Date</label>
+                                <label for="" class="col-sm-9 col-form-label">{{ date_format(date_create($qPaymentInv->next_plan_date), 'd/m/Y') }}</label>
+                            </div>
                         </div>
                     </div>
                 </div>

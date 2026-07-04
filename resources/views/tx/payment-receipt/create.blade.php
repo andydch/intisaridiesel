@@ -268,6 +268,17 @@
                                         @enderror
                                     </div>
                                 </div>
+                                <div class="row mb-3">
+                                    <label for="next_plan_date" class="col-sm-3 col-form-label">Next Plan Date</label>
+                                    <div class="col-sm-9">
+                                        <input readonly type="text" class="form-control @error('next_plan_date') is-invalid @enderror"
+                                            maxlength="10" id="next_plan_date" name="next_plan_date" placeholder="Date"
+                                            value="@if (old('next_plan_date')){{ old('next_plan_date') }}@endif">
+                                        @error('next_plan_date')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -783,6 +794,10 @@
                 time: false
             });
             $('#payment_date').bootstrapMaterialDatePicker({
+                format: 'DD/MM/YYYY',
+                time: false
+            });
+            $('#next_plan_date').bootstrapMaterialDatePicker({
                 format: 'DD/MM/YYYY',
                 time: false
             });

@@ -89,7 +89,7 @@ class AcceptancePlanPerInvServerSideController extends Controller
             DB::raw('CONCAT(cust.customer_unique_code, " - ", cust.name) AS customer_identity'),
             DB::raw('DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY) AS due_date_acceptance'),
         )
-        ->whereRaw('DATE_FORMAT(DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY), "%c-%Y")=\''.urldecode($request->am).'\'')
+        // ->whereRaw('DATE_FORMAT(DATE_ADD(v_invoices.invoice_date, INTERVAL cust.top DAY), "%c-%Y")=\''.urldecode($request->am).'\'')
         ->where([
             'v_invoices.invoice_no'=>$invoice_no,
         ])

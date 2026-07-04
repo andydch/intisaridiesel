@@ -169,6 +169,10 @@
                             'tx_gj.is_draft'=>'N',
                             'tx_gj.active'=>'Y',
                         ])
+                        ->where(function($q) {
+                            $q->where('tx_general_journal_details.debit', '>', 0)
+                            ->orWhere('tx_general_journal_details.kredit', '>', 0);
+                        })
                         ->whereRaw('tx_gj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_gj.general_journal_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                         ->orderBy('tx_gj.general_journal_date','ASC');
@@ -196,6 +200,10 @@
                             'tx_lj.is_draft'=>'N',
                             'tx_lj.active'=>'Y',
                         ])
+                        ->where(function($q) {
+                            $q->where('tx_lokal_journal_details.debit', '>', 0)
+                            ->orWhere('tx_lokal_journal_details.kredit', '>', 0);
+                        })
                         ->whereRaw('tx_lj.general_journal_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_lj.general_journal_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
                         ->orderBy('tx_lj.general_journal_date','ASC')

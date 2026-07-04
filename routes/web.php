@@ -728,11 +728,15 @@ Route::group(
 
         // payment voucher
         Route::resource('/payment-voucher', PaymentVoucherServerSideController::class)->except(['destroy']);
+        Route::get('/payment-voucher-npd/{payment_voucher_no}', [PaymentVoucherServerSideController::class, 'edit_next_plan_date']);
+        Route::put('/payment-voucher-npd-upd/{payment_voucher_no}', [PaymentVoucherServerSideController::class, 'update_next_plan_date']);
         // payment voucher approval
         Route::resource('/payment-voucher-approval', PaymentVoucherApprovalServerSideController::class)->except(['create','store','edit','destroy']);
 
         // payment receipt
         Route::resource('/payment-receipt', PaymentReceiptServerSideController::class)->except(['destroy']);
+        Route::get('/payment-receipt-npd/{payment_receipt_no}', [PaymentReceiptServerSideController::class, 'edit_next_plan_date']);
+        Route::put('/payment-receipt-npd-upd/{payment_receipt_no}', [PaymentReceiptServerSideController::class, 'update_next_plan_date']);
         // Route::resource('/payment-receipt', PaymentReceiptServerSideControllerGJ::class)->except(['destroy']);
 
         // invoice
@@ -767,6 +771,7 @@ Route::group(
         // payment plan
         Route::resource('/payment-plan', PaymentPlanServerSideController::class)->except(['destroy']);
         Route::get('/payment-plan/sync/{id}/{date}/{bank_id}', [PaymentPlanServerSideController::class, 'sync_doc']);
+        Route::get('/payment-plan/vcts/{tagihan_supplier_no}', [PaymentPlanServerSideController::class, 'show_tagihan_supplier']);
         Route::resource('/payment-plan-ro', PaymentPlanPerRCServerSideController::class)->except(['index','create','store','destroy']);
 
         // acceptance plan

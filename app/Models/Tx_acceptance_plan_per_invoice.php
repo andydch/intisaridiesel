@@ -17,6 +17,9 @@ class Tx_acceptance_plan_per_invoice extends Model
         'inv_or_kwi',
         'customer_id',
         'invoice_no',
+        'payment_receipt_no',
+        'payment_date',
+        'payment_total',
         'active',
         'created_by',
         'updated_by'
