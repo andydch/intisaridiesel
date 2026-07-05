@@ -195,7 +195,7 @@ class PaymentVoucherServerSideController extends Controller
                 ->first();
 
                 $links = '';
-                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_voucher_no)){
+                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_voucher_no) && $userLogin->is_director=='Y'){
                     $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher-npd/'.(!is_null($query->payment_voucher_no)?
                         urlencode($query->payment_voucher_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">Edit Next Plan Date</a> | ';
                 }
@@ -904,11 +904,18 @@ class PaymentVoucherServerSideController extends Controller
                 'updated_by' => Auth::user()->id,
             ]);
 
-            $upd = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $query->id)
-            ->update([
-                'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
-                'updated_by' => Auth::user()->id,
-            ]);
+            $qPlanDate = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $query->id)
+            ->first();
+            if ($qPlanDate){
+                $upd = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $qPlanDate->tagihan_supplier_id)
+                ->whereRaw('payment_voucher_no IS NULL')
+                ->where('active', 'Y')
+                ->update([
+                    'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                    'updated_by' => Auth::user()->id,
+                ]);
+            }
+
 
             session()->flash('status', 'Next plan date has been updated successfully.');
             return redirect(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder);
@@ -1175,9 +1182,13 @@ class PaymentVoucherServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
+                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+
                     $validateShipmentInput = [
                         'invoice_no_'.$i=>'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
                         'total_inv_'.$i=>['required',new NumericCustom('Total'),new CheckRemainingPaymentVoucher($request['invoice_no_'.$i], $request['inv_id_'.$i], $qPv->id)],
+                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
                     ];
                     $errShipmentMsg = [
                         'invoice_no_'.$i.'.different' => 'You cannot choose the same invoice number',
@@ -1342,7 +1353,7 @@ class PaymentVoucherServerSideController extends Controller
 
             $payment_date = explode("/", $request->payment_date);
             $reference_date = explode("/", $request->reference_date);
-            $next_plan_date = explode("/", $request->next_plan_date);
+            $next_plan_date = explode("/", !is_null($request->next_plan_date)?$request->next_plan_date:'');
             $upd = Tx_payment_voucher::where([
                 'id' => $qPv->id,
             ])
@@ -1367,7 +1378,7 @@ class PaymentVoucherServerSideController extends Controller
                 'pv_created_at' => (!is_null($payment_voucher_no)?now():null),
                 'ps_created_at' => (!is_null($payment_voucher_plan_no)?(strpos($payment_voucher_plan_no,"Draft")==0?now():null):null),
                 'vat_num' => ($request->payment_type_id=='P'?$qVat->numeric_val:0),
-                // 'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                'next_plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
                 'active' => 'Y',
                 'updated_by' => Auth::user()->id,
             ]);

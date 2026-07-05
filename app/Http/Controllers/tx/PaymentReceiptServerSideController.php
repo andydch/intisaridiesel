@@ -196,8 +196,7 @@ class PaymentReceiptServerSideController extends Controller
                 ->first();
 
                 $links = '';
-                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_receipt_no)){
-                    // $links .= 'Edit Next Plan Date | ';
+                if ($query->next_plan_date_status=='Y' && !is_null($query->payment_receipt_no) && $userLogin->is_director=='Y'){
                     $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt-npd/'.(!is_null($query->payment_receipt_no)?
                         urlencode($query->payment_receipt_no):urlencode($query->payment_receipt_plan_no))).'" style="text-decoration: underline;">Edit Next Plan Date</a> | ';
                 }
@@ -1638,18 +1637,14 @@ class PaymentReceiptServerSideController extends Controller
             ->where('active', 'Y')
             ->first();
             if ($qPA){
-                $query->plan_date = $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0];
-                $query->updated_by = Auth::user()->id;
-                $query->save();
-                
-                // $qPaD = Tx_acceptance_plan_per_invoice::where('invoice_no', $qPA->invoice_no)
-                // // ->where('plan_date', $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0])
-                // ->whereRaw('payment_receipt_no IS NULL')
-                // ->where('active', 'Y')
-                // ->update([
-                //     'plan_date' => $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0],
-                //     'updated_by' => Auth::user()->id,
-                // ]);
+                $qPaD = Tx_acceptance_plan_per_invoice::where('invoice_no', $qPA->invoice_no)
+                // ->where('plan_date', $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0])
+                ->whereRaw('payment_receipt_no IS NULL')
+                ->where('active', 'Y')
+                ->update([
+                    'plan_date' => $next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0],
+                    'updated_by' => Auth::user()->id,
+                ]);
             }
 
             session()->flash('status', 'Next plan date has been updated successfully.');

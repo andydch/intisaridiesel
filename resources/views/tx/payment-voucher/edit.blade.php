@@ -417,6 +417,23 @@
                                         @enderror
                                     </div>
                                 </div>
+                                <div class="row mb-3">
+                                    <label for="next_plan_date" class="col-sm-3 col-form-label">Next Plan Date</label>
+                                    <div class="col-sm-9">
+                                        @if ($qPaymentInv->is_draft=='N')
+                                            <label for="" class="col-sm-9 col-form-label part-id">{{ date_format(date_create($qPaymentInv->next_plan_date), 'd/m/Y') }}</label>
+                                            <input type="hidden" id="next_plan_date" name="next_plan_date" 
+                                                value="{{ date_format(date_create($qPaymentInv->next_plan_date), 'd/m/Y') }}">
+                                        @else
+                                            <input readonly type="text" class="form-control @error('next_plan_date') is-invalid @enderror"
+                                                maxlength="10" id="next_plan_date" name="next_plan_date" placeholder="Date"
+                                                value="@if (old('next_plan_date')){{ old('next_plan_date') }}@else{{ date_format(date_create($qPaymentInv->next_plan_date), 'd/m/Y') }}@endif">
+                                        @endif
+                                        @error('next_plan_date')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                                 <div class="row mb-3 mt-5">
                                     <label for="remark" class="col-sm-12 col-form-label" style="color:red;font-style:italic;">*Please wait until all data can be displayed properly!</label>
                                 </div>
@@ -1541,6 +1558,10 @@
                 time: false
             });
             $('#payment_date').bootstrapMaterialDatePicker({
+                format: 'DD/MM/YYYY',
+                time: false
+            });
+            $('#next_plan_date').bootstrapMaterialDatePicker({
                 format: 'DD/MM/YYYY',
                 time: false
             });
