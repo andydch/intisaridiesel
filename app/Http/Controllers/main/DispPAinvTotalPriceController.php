@@ -42,13 +42,15 @@ class DispPAinvTotalPriceController extends Controller
             $query = Tx_invoice::selectRaw('do_total-'.(!is_null($totLastPaymentInv)?$totLastPaymentInv:0).' AS total_price')
             ->where('invoice_no','=',$invoice_no)
             ->whereNotIn('invoice_no', function ($q01) use($p_c) {
-                $q01->select('invoice_no')
+                $q01->select('tx_payment_receipt_invoices.invoice_no')
                 ->from('tx_payment_receipt_invoices')
-                ->where('payment_receipt_id', '<>', $p_c)
+                ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
+                ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $p_c)
                 ->where([
-                    'is_full_payment'=>'Y',
-                    'is_vat'=>'Y',
-                    'active'=>'Y',
+                    'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                    'tx_payment_receipt_invoices.is_vat'=>'Y',
+                    'tx_payment_receipt_invoices.active'=>'Y',
+                    'tx.active'=>'Y',
                 ]);
             })
             ->first();
@@ -89,13 +91,15 @@ class DispPAinvTotalPriceController extends Controller
             $query = Tx_kwitansi::selectRaw('np_total-'.$totLastPaymentInv.' AS total_price')
             ->where('kwitansi_no','=',$invoice_no)
             ->whereNotIn('kwitansi_no', function ($q01) use($p_c) {
-                $q01->select('invoice_no')
+                $q01->select('tx_payment_receipt_invoices.invoice_no')
                 ->from('tx_payment_receipt_invoices')
-                ->where('payment_receipt_id', '<>', $p_c)
+                ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
+                ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $p_c)
                 ->where([
-                    'is_full_payment'=>'Y',
-                    'is_vat'=>'N',
-                    'active'=>'Y',
+                    'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                    'tx_payment_receipt_invoices.is_vat'=>'N',
+                    'tx_payment_receipt_invoices.active'=>'Y',
+                    'tx.active'=>'Y',
                 ]);
             })
             ->first();

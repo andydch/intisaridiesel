@@ -10,6 +10,7 @@ use App\Models\Mst_automatic_journal_detail;
 use App\Models\Mst_customer;
 use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
+use App\Models\Tx_acceptance_plan_per_invoice;
 use App\Models\Tx_general_journal_detail;
 use App\Models\Tx_general_journal;
 use App\Models\Tx_invoice;
@@ -19,7 +20,6 @@ use App\Models\Tx_lokal_journal;
 use App\Models\Tx_payment_receipt_invoice;
 use App\Models\Tx_payment_receipt;
 use App\Models\Userdetail;
-use App\Models\Tx_acceptance_plan_per_invoice;
 use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentReceipt;
 use App\Rules\NumericCustom;
@@ -28,6 +28,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -270,12 +271,14 @@ class PaymentReceiptServerSideController extends Controller
             )
             ->where('invoice_no','NOT LIKE','%Draft%')
             ->whereNotIn('id', function ($q01) {
-                $q01->select('invoice_id')
+                $q01->select('tx_payment_receipt_invoices.invoice_id')
                 ->from('tx_payment_receipt_invoices')
+                ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
                 ->where([
-                    'is_full_payment' => 'Y',
-                    'is_vat' => 'Y',
-                    'active' => 'Y',
+                    'tx_payment_receipt_invoices.is_full_payment' => 'Y',
+                    'tx_payment_receipt_invoices.is_vat' => 'Y',
+                    'tx_payment_receipt_invoices.active' => 'Y',
+                    'tx_payment_receipts.active' => 'Y',
                 ]);
             })
             ->where([
@@ -292,12 +295,14 @@ class PaymentReceiptServerSideController extends Controller
             )
             ->where('kwitansi_no','NOT LIKE','%Draft%')
             ->whereNotIn('id', function ($q01) {
-                $q01->select('invoice_id')
+                $q01->select('tx_payment_receipt_invoices.invoice_id')
                 ->from('tx_payment_receipt_invoices')
+                ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
                 ->where([
-                    'is_full_payment' => 'Y',
-                    'is_vat' => 'N',
-                    'active' => 'Y',
+                    'tx_payment_receipt_invoices.is_full_payment' => 'Y',
+                    'tx_payment_receipt_invoices.is_vat' => 'N',
+                    'tx_payment_receipt_invoices.active' => 'Y',
+                    'tx_payment_receipts.active' => 'Y',
                 ]);
             })
             ->where([
@@ -1713,32 +1718,52 @@ class PaymentReceiptServerSideController extends Controller
             //         'active'=>'Y',
             //     ]);
             // })
+
             ->when(!old('customer_id'), function($q) use($query, $paymentInvId) {
-                $q->whereIn('id', function ($q01) use ($paymentInvId) {
-                    $q01->select('invoice_id')
+                $q->whereIn('id', function($q1) use($paymentInvId){
+                    $q1->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
-                    ->where([
-                        'payment_receipt_id'=>$paymentInvId,
-                        // 'is_full_payment'=>'Y',
-                        'is_vat'=>'Y',
-                        'active'=>'Y',
-                    ]);
+                    ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                    ->where('tx_payment_receipt_invoices.payment_receipt_id', $paymentInvId)
+                    ->where('tx_payment_receipt_invoices.is_vat', 'Y')
+                    ->where('tx_payment_receipt_invoices.active', 'Y')
+                    ->where('tx_payment_receipts.active', 'Y');
                 })
-                ->where([
-                    'customer_id'=>$query->customer_id,
-                    'payment_to_id'=>$query->coa_id,
-                ]);
+                ->where('customer_id', $query->customer_id)
+                ->where('payment_to_id', $query->coa_id);
             })
+
+            // ->when(!old('customer_id'), function($q) use($query, $paymentInvId) {
+            //     $q->whereIn('id', function ($q01) use ($paymentInvId) {
+            //         $q01->select('tx_payment_receipt_invoices.invoice_id')
+            //         ->from('tx_payment_receipt_invoices')
+            //         ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+            //         ->where([
+            //             // 'tx_payment_receipt_invoices.payment_receipt_id'=>$paymentInvId,
+            //             // 'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+            //             'tx_payment_receipt_invoices.is_vat'=>'Y',
+            //             'tx_payment_receipt_invoices.active'=>'Y',
+            //             'tx_payment_receipts.active'=>'Y',
+            //         ]);
+            //     })
+            //     ->where([
+            //         'customer_id'=>$query->customer_id,
+            //         'payment_to_id'=>$query->coa_id,
+            //     ]);
+            // })
+
             ->when(old('customer_id'), function($q) use($paymentInvId) {
                 $q->whereNotIn('id', function ($q01) use ($paymentInvId) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
-                    ->where('payment_receipt_id', '<>', $paymentInvId)
+                    ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                    ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $paymentInvId)
                     ->where([
-                        // 'payment_receipt_id'=>$paymentInvId,
-                        // 'is_full_payment'=>'Y',
-                        'is_vat'=>'Y',
-                        'active'=>'Y',
+                        // 'tx_payment_receipt_invoices.payment_receipt_id'=>$paymentInvId,
+                        // 'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                        'tx_payment_receipt_invoices.is_vat'=>'Y',
+                        'tx_payment_receipt_invoices.active'=>'Y',
+                        'tx_payment_receipts.active'=>'Y',
                     ]);
                 })
                 ->where([
@@ -1755,17 +1780,18 @@ class PaymentReceiptServerSideController extends Controller
             )
             ->where('kwitansi_no','NOT LIKE','%Draft%')
             // ->whereIn('id', function ($q01) use ($paymentInvId) {
-            //     $q01->select('invoice_id')
+            //     $q01->select('tx_payment_receipt_invoices.invoice_id')
             //     ->from('tx_payment_receipt_invoices')
+            //     ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
             //     ->when(!old('customer_id'), function($q) use($paymentInvId){
             //         $q->where([
-            //             'payment_receipt_id'=>$paymentInvId,
+            //             'tx_payment_receipt_invoices.payment_receipt_id'=>$paymentInvId,
             //         ]);
             //     })
             //     ->where([
             //         // 'payment_receipt_id'=>$paymentInvId,
-            //         'is_vat'=>'N',
-            //         'active'=>'Y',
+            //         'tx_payment_receipt_invoices.is_vat'=>'N',
+            //         'tx_payment_receipt_invoices.active'=>'Y',
             //     ]);
             // })
             // ->when(!old('customer_id'), function($q) use($query) {
@@ -1774,23 +1800,42 @@ class PaymentReceiptServerSideController extends Controller
             //         'payment_to_id'=>$query->coa_id,
             //     ]);
             // })
+
             ->when(!old('customer_id'), function($q) use($query, $paymentInvId) {
-                $q->whereNotIn('id', function ($q01) use ($paymentInvId) {
-                    $q01->select('invoice_id')
+                $q->whereIn('id', function($q1) use($paymentInvId){
+                    $q1->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
-                    ->where('payment_receipt_id', '<>', $paymentInvId)
-                    ->where([
-                        // 'payment_receipt_id'=>$paymentInvId,
-                        'is_full_payment'=>'Y',
-                        'is_vat'=>'N',
-                        'active'=>'Y',
-                    ]);
+                    ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                    ->where('tx_payment_receipt_invoices.payment_receipt_id', $paymentInvId)
+                    ->where('tx_payment_receipt_invoices.is_vat', 'N')
+                    ->where('tx_payment_receipt_invoices.active', 'Y')
+                    ->where('tx_payment_receipts.active', 'Y');
                 })
-                ->where([
-                    'customer_id'=>$query->customer_id,
-                    'payment_to_id'=>$query->coa_id,
-                ]);
+                ->where('customer_id', $query->customer_id)
+                ->where('payment_to_id', $query->coa_id);
             })
+
+            // ->when(!old('customer_id'), function($q) use($query, $paymentInvId) {
+            //     Log::debug($paymentInvId);
+            //     $q->whereIn('id', function ($q01) use ($paymentInvId) {
+            //         $q01->select('tx_payment_receipt_invoices.invoice_id')
+            //         ->from('tx_payment_receipt_invoices')
+            //         ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+            //         // ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $paymentInvId)
+            //         ->where([
+            //             'tx_payment_receipt_invoices.payment_receipt_id'=>$paymentInvId,
+            //             // 'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+            //             'tx_payment_receipt_invoices.is_vat'=>'N',
+            //             'tx_payment_receipt_invoices.active'=>'Y',
+            //             'tx_payment_receipts.active'=>'Y',
+            //         ]);
+            //     })
+            //     ->where([
+            //         'customer_id'=>$query->customer_id,
+            //         'payment_to_id'=>$query->coa_id,
+            //     ]);
+            // })
+
             // ->when(old('customer_id'), function($q) {
             //     $q->where([
             //         'customer_id'=>old('customer_id'),
@@ -1799,14 +1844,16 @@ class PaymentReceiptServerSideController extends Controller
             // })
             ->when(old('customer_id'), function($q) use($paymentInvId) {
                 $q->whereNotIn('id', function ($q01) use ($paymentInvId) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
-                    ->where('payment_receipt_id', '<>', $paymentInvId)
+                    ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                    ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $paymentInvId)
                     ->where([
-                        // 'payment_receipt_id'=>$paymentInvId,
-                        'is_full_payment'=>'Y',
-                        'is_vat'=>'N',
-                        'active'=>'Y',
+                        // 'tx_payment_receipt_invoices.payment_receipt_id'=>$paymentInvId,
+                        // 'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                        'tx_payment_receipt_invoices.is_vat'=>'N',
+                        'tx_payment_receipt_invoices.active'=>'Y',
+                        'tx_payment_receipts.active'=>'Y',
                     ]);
                 })
                 ->where([
@@ -1816,7 +1863,7 @@ class PaymentReceiptServerSideController extends Controller
             })
             ->where('active','=','Y')
             ->orderBy('kwitansi_no','ASC')
-            ->union($invoices)
+            ->unionAll($invoices)
             ->get();
 
             $data = [

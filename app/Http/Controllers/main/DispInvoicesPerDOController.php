@@ -31,13 +31,15 @@ class DispInvoicesPerDOController extends Controller
             ->selectRaw('\'Y\' as is_vat')
             ->where('invoice_no','NOT LIKE','%Draft%')
             ->whereNotIn('invoice_no', function ($q01) use($pc_id) {
-                $q01->select('invoice_no')
+                $q01->select('tx_payment_receipt_invoices.invoice_no')
                 ->from('tx_payment_receipt_invoices')
-                ->where('payment_receipt_id', '<>', $pc_id)
+                ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $pc_id)
                 ->where([
-                    'is_full_payment'=>'Y',
-                    'is_vat'=>'Y',
-                    'active'=>'Y',
+                    'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                    'tx_payment_receipt_invoices.is_vat'=>'Y',
+                    'tx_payment_receipt_invoices.active'=>'Y',
+                    'tx_payment_receipts.active'=>'Y',
                 ]);
             })
             ->where([
@@ -59,13 +61,15 @@ class DispInvoicesPerDOController extends Controller
             ->selectRaw('\'N\' as is_vat')
             ->where('kwitansi_no','NOT LIKE','%Draft%')
             ->whereNotIn('kwitansi_no', function ($q01) use($pc_id) {
-                $q01->select('invoice_no')
+                $q01->select('tx_payment_receipt_invoices.invoice_no')
                 ->from('tx_payment_receipt_invoices')
-                ->where('payment_receipt_id', '<>', $pc_id)
+                ->leftJoin('tx_payment_receipts', 'tx_payment_receipt_invoices.payment_receipt_id', '=', 'tx_payment_receipts.id')
+                ->where('tx_payment_receipt_invoices.payment_receipt_id', '<>', $pc_id)
                 ->where([
-                    'is_full_payment'=>'Y',
-                    'is_vat'=>'N',
-                    'active'=>'Y',
+                    'tx_payment_receipt_invoices.is_full_payment'=>'Y',
+                    'tx_payment_receipt_invoices.is_vat'=>'N',
+                    'tx_payment_receipt_invoices.active'=>'Y',
+                    'tx_payment_receipts.active'=>'Y',
                 ]);
             })
             ->where([

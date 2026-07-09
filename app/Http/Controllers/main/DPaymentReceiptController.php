@@ -5,10 +5,10 @@ namespace App\Http\Controllers\main;
 use Exception;
 use Illuminate\Http\Request;
 use App\Models\Tx_payment_receipt;
-// use App\Models\Tx_payment_receipt_invoice;
+use App\Models\Tx_payment_receipt_invoice;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use App\Models\Tx_general_journal;
+// use App\Models\Tx_general_journal;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -38,28 +38,28 @@ class DPaymentReceiptController extends Controller
                         'updated_by' => Auth::user()->id
                     ]);
 
-                    // $delDtl = Tx_payment_receipt_invoice::where([
-                    //     'payment_receipt_id' => $Ids[$i],
-                    // ])
-                    // ->update([
-                    //     'active'=>'N',
-                    //     'updated_by' => Auth::user()->id
-                    // ]);
-
-                    $q = Tx_payment_receipt::where([
-                        'id' => $Ids[$i],
+                    $delDtl = Tx_payment_receipt_invoice::where([
+                        'payment_receipt_id' => $Ids[$i],
                     ])
-                    ->first();
-                    if ($q){
-                        $updJournals = Tx_general_journal::where([
-                            'module_no'=>$q->payment_receipt_no,
-                            'active'=>'Y',
-                        ])
-                        ->update([
-                            'active'=>'N',
-                            'updated_by' => Auth::user()->id
-                        ]);
-                    }
+                    ->update([
+                        'active'=>'N',
+                        'updated_by' => Auth::user()->id
+                    ]);
+
+                    // $q = Tx_payment_receipt::where([
+                    //     'id' => $Ids[$i],
+                    // ])
+                    // ->first();
+                    // if ($q){
+                    //     $updJournals = Tx_general_journal::where([
+                    //         'module_no'=>$q->payment_receipt_no,
+                    //         'active'=>'Y',
+                    //     ])
+                    //     ->update([
+                    //         'active'=>'N',
+                    //         'updated_by' => Auth::user()->id
+                    //     ]);
+                    // }
                 }
             }
 

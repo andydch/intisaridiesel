@@ -15,8 +15,8 @@ use App\Models\Tx_payment_plan;
 use App\Models\Tx_payment_plan_per_rc_order;
 use App\Models\Tx_payment_receipt_invoice;
 use App\Models\Tx_payment_voucher;
-use App\Models\Tx_tagihan_supplier;
-use App\Models\V_cash_flow_journal;
+use App\Models\Tx_lokal_journal_detail;
+use App\Models\Tx_general_journal_detail;
 use DateInterval;
 use DateTime;
 use Illuminate\Contracts\View\View;
@@ -426,326 +426,270 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             ]);
             // empty row
 
-            // // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
-            // $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
+            // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
+            $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
 
-            // // GJ
-            // $qGJd = DB::table('tx_general_journal_details AS tx_gjd')
-            // ->leftJoin('tx_general_journals AS tx_gj', function($join) {
-            //     $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
-            //     ->where('tx_gj.is_draft', '=', 'N')
-            //     ->where('tx_gj.active', '=', 'Y');
-            // })
-            // ->leftJoin('mst_coas AS msc', function($join) {
-            //     $join->on('tx_gjd.coa_id', '=', 'msc.id')
-            //     ->where('msc.is_draft', '=', 'N')
-            //     ->where('msc.active', '=', 'Y');
-            // })
-            // ->select(
-            //     'tx_gjd.id AS journal_id_dtl',
-            //     'tx_gjd.general_journal_id AS journal_id',
-            //     'tx_gj.general_journal_no AS general_journal_no',
-            //     'tx_gj.general_journal_date AS general_journal_date',
-            //     'msc.coa_code_complete AS coa_code_complete',
-            //     'msc.coa_name AS coa_name',
-            //     'tx_gjd.coa_id AS coa_id',
-            //     'tx_gjd.description AS journal_desc',
-            //     'tx_gjd.debit AS debit',
-            //     'tx_gjd.kredit AS kredit',
-            //     DB::raw('"GJ" AS journal_group')
-            // )
-            // ->whereIn('tx_gjd.general_journal_id', function($q) {
-            //     $q->from('tx_general_journal_details AS tx_gjd_1')
-            //     ->select('tx_gjd_1.general_journal_id')
-            //     ->where('tx_gjd_1.coa_id', $this->bank_id)
-            //     ->where('active', 'Y');
-            // })
-            // // ->whereExists(function($q) {
-            // //     // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
-            // //     $q->from('tx_general_journal_details AS tx_gjd_1')
-            // //     ->select(DB::raw(1))
-            // //     ->whereColumn('tx_gjd_1.id', 'tx_gjd.id')
-            // //     ->where('tx_gjd_1.coa_id', $this->bank_id)
-            // //     ->where('active', 'Y');
-            // // })
-            // ->whereRaw('(tx_gj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_gj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
-            // // ->where(function($q){
-            // //     $q->where('msc.coa_code_complete', 'LIKE', '111%')
-            // //     ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
-            // //     ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
-            // // })
-            // ->where('tx_gjd.active', '=', 'Y');
-            // // LJ
-            // $qLJd = DB::table('tx_lokal_journal_details AS tx_ljd')
-            // ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
-            //     $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
-            //     ->where('tx_lj.is_draft', '=', 'N')
-            //     ->where('tx_lj.active', '=', 'Y');
-            // })
-            // ->leftJoin('mst_coas AS msc', function($join) {
-            //     $join->on('tx_ljd.coa_id', '=', 'msc.id')
-            //     ->where('msc.is_draft', '=', 'N')
-            //     ->where('msc.active', '=', 'Y');
-            // })
-            // ->select(
-            //     'tx_ljd.id AS journal_id_dtl',
-            //     'tx_ljd.lokal_journal_id AS journal_id',
-            //     'tx_lj.general_journal_no AS general_journal_no',
-            //     'tx_lj.general_journal_date AS general_journal_date',
-            //     'msc.coa_code_complete AS coa_code_complete',
-            //     'msc.coa_name AS coa_name',
-            //     'tx_ljd.coa_id AS coa_id',
-            //     'tx_ljd.description AS journal_desc',
-            //     'tx_ljd.debit AS debit',
-            //     'tx_ljd.kredit AS kredit',
-            //     DB::raw('"LJ" AS journal_group')
-            // )
-            // ->whereIn('tx_ljd.lokal_journal_id', function($q) {
-            //     $q->from('tx_lokal_journal_details AS tx_ljd_1')
-            //     ->select('tx_ljd_1.lokal_journal_id')
-            //     ->where('tx_ljd_1.coa_id', $this->bank_id)
-            //     ->where('active', 'Y');
-            // })
-            // ->whereRaw('(tx_lj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_lj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
-            // // ->whereExists(function($q) {
-            // //     // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
-            // //     $q->from('tx_lokal_journal_details AS tx_ljd_1')
-            // //     ->select(DB::raw(1))
-            // //     ->whereColumn('tx_ljd_1.id', 'tx_ljd.id')
-            // //     ->where('tx_ljd_1.coa_id', $this->bank_id)
-            // //     ->where('active', 'Y');
-            // // })
-            // // ->where(function($q){
-            // //     $q->where('msc.coa_code_complete', 'LIKE', '111%')
-            // //     ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
-            // //     ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
-            // // })
-            // ->where('tx_ljd.active', '=', 'Y');
-            // $unionQuery = $qGJd->unionAll($qLJd);
-            // $qJournal01 = DB::table(DB::raw("({$unionQuery->toSql()}) as combined_transactions"))
-            // ->mergeBindings($unionQuery) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
-            // ->select('coa_code_complete', 'coa_name')
-            // ->groupBy('coa_code_complete', 'coa_name')
-            // ->get();
+            // GJ
+            $qGJd = DB::table('tx_general_journal_details AS tx_gjd')
+            ->leftJoin('tx_general_journals AS tx_gj', function($join) {
+                $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
+                ->where('tx_gj.is_draft', '=', 'N')
+                ->where('tx_gj.active', '=', 'Y');
+            })
+            ->leftJoin('mst_coas AS msc', function($join) {
+                $join->on('tx_gjd.coa_id', '=', 'msc.id')
+                ->where('msc.is_draft', '=', 'N')
+                ->where('msc.active', '=', 'Y');
+            })
+            ->select(
+                'msc.coa_code_complete AS coa_code_complete',
+                'msc.coa_name AS coa_name',
+            )
+            ->whereExists(function($q) {
+                // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                $q->from('tx_general_journal_details AS tx_gjd_1')
+                ->select(DB::raw(1))
+                ->whereColumn('tx_gjd_1.general_journal_id', 'tx_gjd.general_journal_id')
+                ->where('tx_gjd_1.coa_id', '=', $this->bank_id)
+                ->where('tx_gjd_1.active', 'Y');
+            })
+            ->whereRaw('(tx_gj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_gj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            ->where('msc.id', '<>', $this->bank_id)
+            ->where(function($q){
+                $q->where('msc.coa_code_complete', 'LIKE', '111%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
+            })
+            ->where('tx_gjd.active', '=', 'Y')
+            ->groupBy('msc.coa_code_complete', 'msc.coa_name');
 
-            // // $qJournal01 = $qGJd->unionAll($qLJd)
-            // // // ->whereRaw('(general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
-            // // // ->where(function($q){
-            // // //     $q->where('coa_code_complete', 'LIKE', '111%')
-            // // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-            // // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-            // // // })
-            // // ->where('coa_id', '<>', $this->bank_id)
-            // // ->groupBy('coa_code_complete')
-            // // ->groupBy('coa_name')
-            // // ->orderBy('coa_code_complete', 'ASC')
-            // // ->get();
+            // LJ
+            $qLJd = DB::table('tx_lokal_journal_details AS tx_ljd')
+            ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
+                $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
+                ->where('tx_lj.is_draft', '=', 'N')
+                ->where('tx_lj.active', '=', 'Y');
+            })
+            ->leftJoin('mst_coas AS msc', function($join) {
+                $join->on('tx_ljd.coa_id', '=', 'msc.id')
+                ->where('msc.is_draft', '=', 'N')
+                ->where('msc.active', '=', 'Y');
+            })
+            ->select(
+                'msc.coa_code_complete AS coa_code_complete',
+                'msc.coa_name AS coa_name',
+            )
+            ->whereExists(function($q) {
+                // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                $q->from('tx_lokal_journal_details AS tx_ljd_1')
+                ->select(DB::raw(1))
+                ->whereColumn('tx_ljd_1.lokal_journal_id', 'tx_ljd.lokal_journal_id')
+                ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
+                ->where('tx_ljd_1.active', 'Y');
+            })
+            ->whereRaw('(tx_lj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_lj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            ->where('msc.id', '<>', $this->bank_id)
+            ->where(function($q){
+                $q->where('msc.coa_code_complete', 'LIKE', '111%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '112%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '31%');
+            })
+            ->where('tx_ljd.active', '=', 'Y')
+            ->groupBy('msc.coa_code_complete', 'msc.coa_name');
 
-            // // // $qJournal01 = V_cash_flow_journal::select(
-            // // //     'coa_code_complete',
-            // // //     'coa_name',
-            // // // )
-            // // // ->whereIn('journal_id', function($q) use($dayToValidateMonth){
-            // // //     $q->select('journal_id')
-            // // //     ->from('v_cash_flow_journal')
-            // // //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            // // //     ->where('coa_id', '=', $this->bank_id);
-            // // // })
-            // // // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            // // // ->where(function($q){
-            // // //     $q->where('coa_code_complete', 'LIKE', '111%')
-            // // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-            // // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-            // // // })
-            // // // ->where('coa_id', '<>', $this->bank_id)
-            // // // ->groupBy('coa_code_complete')
-            // // // ->groupBy('coa_name')
-            // // // ->orderBy('coa_code_complete', 'ASC')
-            // // // ->get();
-            // // dd($qJournal01);
-            // foreach($qJournal01 as $j01){
-            //     $rowInXls++;
+            $unionQuery = $qGJd->unionAll($qLJd);
+            $qJournal01 = DB::table(DB::raw("({$unionQuery->toSql()}) as combined_transactions"))
+            ->mergeBindings($unionQuery) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
+            ->select('coa_code_complete', 'coa_name')
+            ->groupBy('coa_code_complete', 'coa_name')
+            ->get();
+            foreach($qJournal01 as $j01){
+                $rowInXls++;
 
-            //     // journal desc
-            //     $insRptCashFlow = Tx_cash_flow::create([
-            //         'report_code' => $randomString,
-            //         'row_number' => $rowInXls,
-            //         'col_number' => 2,
-            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //         'bank_id' => $this->bank_id,
-            //         'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
-            //         'f_color' => '#000000',
-            //         'b_color' => '#c6e0b4',
-            //         'font_size' => '12',
-            //         'font_weight' => '300',
-            //         'font_style' => 'normal',
-            //         'text_align' => 'left',
-            //     ]);
+                // journal desc
+                $insRptCashFlow = Tx_cash_flow::create([
+                    'report_code' => $randomString,
+                    'row_number' => $rowInXls,
+                    'col_number' => 2,
+                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'bank_id' => $this->bank_id,
+                    'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
+                    'f_color' => '#000000',
+                    'b_color' => '#c6e0b4',
+                    'font_size' => '12',
+                    'font_weight' => '300',
+                    'font_style' => 'normal',
+                    'text_align' => 'left',
+                ]);
 
-            //     // $totalPerRow = 0;
-            //     // $lastCol = 0;
-            //     for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
-            //         $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
+                $totalPerRow = 0;
+                $lastCol = 0;
+                for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
+                    $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-            //         // plus
-            //         // $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-            //         //     $q->select('journal_id')
-            //         //     ->from('v_cash_flow_journal')
-            //         //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         //     ->where('coa_id', '=', $this->bank_id)
-            //         //     ->where('debit', '>', 0);
-            //         // })
-            //         // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         // ->where('coa_code_complete', '=', $j01->coa_code_complete)
-            //         // // ->where(function($q){
-            //         // //     $q->where('coa_code_complete', 'LIKE', '111%')
-            //         // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-            //         // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-            //         // // })
-            //         // ->where('coa_id', '<>', $this->bank_id)
-            //         // ->where('debit', '=', 0)
-            //         // ->sum('kredit');
+                    $debitGJ = 0;
+                    $kreditGJ = 0;
 
-            //         $sumKredit01 = 0;
-            //         // if ($j01->journal_group=='GJ'){
-            //         // }
-            //         $qGJd_o = DB::table('tx_general_journal_details AS tx_gjd')
-            //         ->leftJoin('tx_general_journals AS tx_gj', function($join) {
-            //             $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
-            //             ->where('tx_gj.is_draft', '=', 'N')
-            //             ->where('tx_gj.active', '=', 'Y');
-            //         })
-            //         ->leftJoin('mst_coas AS msc', function($join) {
-            //             $join->on('tx_gjd.coa_id', '=', 'msc.id')
-            //             ->where('msc.is_draft', '=', 'N')
-            //             ->where('msc.active', '=', 'Y');
-            //         })
-            //         ->select(
-            //             'tx_gjd.debit AS debit',
-            //             'tx_gjd.kredit AS kredit',
-            //         )
-            //         // ->where('tx_gjd.id', '>', $j01->journal_id_dtl)     // id dari baris kredit > id dari baris debit
-            //         // ->where('tx_gjd.general_journal_id', $j01->journal_id)
-            //         ->where('msc.coa_code_complete', $j01->coa_code_complete)
-            //         // ->where('tx_gjd.coa_id', '<>', $this->bank_id)
-            //         ->where('tx_gjd.active', 'Y')
-            //         ->where('tx_gj.general_journal_date', $dayToValidate)
-            //         ->get();
-            //         foreach($qGJd_o AS $o){
-            //             $sumKredit01 += ($o->debit-$o->kredit);
-            //         }
-            //         // if ($qGJd_o){
-            //         //     $sumKredit01 += $qGJd_o->kredit;
-            //         // }
-            //         // if ($j01->journal_group=='LJ'){
-            //         //     $qLJd_o = DB::table('tx_lokal_journal_details AS tx_ljd')
-            //         //     ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
-            //         //         $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
-            //         //         ->where('tx_lj.is_draft', '=', 'N')
-            //         //         ->where('tx_lj.active', '=', 'Y');
-            //         //     })
-            //         //     ->leftJoin('mst_coas AS msc', function($join) {
-            //         //         $join->on('tx_ljd.coa_id', '=', 'msc.id')
-            //         //         ->where('msc.is_draft', '=', 'N')
-            //         //         ->where('msc.active', '=', 'Y');
-            //         //     })
-            //         //     ->select(
-            //         //         'tx_ljd.debit AS debit',
-            //         //         'tx_ljd.kredit AS kredit',
-            //         //     )
-            //         //     ->where('tx_ljd.id', '>', $j01->journal_id_dtl)     // id dari baris kredit > id dari baris debit
-            //         //     ->where('tx_ljd.lokal_journal_id', $j01->journal_id)
-            //         //     ->where('tx_ljd.coa_id', '<>', $this->bank_id)
-            //         //     ->where('tx_ljd.active', 'Y')
-            //         //     ->where('tx_lj.general_journal_date', $dayToValidate)
-            //         //     ->first();
-            //         //     if ($qLJd_o){
-            //         //         $sumKredit01 += $qLJd_o->kredit;
-            //         //     }
-            //         // }
+                    $qGJd_val = DB::table('tx_general_journal_details AS tx_gjd')
+                    ->leftJoin('tx_general_journals AS tx_gj', function($join) {
+                        $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
+                        ->where('tx_gj.is_draft', '=', 'N')
+                        ->where('tx_gj.active', '=', 'Y');
+                    })
+                    ->leftJoin('mst_coas AS msc', function($join) {
+                        $join->on('tx_gjd.coa_id', '=', 'msc.id')
+                        ->where('msc.is_draft', '=', 'N')
+                        ->where('msc.active', '=', 'Y');
+                    })
+                    ->select(
+                        'tx_gjd.debit AS debit',
+                        'tx_gjd.kredit AS kredit',
+                    )
+                    ->whereExists(function($q) {
+                        // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                        $q->from('tx_general_journal_details AS tx_gjd_1')
+                        ->select(DB::raw(1))
+                        ->whereColumn('tx_gjd_1.general_journal_id', 'tx_gjd.general_journal_id')
+                        ->where('tx_gjd_1.coa_id', '=', $this->bank_id)
+                        ->where('tx_gjd_1.active', 'Y');
+                    })
+                    ->whereRaw('DATE_FORMAT(tx_gj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('msc.coa_code_complete', $j01->coa_code_complete)
+                    ->where('tx_gjd.active', '=', 'Y');
 
-            //         // minus
-            //         // $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-            //         //     $q->select('journal_id')
-            //         //     ->from('v_cash_flow_journal')
-            //         //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         //     ->where('coa_id', '=', $this->bank_id)
-            //         //     ->where('kredit', '>', 0);
-            //         // })
-            //         // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         // ->where('coa_code_complete', '=', $j01->coa_code_complete)
-            //         // // ->where(function($q){
-            //         // //     $q->where('coa_code_complete', 'LIKE', '111%')
-            //         // //     ->orWhere('coa_code_complete', 'LIKE', '112%')
-            //         // //     ->orWhere('coa_code_complete', 'LIKE', '31%');
-            //         // // })
-            //         // ->where('coa_id', '<>', $this->bank_id)
-            //         // ->where('kredit', '=', 0)
-            //         // ->sum('debit');
+                    $qLJd_val = DB::table('tx_lokal_journal_details AS tx_ljd')
+                    ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
+                        $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
+                        ->where('tx_lj.is_draft', '=', 'N')
+                        ->where('tx_lj.active', '=', 'Y');
+                    })
+                    ->leftJoin('mst_coas AS msc', function($join) {
+                        $join->on('tx_ljd.coa_id', '=', 'msc.id')
+                        ->where('msc.is_draft', '=', 'N')
+                        ->where('msc.active', '=', 'Y');
+                    })
+                    ->select(
+                        'tx_ljd.debit AS debit',
+                        'tx_ljd.kredit AS kredit',
+                    )
+                    ->whereExists(function($q) {
+                        // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                        $q->from('tx_lokal_journal_details AS tx_ljd_1')
+                        ->select(DB::raw(1))
+                        ->whereColumn('tx_ljd_1.lokal_journal_id', 'tx_ljd.lokal_journal_id')
+                        ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
+                        ->where('tx_ljd_1.active', 'Y');
+                    })
+                    ->whereRaw('DATE_FORMAT(tx_lj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('msc.coa_code_complete', $j01->coa_code_complete)
+                    ->where('tx_ljd.active', '=', 'Y');
 
-            //         $sumDebet01 = 0;
-            //         // if ($j01->journal_group=='GJ'){}
-            //         // if ($j01->journal_group=='LJ'){}
+                    $unionQuery_val = $qGJd_val->unionAll($qLJd_val);
+                    $qJournal01_val = DB::table(DB::raw("({$unionQuery_val->toSql()}) as combined_transactions"))
+                    ->mergeBindings($unionQuery_val) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
+                    ->select('debit', 'kredit')
+                    ->get();
+                    foreach($qJournal01_val as $qJ01val){
+                        $debitGJ += $qJ01val->debit?$qJ01val->debit*-1:0;
+                        $kreditGJ += $qJ01val->kredit?$qJ01val->kredit:0;
+                    }
 
-            //         // $qRptCashFlow = Tx_cash_flow::where([
-            //         //     'report_code' => $randomString,
-            //         //     'col_number' => 2+$iDay,
-            //         //     'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //         //     'bank_id' => $this->bank_id,
-            //         // ])
-            //         // ->select(
-            //         //     'cell_values',
-            //         // )
-            //         // ->first();
+                    // amount
+                    if (($kreditGJ+$debitGJ)!=0){
+                        $qRptCashFlow = Tx_cash_flow::where([
+                            'report_code' => $randomString,
+                            'row_number' => $rowInXls,
+                            'col_number' => 2+$iDay,
+                            'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                            'bank_id' => $this->bank_id,
+                        ])
+                        ->first();
+                        if ($qRptCashFlow){
+                            $qRptCashFlow = Tx_cash_flow::where([
+                                'report_code' => $randomString,
+                                'row_number' => $rowInXls,
+                                'col_number' => 2+$iDay,
+                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                'bank_id' => $this->bank_id,
+                            ])
+                            ->update([
+                                'cell_values' => number_format($qRptCashFlow->cell_values+$kreditGJ+$debitGJ,0,"",""),
+                                'f_color' => '#000000',
+                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                                'font_size' => '12',
+                                'font_weight' => '300',
+                                'font_style' => 'normal',
+                                'text_align' => 'right',
+                            ]);
+                        }else{
+                            $insRptCashFlow = Tx_cash_flow::create([
+                                'report_code' => $randomString,
+                                'row_number' => $rowInXls,
+                                'col_number' => 2+$iDay,
+                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                'bank_id' => $this->bank_id,
+                                'cell_values' => number_format($kreditGJ+$debitGJ,0,"",""),
+                                'f_color' => '#000000',
+                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                                'font_size' => '12',
+                                'font_weight' => '300',
+                                'font_style' => 'normal',
+                                'text_align' => 'right',
+                            ]);
+                        }
+                    }
 
-            //         // amount
-            //         $insRptCashFlow = Tx_cash_flow::create([
-            //             'report_code' => $randomString,
-            //             'row_number' => $rowInXls,
-            //             'col_number' => 2+$iDay,
-            //             'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //             'bank_id' => $this->bank_id,
-            //             'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
-            //             'f_color' => '#000000',
-            //             'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
-            //             'font_size' => '12',
-            //             'font_weight' => '300',
-            //             'font_style' => 'normal',
-            //             'text_align' => 'right',
-            //         ]);
+                    $totalPerRow += ($kreditGJ+$debitGJ);
+                    $lastCol = 2+$iDay;
 
-            //         $totalPerRow += ($sumKredit01-$sumDebet01);
-            //         $lastCol = 2+$iDay;
-            //     }
+                    // // amount
+                    // $insRptCashFlow = Tx_cash_flow::create([
+                    //     'report_code' => $randomString,
+                    //     'row_number' => $rowInXls,
+                    //     'col_number' => 2+$iDay,
+                    //     'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    //     'bank_id' => $this->bank_id,
+                    //     'cell_values' => number_format($kreditGJ-$debitGJ,0,"",""),
+                    //     'f_color' => '#000000',
+                    //     'b_color' => ($kreditGJ-$debitGJ)!=0?'#8ea9db':'#ffffff',
+                    //     'font_size' => '12',
+                    //     'font_weight' => '300',
+                    //     'font_style' => 'normal',
+                    //     'text_align' => 'right',
+                    // ]);
 
-            //     $insRptCashFlow = Tx_cash_flow::create([
-            //         'report_code' => $randomString,
-            //         'row_number' => $rowInXls,
-            //         'col_number' => $lastCol+1,
-            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //         'bank_id' => $this->bank_id,
-            //         'cell_values' => number_format($totalPerRow,0,"",""),
-            //         'f_color' => '#000000',
-            //         'b_color' => '#ffffff',
-            //         'font_size' => '12',
-            //         'font_weight' => '300',
-            //         'font_style' => 'normal',
-            //         'text_align' => 'right',
-            //     ]);
+                    // $totalPerRow += ($kreditGJ-$debitGJ);
+                    // $lastCol = 2+$iDay;
+                }
 
-            //     if ($totalPerRow==0){
-            //         // hapus yg total nya 0
-            //         $updCashFlow = Tx_cash_flow::where([
-            //             'report_code' => $randomString,
-            //             'row_number' => $rowInXls,
-            //         ])
-            //         ->delete();
-            //         // hapus yg total nya 0
+                $insRptCashFlow = Tx_cash_flow::create([
+                    'report_code' => $randomString,
+                    'row_number' => $rowInXls,
+                    'col_number' => $lastCol+1,
+                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'bank_id' => $this->bank_id,
+                    'cell_values' => number_format($totalPerRow,0,"",""),
+                    'f_color' => '#000000',
+                    'b_color' => '#ffffff',
+                    'font_size' => '12',
+                    'font_weight' => '300',
+                    'font_style' => 'normal',
+                    'text_align' => 'right',
+                ]);
 
-            //         $rowInXls--;
-            //     }
-            // }
-            // // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
+                if ($totalPerRow==0){
+                    // hapus yg total nya 0
+                    $updCashFlow = Tx_cash_flow::where([
+                        'report_code' => $randomString,
+                        'row_number' => $rowInXls,
+                    ])
+                    ->delete();
+                    // hapus yg total nya 0
+
+                    $rowInXls--;
+                }
+            }
+            // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
 
             // empty row
             $rowInXls++;    //5
@@ -765,134 +709,255 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             ]);
             // empty row
 
-            // // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
-            // $startGjLj02DateTimeObj = new DateTime('now');
-            // $startGjLj02_datetime = $startGjLj02DateTimeObj->format('Y-m-d H:i:s');
+            // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
+            $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
 
-            // $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
-            // $qJournal01 = V_cash_flow_journal::select(
-            //     'coa_code_complete',
-            //     'coa_name',
-            // )
-            // ->whereIn('journal_id', function($q) use($dayToValidateMonth){
-            //     $q->select('journal_id')
-            //     ->from('v_cash_flow_journal')
-            //     ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            //     ->where('coa_id', '=', $this->bank_id);
-            // })
-            // ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m")=\''.$dayToValidateMonth.'\'')
-            // ->where(function($q){
-            //     $q->where('coa_code_complete', 'LIKE', '6%')
-            //     ->orWhere('coa_code_complete', 'LIKE', '32%')
-            //     ->orWhere('coa_code_complete', 'LIKE', '9%')
-            //     ->orWhere('coa_code_complete', 'LIKE', '2%');
-            // })
-            // ->where('coa_code_complete', 'NOT LIKE', '211%')
-            // ->where('coa_id', '<>', $this->bank_id)
-            // ->groupBy('coa_code_complete')
-            // ->groupBy('coa_name')
-            // ->orderBy('coa_code_complete', 'ASC')
-            // ->get();
-            // foreach($qJournal01 as $j01){
-            //     $rowInXls++;
+            // GJ
+            $qGJd = DB::table('tx_general_journal_details AS tx_gjd')
+            ->leftJoin('tx_general_journals AS tx_gj', function($join) {
+                $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
+                ->where('tx_gj.is_draft', '=', 'N')
+                ->where('tx_gj.active', '=', 'Y');
+            })
+            ->leftJoin('mst_coas AS msc', function($join) {
+                $join->on('tx_gjd.coa_id', '=', 'msc.id')
+                ->where('msc.is_draft', '=', 'N')
+                ->where('msc.active', '=', 'Y');
+            })
+            ->select(
+                'msc.coa_code_complete AS coa_code_complete',
+                'msc.coa_name AS coa_name',
+            )
+            ->whereExists(function($q) {
+                // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                $q->from('tx_general_journal_details AS tx_gjd_1')
+                ->select(DB::raw(1))
+                ->whereColumn('tx_gjd_1.general_journal_id', 'tx_gjd.general_journal_id')
+                ->where('tx_gjd_1.coa_id', '=', $this->bank_id)
+                ->where('tx_gjd_1.active', 'Y');
+            })
+            ->whereRaw('(tx_gj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_gj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            ->where('msc.id', '<>', $this->bank_id)
+            ->where(function($q){
+                $q->where('msc.coa_code_complete', 'LIKE', '6%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '32%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '9%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '2%');
+            })
+            ->where('msc.coa_code_complete', 'NOT LIKE', '211%')
+            ->where('tx_gjd.active', '=', 'Y')
+            ->groupBy('msc.coa_code_complete', 'msc.coa_name');
 
-            //     // journal desc
-            //     $insRptCashFlow = Tx_cash_flow::create([
-            //         'report_code' => $randomString,
-            //         'row_number' => $rowInXls,
-            //         'col_number' => 2,
-            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //         'bank_id' => $this->bank_id,
-            //         'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
-            //         'f_color' => '#000000',
-            //         'b_color' => '#bdd7ee',
-            //         'font_size' => '12',
-            //         'font_weight' => '300',
-            //         'font_style' => 'normal',
-            //         'text_align' => 'left',
-            //     ]);
+            // LJ
+            $qLJd = DB::table('tx_lokal_journal_details AS tx_ljd')
+            ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
+                $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
+                ->where('tx_lj.is_draft', '=', 'N')
+                ->where('tx_lj.active', '=', 'Y');
+            })
+            ->leftJoin('mst_coas AS msc', function($join) {
+                $join->on('tx_ljd.coa_id', '=', 'msc.id')
+                ->where('msc.is_draft', '=', 'N')
+                ->where('msc.active', '=', 'Y');
+            })
+            ->select(
+                'msc.coa_code_complete AS coa_code_complete',
+                'msc.coa_name AS coa_name',
+            )
+            ->whereExists(function($q) {
+                // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                $q->from('tx_lokal_journal_details AS tx_ljd_1')
+                ->select(DB::raw(1))
+                ->whereColumn('tx_ljd_1.lokal_journal_id', 'tx_ljd.lokal_journal_id')
+                ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
+                ->where('tx_ljd_1.active', 'Y');
+            })
+            ->whereRaw('(tx_lj.general_journal_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_lj.general_journal_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+            ->where('msc.id', '<>', $this->bank_id)
+            ->where(function($q){
+                $q->where('msc.coa_code_complete', 'LIKE', '6%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '32%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '9%')
+                ->orWhere('msc.coa_code_complete', 'LIKE', '2%');
+            })
+            ->where('msc.coa_code_complete', 'NOT LIKE', '211%')
+            ->where('tx_ljd.active', '=', 'Y')
+            ->groupBy('msc.coa_code_complete', 'msc.coa_name');
 
-            //     $totalPerRow = 0;
-            //     $lastCol = 0;
-            //     for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
-            //         $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
+            $unionQuery = $qGJd->unionAll($qLJd);
+            $qJournal01 = DB::table(DB::raw("({$unionQuery->toSql()}) as combined_transactions"))
+            ->mergeBindings($unionQuery) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
+            ->select('coa_code_complete', 'coa_name')
+            ->groupBy('coa_code_complete', 'coa_name')
+            ->get();
+            foreach($qJournal01 as $j01){
+                $rowInXls++;
 
-            //         // plus
-            //         $sumKredit01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-            //             $q->select('journal_id')
-            //             ->from('v_cash_flow_journal')
-            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //             ->where('coa_id', '=', $this->bank_id)
-            //             ->where('debit', '>', 0);
-            //         })
-            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
-            //         ->where('coa_id', '<>', $this->bank_id)
-            //         ->where('debit', '=', 0)
-            //         ->sum('kredit');
+                // journal desc
+                $insRptCashFlow = Tx_cash_flow::create([
+                    'report_code' => $randomString,
+                    'row_number' => $rowInXls,
+                    'col_number' => 2,
+                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'bank_id' => $this->bank_id,
+                    'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
+                    'f_color' => '#000000',
+                    'b_color' => '#c6e0b4',
+                    'font_size' => '12',
+                    'font_weight' => '300',
+                    'font_style' => 'normal',
+                    'text_align' => 'left',
+                ]);
 
-            //         // minus
-            //         $sumDebet01 = V_cash_flow_journal::whereIn('journal_id', function($q) use($dayToValidate){
-            //             $q->select('journal_id')
-            //             ->from('v_cash_flow_journal')
-            //             ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //             ->where('coa_id', '=', $this->bank_id)
-            //             ->where('kredit', '>', 0);
-            //         })
-            //         ->whereRaw('DATE_FORMAT(general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
-            //         ->where('coa_code_complete', '=', $j01->coa_code_complete)
-            //         ->where('coa_id', '<>', $this->bank_id)
-            //         ->where('kredit', '=', 0)
-            //         ->sum('debit');
+                $totalPerRow = 0;
+                $lastCol = 0;
+                for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
+                    $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-            //         // amount
-            //         $insRptCashFlow = Tx_cash_flow::create([
-            //             'report_code' => $randomString,
-            //             'row_number' => $rowInXls,
-            //             'col_number' => 2+$iDay,
-            //             'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //             'bank_id' => $this->bank_id,
-            //             'cell_values' => number_format($sumKredit01-$sumDebet01,0,"",""),
-            //             'f_color' => '#000000',
-            //             'b_color' => ($sumKredit01-$sumDebet01)!=0?'#8ea9db':'#ffffff',
-            //             'font_size' => '12',
-            //             'font_weight' => '300',
-            //             'font_style' => 'normal',
-            //             'text_align' => 'right',
-            //         ]);
+                    $debitGJ = 0;
+                    $kreditGJ = 0;
 
-            //         $totalPerRow += ($sumKredit01-$sumDebet01);
-            //         $lastCol = 2+$iDay;
-            //     }
+                    $qGJd_val = DB::table('tx_general_journal_details AS tx_gjd')
+                    ->leftJoin('tx_general_journals AS tx_gj', function($join) {
+                        $join->on('tx_gjd.general_journal_id', '=', 'tx_gj.id')
+                        ->where('tx_gj.is_draft', '=', 'N')
+                        ->where('tx_gj.active', '=', 'Y');
+                    })
+                    ->leftJoin('mst_coas AS msc', function($join) {
+                        $join->on('tx_gjd.coa_id', '=', 'msc.id')
+                        ->where('msc.is_draft', '=', 'N')
+                        ->where('msc.active', '=', 'Y');
+                    })
+                    ->select(
+                        'tx_gjd.debit AS debit',
+                        'tx_gjd.kredit AS kredit',
+                    )
+                    ->whereExists(function($q) {
+                        // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                        $q->from('tx_general_journal_details AS tx_gjd_1')
+                        ->select(DB::raw(1))
+                        ->whereColumn('tx_gjd_1.general_journal_id', 'tx_gjd.general_journal_id')
+                        ->where('tx_gjd_1.coa_id', $this->bank_id)
+                        ->where('tx_gjd_1.active', 'Y');
+                    })
+                    ->whereRaw('DATE_FORMAT(tx_gj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('msc.coa_code_complete', $j01->coa_code_complete)
+                    ->where('tx_gjd.active', '=', 'Y');
 
-            //     $insRptCashFlow = Tx_cash_flow::create([
-            //         'report_code' => $randomString,
-            //         'row_number' => $rowInXls,
-            //         'col_number' => $lastCol+1,
-            //         'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-            //         'bank_id' => $this->bank_id,
-            //         'cell_values' => number_format($totalPerRow,0,"",""),
-            //         'f_color' => '#000000',
-            //         'b_color' => '#ffffff',
-            //         'font_size' => '12',
-            //         'font_weight' => '300',
-            //         'font_style' => 'normal',
-            //         'text_align' => 'right',
-            //     ]);
+                    $qLJd_val = DB::table('tx_lokal_journal_details AS tx_ljd')
+                    ->leftJoin('tx_lokal_journals AS tx_lj', function($join) {
+                        $join->on('tx_ljd.lokal_journal_id', '=', 'tx_lj.id')
+                        ->where('tx_lj.is_draft', '=', 'N')
+                        ->where('tx_lj.active', '=', 'Y');
+                    })
+                    ->leftJoin('mst_coas AS msc', function($join) {
+                        $join->on('tx_ljd.coa_id', '=', 'msc.id')
+                        ->where('msc.is_draft', '=', 'N')
+                        ->where('msc.active', '=', 'Y');
+                    })
+                    ->select(
+                        'tx_ljd.debit AS debit',
+                        'tx_ljd.kredit AS kredit',
+                    )
+                    ->whereExists(function($q) {
+                        // kumpulkan semua data jurnal detil sesuai COA yg dipilih di report CF dalam sebulan
+                        $q->from('tx_lokal_journal_details AS tx_ljd_1')
+                        ->select(DB::raw(1))
+                        ->whereColumn('tx_ljd_1.lokal_journal_id', 'tx_ljd.lokal_journal_id')
+                        ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
+                        ->where('tx_ljd_1.active', 'Y');
+                    })
+                    ->whereRaw('DATE_FORMAT(tx_lj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('msc.coa_code_complete', $j01->coa_code_complete)
+                    ->where('tx_ljd.active', '=', 'Y');
 
-            //     if ($totalPerRow==0){
-            //         // hapus yg total nya 0
-            //         $updCashFlow = Tx_cash_flow::where([
-            //             'report_code' => $randomString,
-            //             'row_number' => $rowInXls,
-            //         ])
-            //         ->delete();
-            //         // hapus yg total nya 0
+                    $unionQuery_val = $qGJd_val->unionAll($qLJd_val);
+                    $qJournal01_val = DB::table(DB::raw("({$unionQuery_val->toSql()}) as combined_transactions"))
+                    ->mergeBindings($unionQuery_val) // CRITICAL: Wajib untuk mengamankan data binding PDO dari kedua query
+                    ->select('debit', 'kredit')
+                    ->get();
+                    foreach($qJournal01_val as $qJ01val){
+                        $debitGJ += $qJ01val->debit?$qJ01val->debit*-1:0;
+                        $kreditGJ += $qJ01val->kredit?$qJ01val->kredit:0;
+                    }
 
-            //         $rowInXls--;
-            //     }
-            // }
-            // // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
+                    // amount
+                    if (($kreditGJ+$debitGJ)!=0){
+                        $qRptCashFlow = Tx_cash_flow::where([
+                            'report_code' => $randomString,
+                            'row_number' => $rowInXls,
+                            'col_number' => 2+$iDay,
+                            'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                            'bank_id' => $this->bank_id,
+                        ])
+                        ->first();
+                        if ($qRptCashFlow){
+                            $qRptCashFlow = Tx_cash_flow::where([
+                                'report_code' => $randomString,
+                                'row_number' => $rowInXls,
+                                'col_number' => 2+$iDay,
+                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                'bank_id' => $this->bank_id,
+                            ])
+                            ->update([
+                                'cell_values' => number_format($qRptCashFlow->cell_values+$kreditGJ+$debitGJ,0,"",""),
+                                'f_color' => '#000000',
+                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                                'font_size' => '12',
+                                'font_weight' => '300',
+                                'font_style' => 'normal',
+                                'text_align' => 'right',
+                            ]);
+                        }else{
+                            $insRptCashFlow = Tx_cash_flow::create([
+                                'report_code' => $randomString,
+                                'row_number' => $rowInXls,
+                                'col_number' => 2+$iDay,
+                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                'bank_id' => $this->bank_id,
+                                'cell_values' => number_format($kreditGJ+$debitGJ,0,"",""),
+                                'f_color' => '#000000',
+                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                                'font_size' => '12',
+                                'font_weight' => '300',
+                                'font_style' => 'normal',
+                                'text_align' => 'right',
+                            ]);
+                        }
+                    }
+
+                    $totalPerRow += ($kreditGJ+$debitGJ);
+                    $lastCol = 2+$iDay;
+                }
+
+                $insRptCashFlow = Tx_cash_flow::create([
+                    'report_code' => $randomString,
+                    'row_number' => $rowInXls,
+                    'col_number' => $lastCol+1,
+                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'bank_id' => $this->bank_id,
+                    'cell_values' => number_format($totalPerRow,0,"",""),
+                    'f_color' => '#000000',
+                    'b_color' => '#ffffff',
+                    'font_size' => '12',
+                    'font_weight' => '300',
+                    'font_style' => 'normal',
+                    'text_align' => 'right',
+                ]);
+
+                if ($totalPerRow==0){
+                    // hapus yg total nya 0
+                    $updCashFlow = Tx_cash_flow::where([
+                        'report_code' => $randomString,
+                        'row_number' => $rowInXls,
+                    ])
+                    ->delete();
+                    // hapus yg total nya 0
+
+                    $rowInXls--;
+                }
+            }
+            // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
 
             // empty row
             $rowInXls++;    //5

@@ -103,12 +103,15 @@ class CheckRemainingPaymentReceipt implements InvokableRule
                 $qDO = Tx_invoice::selectRaw('do_grandtotal_vat-'.(!is_null($totLastPaymentInv)?$totLastPaymentInv:0).' AS total_price')
                 ->where('invoice_no','=',$invoice_id)
                 ->whereNotIn('id', function ($q01) use($payment_receipt_inv_id) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
+                    ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
                     ->whereColumn('tx_payment_receipt_invoices.invoice_id','<>','tx_invoices.id')
-                    ->where('id','<>',$payment_receipt_inv_id)
-                    ->where('is_full_payment','=','Y')
-                    ->where('is_vat','=','Y');
+                    ->where('tx_payment_receipt_invoices.id','<>',$payment_receipt_inv_id)
+                    ->where('tx_payment_receipt_invoices.is_full_payment','=','Y')
+                    ->where('tx_payment_receipt_invoices.is_vat','=','Y')
+                    ->where('tx_payment_receipt_invoices.active','=','Y')
+                    ->where('tx.active','=','Y');
                 })
                 ->first();
             }
@@ -118,12 +121,15 @@ class CheckRemainingPaymentReceipt implements InvokableRule
                 $qDO = Tx_kwitansi::selectRaw('np_total-'.(!is_null($totLastPaymentInv)?$totLastPaymentInv:0).' AS total_price')
                 ->where('kwitansi_no','=',$invoice_id)
                 ->whereNotIn('id', function ($q01) use($payment_receipt_inv_id) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
+                    ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
                     ->whereColumn('tx_payment_receipt_invoices.invoice_id','<>','tx_kwitansis.id')
-                    ->where('id','<>',$payment_receipt_inv_id)
-                    ->where('is_full_payment','=','Y')
-                    ->where('is_vat','=','N');
+                    ->where('tx_payment_receipt_invoices.id','<>',$payment_receipt_inv_id)
+                    ->where('tx_payment_receipt_invoices.is_full_payment','=','Y')
+                    ->where('tx_payment_receipt_invoices.is_vat','=','N')
+                    ->where('tx_payment_receipt_invoices.active','=','Y')
+                    ->where('tx.active','=','Y');
                 })
                 ->first();
             }
@@ -133,10 +139,13 @@ class CheckRemainingPaymentReceipt implements InvokableRule
                 $qDO = Tx_invoice::selectRaw('do_grandtotal_vat-'.(!is_null($totLastPaymentInv)?$totLastPaymentInv:0).' AS total_price')
                 ->where('invoice_no','=',$invoice_id)
                 ->whereNotIn('id', function ($q01) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
+                    ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
                     ->whereColumn('tx_payment_receipt_invoices.invoice_id','<>','tx_invoices.id')
-                    ->where('is_full_payment','=','Y');
+                    ->where('tx_payment_receipt_invoices.is_full_payment','=','Y')
+                    ->where('tx_payment_receipt_invoices.active','=','Y')
+                    ->where('tx.active','=','Y');
                 })
                 ->first();
             }
@@ -145,10 +154,13 @@ class CheckRemainingPaymentReceipt implements InvokableRule
                 $qDO = Tx_kwitansi::selectRaw('np_total-'.(!is_null($totLastPaymentInv)?$totLastPaymentInv:0).' AS total_price')
                 ->where('kwitansi_no','=',$invoice_id)
                 ->whereNotIn('id', function ($q01) {
-                    $q01->select('invoice_id')
+                    $q01->select('tx_payment_receipt_invoices.invoice_id')
                     ->from('tx_payment_receipt_invoices')
+                    ->leftJoin('tx_payment_receipts AS tx','tx_payment_receipt_invoices.payment_receipt_id','=','tx.id')
                     ->whereColumn('tx_payment_receipt_invoices.invoice_id','<>','tx_kwitansis.id')
-                    ->where('is_full_payment','=','Y');
+                    ->where('tx_payment_receipt_invoices.is_full_payment','=','Y')
+                    ->where('tx_payment_receipt_invoices.active','=','Y')
+                    ->where('tx.active','=','Y');
                 })
                 ->first();
             }
