@@ -286,8 +286,8 @@ class OrderServerSideController extends Controller
                 })
                 ->where('tx_purchase_order_parts.active', 'Y');
                 if ($qCheckPartialReceived->count()>0){$isPartial = 'Y';}
-                Log::info($query->purchase_no.' - '.$isPartial);
-                Log::debug($qCheckPartialReceived->count());
+                // Log::info($query->purchase_no.' - '.$isPartial);
+                // Log::debug($qCheckPartialReceived->count());
 
                 if(strpos($query->purchase_no,"Draft")>0 && $query->order_active=='Y'){
                     return 'Draft';
