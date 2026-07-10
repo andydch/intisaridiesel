@@ -137,27 +137,68 @@
                                     <label for="" class="col-sm-3 col-form-label">Status</label>
                                     <label for="" class="col-sm-9 col-form-label">
                                         @php
-                                            $isReceived = false;
-                                            $qRO = \App\Models\Tx_receipt_order::where('po_or_pm_no','LIKE','%'.$orders->purchase_no.'%')
-                                            ->where('active','=','Y')
+                                            $isPartial = 'N';
+                                            $qCheckPartialReceived = \App\Models\Tx_purchase_order_part::whereExists(function($q1) use($orders){
+                                                $q1->select(DB::raw(1))
+                                                ->from('tx_purchase_orders')
+                                                ->whereColumn('tx_purchase_order_parts.order_id', 'tx_purchase_orders.id')
+                                                ->where('tx_purchase_orders.purchase_no', $orders->purchase_no)
+                                                ->where('tx_purchase_orders.active', 'Y');
+                                            })
+                                            ->whereNotIn('tx_purchase_order_parts.id', function($q1) use($orders){
+                                                $q1->select('po_mo_id')
+                                                ->from('tx_receipt_order_parts')
+                                                ->where('po_mo_no', $orders->purchase_no)
+                                                ->where('active', 'Y');
+                                            })
+                                            ->where('tx_purchase_order_parts.active', 'Y');
+                                            if ($qCheckPartialReceived->count()>0){$isPartial = 'Y';}
+
+                                            // $isReceived = false;
+                                            // $qRO = \App\Models\Tx_receipt_order::where('po_or_pm_no','LIKE','%'.$orders->purchase_no.'%')
+                                            // ->where('active','=','Y')
+                                            // ->first();
+
+                                            $is_partial_received = 'N';
+                                            $isReceived = true;
+                                            $qROreceived = \App\Models\Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
+                                            ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
+                                            ->where([
+                                                'tx_receipt_order_parts.po_mo_no' => $orders->purchase_no,
+                                                // 'tx_receipt_order_parts.is_partial_received' => 'Y',
+                                                'tx_receipt_order_parts.active' => 'Y',
+                                                'tx_ro.active' => 'Y',
+                                            ])
+                                            ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
+                                            ->orderBy('tx_ro.updated_at','DESC')
                                             ->first();
                                         @endphp
-                                        @if ($qRO)
+                                        @if ($qROreceived)
                                             @php
-                                                $isReceived = true;
+                                                if ($qROreceived->is_partial_received=='Y'){
+                                                    $isReceived = false;
+                                                    $is_partial_received = 'Y';
+                                                }else{
+                                                    $isReceived = true;
+                                                }
+                                                // $isReceived = true;
                                             @endphp
                                         @endif
-                                        @if ($orders->active=='Y' && is_null($orders->approved_by) && is_null($orders->canceled_by) && !$isReceived)
+                                        @if ($orders->active=='Y' && is_null($orders->approved_by) && !$qROreceived)
                                             {{ 'Waiting for Approval' }}
                                         @endif
-                                        @if ($orders->active=='Y' && !is_null($orders->approved_by) && !$isReceived)
-                                            {{ 'Approved' }}
-                                        @endif
-                                        @if ($orders->active=='Y' && !is_null($orders->canceled_by))
+                                        
+                                        @if ($orders->active=='Y' && !is_null($orders->canceled_by) && !$qROreceived)
                                             {{ 'Rejected' }}
                                         @endif
-                                        @if ($orders->active=='Y' && !is_null($orders->approved_by) && $isReceived)
+                                        @if ($orders->active=='Y' && $isReceived && $isPartial=='N')
                                             {{ 'Received' }}
+                                        @endif
+                                        @if ($orders->active=='Y' && $qROreceived && (!$isReceived && $is_partial_received=='Y' || $isPartial=='Y'))
+                                            {{ 'Partial Received' }}
+                                        @endif
+                                        @if ($orders->active=='Y' && !is_null($orders->approved_by) && !$qROreceived)
+                                            {{ 'Approved' }}
                                         @endif
                                         @if ($orders->active=='N')
                                             {{ 'Canceled' }}
@@ -244,6 +285,7 @@
                                                 'part_id' => $mp->part_id,
                                                 'branch_id' => $userLogin->branch_id
                                             ])
+                                            ->orderBy('updated_at', 'DESC')
                                             ->first();
                                         @endphp
                                         <td>
