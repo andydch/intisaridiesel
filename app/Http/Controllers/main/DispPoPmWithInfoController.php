@@ -47,7 +47,7 @@ class DispPoPmWithInfoController extends Controller
                 ])
             ])
             ->addSelect(['last_qty_total' => Tx_receipt_order_part::selectRaw('SUM(qty)')
-                ->where('tx_receipt_order_parts.po_mo_no','=',$request->po_or_mo)
+                // ->where('tx_receipt_order_parts.po_mo_no','=',$request->po_or_mo)
                 ->whereColumn('tx_receipt_order_parts.po_mo_id','tx_purchase_memo_parts.id')
                 ->whereColumn('tx_receipt_order_parts.part_id','tx_purchase_memo_parts.part_id')
                 ->where('tx_receipt_order_parts.active','=','Y')
@@ -75,7 +75,7 @@ class DispPoPmWithInfoController extends Controller
                 'tx_purchase_orders.is_vat',
             )
             ->addSelect(['last_qty_total' => Tx_receipt_order_part::selectRaw('SUM(qty)')
-                ->where('tx_receipt_order_parts.po_mo_no','=',$request->po_or_mo)
+                // ->where('tx_receipt_order_parts.po_mo_no','=',$request->po_or_mo)
                 ->whereColumn('tx_receipt_order_parts.po_mo_id','tx_purchase_order_parts.id')
                 ->whereColumn('tx_receipt_order_parts.part_id','tx_purchase_order_parts.part_id')
                 ->where('tx_receipt_order_parts.active','=','Y')

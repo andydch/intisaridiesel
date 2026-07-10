@@ -395,25 +395,7 @@
                                                             $partName = '';
                                                             $partNumber = '';
                                                         @endphp
-                                                        @if ($is_partial_received=='N' || $is_part_in_RO=='Y')
-                                                            @php
-                                                                $partOne = \App\Models\Mst_part::where([
-                                                                    'id' => $partId,
-                                                                ])
-                                                                ->first();
-                                                                if ($partOne){
-                                                                    $partName = $partOne->part_name;
-                                                                    $partNumber = $partOne->part_number;
-                                                                    if(strlen($partNumber)<11){
-                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
-                                                                    }else{
-                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
-                                                                    }
-                                                                }
-                                                            @endphp
-                                                            <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
-                                                            <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
-                                                        @else
+                                                        @if (!$orders->approved_by || ($is_part_in_RO=='N' && ($userLogin->is_director=='Y' || Auth::user()->id==1)))
                                                             <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
                                                                 id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
                                                                 <option value="#">Choose...</option>
@@ -438,10 +420,31 @@
                                                             @error('part_id'.$i)
                                                                 <div class="invalid-feedback">{{ $message }}</div>
                                                             @enderror
+
+                                                        @else
+                                                            @php
+                                                                $partOne = \App\Models\Mst_part::where([
+                                                                    'id' => $partId,
+                                                                ])
+                                                                ->first();
+                                                                if ($partOne){
+                                                                    $partName = $partOne->part_name;
+                                                                    $partNumber = $partOne->part_number;
+                                                                    if(strlen($partNumber)<11){
+                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
+                                                                    }else{
+                                                                        $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
+                                                                    }
+                                                                }
+                                                            @endphp
+                                                            <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
+                                                            <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
+                                                            
                                                         @endif
                                                     </td>
                                                     <td>
-                                                        <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif onchange="totalPrice({{ $i }});" type="text" 
+                                                        <input @if(!$orders->approved_by || ($is_partial_received=='Y' && ($userLogin->is_director=='Y' || Auth::user()->id==1))){!! '' !!}@else{!! 'readonly' !!}@endif 
+                                                            onchange="totalPrice({{ $i }});" type="text" 
                                                             style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}"
                                                             class="form-control @error('qty'.$i) is-invalid @enderror"
                                                             id="qty{{ $i }}" name="qty{{ $i }}" maxlength="6"
@@ -453,8 +456,8 @@
                                                     </td>
                                                     <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q?$q->quantity_type: '' }}</label></td>
                                                     <td>
-                                                        <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" 
-                                                            style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}" 
+                                                        <input @if(!$orders->approved_by || ($is_part_in_RO=='N' && ($userLogin->is_director=='Y' || Auth::user()->id==1))){!! '' !!}@else{!! 'readonly' !!}@endif 
+                                                            type="text" style="text-align: right;{{ $is_partial_received=='N'?'background-color:#b8b8b8;':'' }}" 
                                                             onchange="formatPartPrice({{ $i }});"
                                                             class="form-control @error('price_part'.$i) is-invalid @enderror" id="price_part{{ $i }}" name="price_part{{ $i }}"
                                                             maxlength="64" value="@if(old('price_part'.$i)){{ old('price_part'.$i) }}@endif" />
@@ -507,7 +510,9 @@
                                                         {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                                         {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
                                                         @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
-                                                            $orders->active=='Y' && is_null($orders->receipt_order))
+                                                            $orders->active=='Y')
+                                                        {{-- @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                                            $orders->active=='Y' && is_null($orders->receipt_order)) --}}
                                                             @if($is_part_in_RO=='N')<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">@endif
                                                         @endif
                                                     </td>
@@ -613,25 +618,7 @@
                                                         $partName = '';
                                                         $partNumber = '';
                                                     @endphp
-                                                    @if ($is_partial_received=='N' || $is_part_in_RO=='Y')
-                                                        @php
-                                                            $partOne = \App\Models\Mst_part::where([
-                                                                'id' => $partId,
-                                                            ])
-                                                            ->first();
-                                                            if ($partOne){
-                                                                $partName = $partOne->part_name;
-                                                                $partNumber = $partOne->part_number;
-                                                                if(strlen($partNumber)<11){
-                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
-                                                                }else{
-                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
-                                                                }
-                                                            }
-                                                        @endphp
-                                                        <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
-                                                        <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
-                                                    @else
+                                                    @if (!$orders->approved_by || ($is_part_in_RO=='N' && ($userLogin->is_director=='Y' || Auth::user()->id==1)))
                                                         <select class="form-select partsAjax @error('part_id'.$i) is-invalid @enderror"
                                                             id="part_id{{ $i }}" name="part_id{{ $i }}" onchange="dispPriceRef(this.value, {{ $i }});">
                                                             <option value="#">Choose...</option>
@@ -656,10 +643,30 @@
                                                         @error('part_id'.$i)
                                                             <div class="invalid-feedback">{{ $message }}</div>
                                                         @enderror
+                                                        
+                                                    @else
+                                                        @php
+                                                            $partOne = \App\Models\Mst_part::where([
+                                                                'id' => $partId,
+                                                            ])
+                                                            ->first();
+                                                            if ($partOne){
+                                                                $partName = $partOne->part_name;
+                                                                $partNumber = $partOne->part_number;
+                                                                if(strlen($partNumber)<11){
+                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,strlen($partNumber));
+                                                                }else{
+                                                                    $partNumber = substr($partNumber,0,5).'-'.substr($partNumber,5,5).'-'.substr($partNumber,10,strlen($partNumber));
+                                                                }
+                                                            }
+                                                        @endphp
+                                                        <input type="hidden" id="part_id{{ $i }}" name="part_id{{ $i }}" value="{{ $partId }}">
+                                                        <label id="part_id{{ $i }}-lbl" for="" class="col-form-label">{{ $partNumber .' : '.$partName }}</label>
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif onchange="totalPrice({{ $i }});" type="text" 
+                                                    <input @if(!$orders->approved_by || ($is_partial_received=='Y' && ($userLogin->is_director=='Y' || Auth::user()->id==1))){!! '' !!}@else{!! 'readonly' !!}@endif 
+                                                        onchange="totalPrice({{ $i }});" type="text" 
                                                         class="form-control @error('qty'.$i) is-invalid @enderror"
                                                         id="qty{{ $i }}" name="qty{{ $i }}" maxlength="6"
                                                         value="{{ $mp->qty }}" 
@@ -671,7 +678,8 @@
                                                 </td>
                                                 <td><label id="unit-{{ $i }}" for="" class="col-form-label">{{ $q?$q->quantity_type: '' }}</label></td>
                                                 <td>
-                                                    <input @if($is_partial_received=='N'){!! 'readonly' !!}@endif type="text" onchange="formatPartPrice({{ $i }});"
+                                                    <input @if(!$orders->approved_by || ($is_part_in_RO=='N' && ($userLogin->is_director=='Y' || Auth::user()->id==1))){!! '' !!}@else{!! 'readonly' !!}@endif 
+                                                        type="text" onchange="formatPartPrice({{ $i }});"
                                                         class="form-control @error('price_part'.$i) is-invalid @enderror"
                                                         id="price_part{{ $i }}" name="price_part{{ $i }}" maxlength="64"
                                                         value="@if($orders->supplier_type_id==10){{ number_format($mp->price,2,'.',',') }}@else{{ number_format($mp->price,0,'.',',') }}@endif" 
@@ -721,7 +729,9 @@
                                                     {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                                     {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
                                                     @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
-                                                        $orders->active=='Y' && is_null($orders->receipt_order))
+                                                        $orders->active=='Y')
+                                                    {{-- @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                                        $orders->active=='Y' && is_null($orders->receipt_order)) --}}
                                                         @if($is_part_in_RO=='N')<input type="checkbox" id="rowCheck{{ $i }}" value="{{ $i }}" style="vertical-align: middle;">@endif
                                                     @endif
                                                 </td>
@@ -770,8 +780,9 @@
                                 <input type="button" id="btn-add-row" class="btn btn-primary px-5" style="margin-top: 15px;" value="Add Row">
                                 {{-- sebelumnya tidak boleh delete jika sudah di approved dan belum ada RO, sekarang sudah diperbolehkan delete jika sudah approved dan belum ada RO --}}
                                 {{-- di-update tgl 16-05-2026 jam 16.31 oleh adch berdasarkan request dari pak Sulian --}}
-                                @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
-                                    $orders->active=='Y' && is_null($orders->receipt_order))
+                                @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && $orders->active=='Y')
+                                {{-- @if((($orders->created_by==Auth::user()->id && is_null($orders->approved_by)) || $userLogin->is_director=='Y' || Auth::user()->id==1) && 
+                                    $orders->active=='Y' && is_null($orders->receipt_order)) --}}
                                     <input type="button" id="btn-del-row" class="btn btn-danger px-5" style="margin-top: 15px;" value="Remove Row">
                                 @endif
                             </div>

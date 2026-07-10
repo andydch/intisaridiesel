@@ -9,7 +9,6 @@ use App\Models\Mst_branch;
 use App\Models\Mst_courier;
 use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
-// use App\Models\Mst_part;
 use App\Models\Mst_supplier_bank_information;
 use App\Models\Mst_supplier;
 use App\Models\Tx_purchase_order_oo_oh_part;
@@ -30,6 +29,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -220,28 +220,6 @@ class OrderServerSideController extends Controller
                 $hasRO = false;
                 $isReceived = false;    // belum terima semua atau terima sebagian
 
-                // query sebelumnya
-                // $qROreceived = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
-                // ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
-                // ->where([
-                //     'tx_receipt_order_parts.po_mo_no' => $query->purchase_no,
-                //     // 'tx_receipt_order_parts.is_partial_received' => 'N',
-                //     'tx_receipt_order_parts.active' => 'Y',
-                //     'tx_ro.active' => 'Y',
-                // ])
-                // ->whereRaw('tx_ro.receipt_no NOT LIKE \'%Draft%\'')
-                // ->orderBy('tx_ro.updated_at','DESC')
-                // ->first();
-                // if($qROreceived){
-                //     $hasRO = true;
-                //     if($qROreceived->is_partial_received==='N'){
-                //         $isReceived = true;
-                //     }
-                //     Log::info('is partial received: '.$qROreceived->is_partial_received);
-                //     Log::info('is Received: '.$isReceived);
-                // }
-                // query sebelumnya
-
                 $qHasRO = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
                 ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
                 ->where([
@@ -257,11 +235,12 @@ class OrderServerSideController extends Controller
                 }
 
                 $is_partial_received = 'N';
+                $isReceived = true;
                 $qROreceived = Tx_receipt_order_part::leftJoin('tx_receipt_orders AS tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
                 ->select('tx_receipt_order_parts.id','tx_receipt_order_parts.is_partial_received')
                 ->where([
                     'tx_receipt_order_parts.po_mo_no' => $query->purchase_no,
-                    'tx_receipt_order_parts.is_partial_received' => 'Y',
+                    // 'tx_receipt_order_parts.is_partial_received' => 'Y',
                     'tx_receipt_order_parts.active' => 'Y',
                     'tx_ro.active' => 'Y',
                 ])
@@ -270,11 +249,18 @@ class OrderServerSideController extends Controller
                 ->first();
                 if($qROreceived){
                     // partial payment
-                    $isReceived = false;
+                    // $isReceived = false;
 
-                    $is_partial_received = 'Y';
+                    // $is_partial_received = 'Y';
                     // Log::info('is partial received 1: '.$is_partial_received);
                     // Log::info('has RO: '.$hasRO);
+
+                    if ($qROreceived->is_partial_received=='Y'){
+                        $isReceived = false;
+                        $is_partial_received = 'Y';
+                    }else{
+                        $isReceived = true;
+                    }
                 }else{
                     // full payment
                     $isReceived = true;
@@ -283,20 +269,40 @@ class OrderServerSideController extends Controller
                     // Log::info('has RO: '.$hasRO);
                     // Log::info('is Received: '.$isReceived);
                 }
+
+                $isPartial = 'N';
+                $qCheckPartialReceived = Tx_purchase_order_part::whereExists(function($q1) use($query){
+                    $q1->select(DB::raw(1))
+                    ->from('tx_purchase_orders')
+                    ->whereColumn('tx_purchase_order_parts.order_id', 'tx_purchase_orders.id')
+                    ->where('tx_purchase_orders.purchase_no', $query->purchase_no)
+                    ->where('tx_purchase_orders.active', 'Y');
+                })
+                ->whereNotIn('tx_purchase_order_parts.id', function($q1) use($query){
+                    $q1->select('po_mo_id')
+                    ->from('tx_receipt_order_parts')
+                    ->where('po_mo_no', $query->purchase_no)
+                    ->where('active', 'Y');
+                })
+                ->where('tx_purchase_order_parts.active', 'Y');
+                if ($qCheckPartialReceived->count()>0){$isPartial = 'Y';}
+                Log::info($query->purchase_no.' - '.$isPartial);
+                Log::debug($qCheckPartialReceived->count());
+
                 if(strpos($query->purchase_no,"Draft")>0 && $query->order_active=='Y'){
                     return 'Draft';
                 }else{
-                    if($query->order_active=='Y' && $isReceived && $hasRO){
+                    if($query->order_active=='Y' && $isReceived && $hasRO && $is_partial_received=='N' && $isPartial=='N'){
                         return 'Received';
                     }
-                    if($query->order_active=='Y' && !$isReceived && $hasRO && $is_partial_received=='Y'){
+                    if($query->order_active=='Y' && $hasRO && $isPartial=='Y'){
+                    // if($query->order_active=='Y' && !$isReceived && $hasRO && $is_partial_received=='Y'){
                         return 'Partial Received';
                     }
                     if($query->order_active=='Y' && is_null($query->approved_by) && !$hasRO){
                         return 'Waiting For Approval';
                     }
-                    if($query->order_active=='Y' && !is_null($query->approved_by) && !$hasRO &&  $is_partial_received=='N'){
-                    // if($query->order_active=='Y' && !is_null($query->approved_by) && !$isReceived && !$hasRO &&  $is_partial_received=='N'){
+                    if($query->order_active=='Y' && !is_null($query->approved_by) && !$hasRO){
                         return 'Approved';
                     }
                     if($query->order_active=='N'){
