@@ -49,6 +49,7 @@
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">Status</th>
                     </tr>
                     @php
+                        $total = 0;
                         $dt_s = explode("-",$start_date);
                         $dt_e = explode("-",$end_date);
 
@@ -92,7 +93,7 @@
                             })
                             ->where('active', '=', 'Y');
                         })
-                        ->when($userLogin->is_director!='Y' && Auth::user()->id!=1, 
+                        ->when($userLogin->is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=24, 
                             function($q) use ($userLogin) {
                             $q->where('usr.branch_id','=', $userLogin->branch_id);
                         })
@@ -128,11 +129,15 @@
                                     });
                                 })
                                 ->sum('total_price');
+                                $total += ($qKwi->np_total-$totRetur);
                             @endphp 
                             <td style="text-align: right;">
+                                {!! number_format($qKwi->np_total-$totRetur,0,".","") !!}
+                            </td>
+                            {{-- <td style="text-align: right;">
                                 {!! number_format($qKwi->np_total,0,".","").($totRetur>0?
                                     '<br/><span style="color:red;">('.number_format($totRetur,0,".","").')</span>':'') !!}
-                            </td>
+                            </td> --}}
                             <td style="text-align: center;">{{ $qKwi->sales_initial }}</td>
                             @php
                                 if ($qKwi->kw_active=='Y' && strpos($qKwi->kwitansi_no,'Draft')==0 && is_null($qKwi->approved_by) && is_null($qKwi->canceled_by)){
@@ -174,14 +179,14 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
-                        <td style="border-top:1px solid black;">&nbsp;</td>
+                        <td style="border-left:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
+                        <td style="border-bottom:1px solid black;">&nbsp;</td>
+                        <td style="border-bottom:1px solid black;">&nbsp;</td>
+                        <td style="border-bottom:1px solid black;">&nbsp;</td>
+                        <td style="border-bottom:1px solid black;">TOTAL</td>
+                        <td style="border-bottom:1px solid black;">{!! number_format($total,0,".","") !!}</td>
+                        <td style="border-bottom:1px solid black;">&nbsp;</td>
+                        <td style="border-bottom:1px solid black;border-right:1px solid black;">&nbsp;</td>
                     </tr>
                 </tfoot>
             </table>
