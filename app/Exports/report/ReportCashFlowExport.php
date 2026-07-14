@@ -7,16 +7,16 @@ use App\Models\Mst_customer;
 use App\Models\Mst_global;
 use App\Models\Mst_supplier;
 use App\Models\Tx_cash_flow;
-use App\Models\Tx_invoice;
-use App\Models\Tx_kwitansi;
-use App\Models\Tx_nota_retur_non_tax;
-use App\Models\Tx_nota_retur;
+// use App\Models\Tx_invoice;
+// use App\Models\Tx_kwitansi;
+// use App\Models\Tx_nota_retur_non_tax;
+// use App\Models\Tx_nota_retur;
 use App\Models\Tx_payment_plan;
 use App\Models\Tx_payment_plan_per_rc_order;
-use App\Models\Tx_payment_receipt_invoice;
-use App\Models\Tx_payment_voucher;
-use App\Models\Tx_lokal_journal_detail;
-use App\Models\Tx_general_journal_detail;
+// use App\Models\Tx_payment_receipt_invoice;
+// use App\Models\Tx_payment_voucher;
+// use App\Models\Tx_lokal_journal_detail;
+// use App\Models\Tx_general_journal_detail;
 use DateInterval;
 use DateTime;
 use Illuminate\Contracts\View\View;
@@ -515,7 +515,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'bank_id' => $this->bank_id,
                     'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
                     'f_color' => '#000000',
-                    'b_color' => '#c6e0b4',
+                    'b_color' => '#ffc0cb',
                     'font_size' => '12',
                     'font_weight' => '300',
                     'font_style' => 'normal',
