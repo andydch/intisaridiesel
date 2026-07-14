@@ -941,8 +941,12 @@ class InvoiceServerSideController extends Controller
         try {
 
             $delivery_order_no = '';
+            $invoice_no = '';
             $orders_old = Tx_invoice::where('id', '=', $id)
             ->first();
+            if ($orders_old){
+                $invoice_no = $orders_old->invoice_no;
+            }
 
             $draft = false;
             $orders = Tx_invoice::where('id', $id)
@@ -1130,7 +1134,7 @@ class InvoiceServerSideController extends Controller
             }
 
             // create/update rencana penerimaan
-            if($request->is_draft!='Y' && $draft){
+            if($request->is_draft!='Y'){
                 $qPa = DB::table('tx_acceptance_plans AS tx_ap')
                 ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
                 ->where('bank_id', $request->payment_to_id)
@@ -1138,7 +1142,7 @@ class InvoiceServerSideController extends Controller
                 ->first();
                 if ($qPa){
                     $qPaD = DB::table('tx_acceptance_plan_per_invoices')
-                    ->where('acceptance_plan_id', $qPa->id)
+                    // ->where('acceptance_plan_id', $qPa->id)
                     ->where('inv_or_kwi_id', $id)
                     ->where('inv_or_kwi', 'i')
                     ->where('customer_id', $request->customer_id)
@@ -1146,8 +1150,9 @@ class InvoiceServerSideController extends Controller
                     ->orderBy('id', 'ASC')
                     ->first();
                     if ($qPaD){
-                        $updPaD->where('id', $qPaD->id)
+                        $updPad = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
                         ->update([
+                            'acceptance_plan_id' => $qPa->id,
                             'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
                             'plan_accept' => $request->totalValafterVAT,
                             'active' => 'Y',

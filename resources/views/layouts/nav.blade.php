@@ -2046,7 +2046,7 @@
                                 ->first();
                             @endphp
                             @if ($queryCashFlow || Auth::user()->id==1)
-                                <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/rpt-cash-flow') }}"><i class="bx bx-right-arrow-alt"></i>Cash Flow</a></li>
+                                <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/rpt-cash-flow') }}"><i class="bx bx-right-arrow-alt"></i>Cash Flow (Test)</a></li>
                             @endif
 
                             {{-- cash flow test --}}

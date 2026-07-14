@@ -848,13 +848,17 @@ class KwitansiServerSideController extends Controller
         try {
 
             $nota_penjualan_no = '';
+            $kwitansi_no = '';
             $orders_old = Tx_kwitansi::where('id', '=', $id)
             ->first();
+            if ($orders_old){
+                $kwitansi_no = $orders_old->kwitansi_no;
+            }
 
             $draft = false;
             $orders = Tx_kwitansi::where('id', '=', $id)
-                ->where('kwitansi_no','LIKE','%Draft%')
-                ->first();
+            ->where('kwitansi_no','LIKE','%Draft%')
+            ->first();
             if($orders){
                 // looking for draft order no
                 $draft = true;
@@ -1002,7 +1006,7 @@ class KwitansiServerSideController extends Controller
             }
 
             // create/update rencana penerimaan
-            if($request->is_draft!='Y' && $draft){
+            if($request->is_draft!='Y'){
                 $qPa = DB::table('tx_acceptance_plans AS tx_ap')
                 ->where('acceptance_month', $kwitansi_date[2].'-'.$kwitansi_date[1].'-01')
                 ->where('bank_id', $request->payment_to_id)
@@ -1010,7 +1014,7 @@ class KwitansiServerSideController extends Controller
                 ->first();
                 if ($qPa){
                     $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
-                    ->where('acceptance_plan_id', $qPa->id)
+                    // ->where('acceptance_plan_id', $qPa->id)
                     ->where('inv_or_kwi_id', $id)
                     ->where('inv_or_kwi', 'k')
                     ->where('customer_id', $request->customer_id)
@@ -1020,6 +1024,7 @@ class KwitansiServerSideController extends Controller
                     if ($qPaD){
                         $updPaD = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
                         ->update([
+                            'acceptance_plan_id' => $qPa->id,
                             'plan_date' => $kwitansi_date[2].'-'.$kwitansi_date[1].'-'.$kwitansi_date[0],
                             'plan_accept' => $request->totalValafterVAT,
                             'active' => 'Y',

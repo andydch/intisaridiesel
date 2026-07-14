@@ -1055,6 +1055,7 @@ class TagihanSupplierServerSideController extends Controller
                 ->first();
                 if ($qPp){
                     $qCheckRencanaPembayaran = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $maxId)
+                    ->whereRaw('payment_voucher_no IS null')
                     ->orderBy('id', 'asc')
                     ->first();
                     if ($qCheckRencanaPembayaran){
