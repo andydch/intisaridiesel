@@ -93,7 +93,7 @@
                             })
                             ->where('active', '=', 'Y');
                         })
-                        ->when($userLogin->is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=24, 
+                        ->when($userLogin->is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=16, 
                             function($q) use ($userLogin) {
                             $q->where('usr.branch_id','=', $userLogin->branch_id);
                         })
