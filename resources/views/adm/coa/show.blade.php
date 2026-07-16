@@ -53,6 +53,10 @@
                             <label for="" class="col-sm-9 col-form-label">{{ $coas->is_profit_loss }}</label>
                         </div>
                         <div class="row mb-3">
+                            <label for="" class="col-sm-3 col-form-label">Cashflow?</label>
+                            <label for="" class="col-sm-9 col-form-label">{{ $coas->is_cashflow }}</label>
+                        </div>
+                        <div class="row mb-3">
                             <label for="" class="col-sm-3 col-form-label">Lokal</label>
                             <label for="" class="col-sm-9 col-form-label">
                                 @switch($coas->local)

@@ -19,6 +19,7 @@ class Mst_coa extends Model
         'is_master_coa',
         'is_balance_sheet',
         'is_profit_loss',
+        'is_cashflow',
         'local',
         'beginning_balance_date',
         'beginning_balance_amount',

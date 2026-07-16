@@ -140,6 +140,10 @@ class CoaController extends Controller
         if ($request->is_profit_loss == 'on') {
             $is_profit_loss = 'Y';
         }
+        $is_cashflow = 'N';
+        if ($request->is_cashflow == 'on') {
+            $is_cashflow = 'Y';
+        }
 
         $draft_at = null;
         if($request->is_draft=='Y'){
@@ -164,6 +168,7 @@ class CoaController extends Controller
             'is_master_coa' => $is_master_coa,
             'is_balance_sheet' => $is_balance_sheet,
             'is_profit_loss' => $is_profit_loss,
+            'is_cashflow' => $is_cashflow,
             'is_draft' => $request->is_draft,
             'draft_at' => $draft_at,
             'draft_to_created_at' => null,
@@ -291,11 +296,15 @@ class CoaController extends Controller
         if ($request->is_profit_loss == 'on') {
             $is_profit_loss = 'Y';
         }
+        $is_cashflow = 'N';
+        if ($request->is_cashflow == 'on') {
+            $is_cashflow = 'Y';
+        }
 
         $coa_parent = $request->coa_parent;
         $coa_code_complete = '';
         for($i=$request->coa_level-1;$i>=1;$i--){
-            $qParent = Mst_coa::where('id','=',$coa_parent)
+            $qParent = Mst_coa::where('id', $coa_parent)
             ->first();
             if($qParent){
                 $coa_code_complete = $qParent->coa_code.$coa_code_complete;
@@ -303,8 +312,9 @@ class CoaController extends Controller
             }
         }
         $coa_code_complete = $coa_code_complete.$request->coa_code;
+        // dd($coa_code_complete);
 
-        $q = Mst_coa::where('id', '=', $id)
+        $q = Mst_coa::where('id', $id)
         ->first();
         $draft_to_created_at = null;
         $is_draft = $request->is_draft;
@@ -314,7 +324,7 @@ class CoaController extends Controller
 
         $beginning_balance_date = [];
         if($request->beginning_balance_date!=''){
-            $beginning_balance_date = explode("/",$request->beginning_balance_date);
+            $beginning_balance_date = explode("/", $request->beginning_balance_date);
         }
 
         $upd = Mst_coa::where('id', '=', $id)
@@ -331,6 +341,7 @@ class CoaController extends Controller
             'is_master_coa' => $is_master_coa,
             'is_balance_sheet' => $is_balance_sheet,
             'is_profit_loss' => $is_profit_loss,
+            'is_cashflow' => $is_cashflow,
             'is_draft' => $is_draft,
             'draft_to_created_at' => $draft_to_created_at,
             'active' => 'Y',

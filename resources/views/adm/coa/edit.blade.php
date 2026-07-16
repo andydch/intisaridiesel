@@ -127,6 +127,13 @@
                                 </div>
                             </div>
                             <div class="row mb-3">
+                                <label for="is_cashflow" class="col-sm-3 col-form-label">Cashflow?</label>
+                                <div class="col-sm-9">
+                                    <input class="form-check-input" type="checkbox" id="is_cashflow" name="is_cashflow"
+                                        @if (old('is_cashflow')=='on' ){{ 'checked' }}@else{{ ($coas->is_cashflow=='Y'?'checked':'') }}@endif>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
                                 <label for="local_id" class="col-sm-3 col-form-label">Lokal</label>
                                 <div class="col-sm-9">
                                     <select {{ ($coas->is_master_coa=='Y' || old('is_master_coa')=='on' ?'disabled':'') }} class="form-select single-select @error('local_id') is-invalid @enderror"
