@@ -15,6 +15,7 @@ use App\Models\Tx_payment_voucher;
 use App\Models\Tx_receipt_order;
 use App\Models\Userdetail;
 use App\Models\Tx_payment_plan_per_rc_order;
+use App\Models\Mst_coa;
 use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentVoucher;
 use App\Rules\NumericCustom;
@@ -412,10 +413,18 @@ class PaymentVoucherServerSideController extends Controller
                     }
                 }
             }
+            $qCoa = Mst_coa::where('id', $request->coa_id)
+            ->where('is_cashflow', 'Y')
+            ->where('active', 'Y')
+            ->first();
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
-                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    $total_inv_validate = 0;
+                    $total_inv_o_validate = 0;
+                    if ($qCoa){
+                        $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                        $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    }
 
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
@@ -685,7 +694,11 @@ class PaymentVoucherServerSideController extends Controller
             ]);
 
             // update rencana penerimaan
-            if ($request->is_draft=='N'){
+            $qCoa = Mst_coa::where('id', $request->coa_id)
+            ->where('is_cashflow', 'Y')
+            ->where('active', 'Y')
+            ->first();
+            if ($request->is_draft=='N' && $qCoa){
                 $qTAgSup = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $request->tagihan_supplier_id)
                 ->whereRaw('payment_voucher_id IS NULL')
                 ->orderBy('id', 'ASC')
@@ -1180,10 +1193,18 @@ class PaymentVoucherServerSideController extends Controller
                     }
                 }
             }
+            $qCoa = Mst_coa::where('id', $request->coa_id)
+            ->where('is_cashflow', 'Y')
+            ->where('active', 'Y')
+            ->first();
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
-                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    $total_inv_validate = 0;
+                    $total_inv_o_validate = 0;
+                    if ($qCoa){
+                        $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                        $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    }
 
                     $validateShipmentInput = [
                         'invoice_no_'.$i=>'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
@@ -1499,7 +1520,11 @@ class PaymentVoucherServerSideController extends Controller
             ]);
 
             // update rencana penerimaan
-            if ($request->is_draft=='N'){
+            $qCoa = Mst_coa::where('id', $request->coa_id)
+            ->where('is_cashflow', 'Y')
+            ->where('active', 'Y')
+            ->first();
+            if ($request->is_draft=='N' && $qCoa){
                 $qTAgSup = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $request->tagihan_supplier_id)
                 ->where('payment_voucher_id', $qPv->id)
                 ->where('active', 'Y')

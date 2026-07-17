@@ -20,6 +20,7 @@ use App\Models\Tx_lokal_journal;
 use App\Models\Tx_payment_receipt_invoice;
 use App\Models\Tx_payment_receipt;
 use App\Models\Userdetail;
+use App\Models\Mst_coa;
 use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentReceipt;
 use App\Rules\NumericCustom;
@@ -28,7 +29,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -383,6 +384,12 @@ class PaymentReceiptServerSideController extends Controller
             'payment_date.required'=>'Journal Date is required',
             'payment_type_id.required'=>'Please select a valid payment type',
         ];
+
+        $qCoa = Mst_coa::where('id', $request->coa_id)
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
+        ->first();
+
         if ($request->totalRow > 0) {
             $different = '';
             $different_rule = '';
@@ -396,10 +403,14 @@ class PaymentReceiptServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
-                        GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
-                        GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
-                    $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    $payment_total_per_inv_validate = 0;
+                    $payment_total_full_per_inv_validate = 0;
+                    if ($qCoa){
+                        $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
+                            GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
+                            GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
+                        $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    }
 
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|'.str_replace('invoice_no_'.$i,"",$different_rule),
@@ -612,7 +623,7 @@ class PaymentReceiptServerSideController extends Controller
                             GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
                         $payment_total_full_per_inv = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
 
-                        if ($payment_total_per_inv <> $payment_total_full_per_inv) {
+                        if (($payment_total_per_inv <> $payment_total_full_per_inv) && $qCoa) {
                             // simpan Y jika berbeda antara total pembayaran penuh dan parsial
                             $isDiffFullVsPartialPaymentReceipt = 'Y';
                         }                        
@@ -639,7 +650,7 @@ class PaymentReceiptServerSideController extends Controller
                                 ]);
 
                                 // update rencana penerimaan
-                                if ($request->is_draft=='N'){
+                                if ($request->is_draft=='N' && $qCoa){
                                     $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
                                     ->where('invoice_no', urldecode($request['invoice_no_'.$i]))
                                     ->whereRaw('payment_receipt_no IS NULL')
@@ -706,7 +717,7 @@ class PaymentReceiptServerSideController extends Controller
                                 ]);
 
                                 // update rencana penerimaan
-                                if ($request->is_draft=='N'){
+                                if ($request->is_draft=='N' && $qCoa){
                                     $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
                                     ->where('invoice_no', $prosesTagihan->kwitansi_no)
                                     ->whereRaw('payment_receipt_no IS NULL')
@@ -752,8 +763,9 @@ class PaymentReceiptServerSideController extends Controller
                         }
 
                         // matikan update next plan date utk PA sebelumnya
-                        if ($isDiffFullVsPartialPaymentReceipt=='Y' && $request->is_draft=='N'){
+                        if ($isDiffFullVsPartialPaymentReceipt=='Y' && $request->is_draft=='N' && $qCoa){
                             $updPA = Tx_payment_receipt::where('id', '<', $maxId)
+                            ->where('next_plan_date_status', 'Y')
                             ->whereIn('id', function ($q01) use($request, $i) {
                                 $q01->select('payment_receipt_id')
                                 ->from('tx_payment_receipt_invoices')
@@ -1945,6 +1957,12 @@ class PaymentReceiptServerSideController extends Controller
             'payment_date.required'=>'Journal Date is required',
             'payment_type_id.required'=>'Please select a valid payment type',
         ];
+
+        $qCoa = Mst_coa::where('id', $request->coa_id)
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
+        ->first();
+
         if ($request->totalRow > 0) {
             $different = '';
             $different_rule = '';
@@ -1958,10 +1976,14 @@ class PaymentReceiptServerSideController extends Controller
             }
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
-                        GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
-                        GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
-                    $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    $payment_total_per_inv_validate = 0;
+                    $payment_total_full_per_inv_validate = 0;
+                    if ($qCoa){
+                        $payment_total_per_inv_validate = (floor(GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]))>floor(GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]))?
+                            GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]):
+                            GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
+                        $payment_total_full_per_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    }
 
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|'.str_replace('invoice_no_'.$i,"",$different_rule),
@@ -2191,7 +2213,7 @@ class PaymentReceiptServerSideController extends Controller
                             GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]));
                         $payment_total_full_per_inv = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
 
-                        if ($payment_total_per_inv <> $payment_total_full_per_inv) {
+                        if (($payment_total_per_inv <> $payment_total_full_per_inv) && $qCoa) {
                             // simpan Y jika berbeda antara total pembayaran penuh dan parsial
                             $isDiffFullVsPartialPaymentReceipt = 'Y';
                         }
@@ -2243,7 +2265,7 @@ class PaymentReceiptServerSideController extends Controller
                                 }
 
                                 // update rencana penerimaan
-                                if ($request->is_draft=='N'){
+                                if ($request->is_draft=='N' && $qCoa){
                                     $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
                                     ->where('invoice_no', urldecode($request['invoice_no_'.$i]))
                                     ->whereRaw('payment_receipt_no IS NULL')
@@ -2334,7 +2356,7 @@ class PaymentReceiptServerSideController extends Controller
                                 }
 
                                 // update rencana penerimaan
-                                if ($request->is_draft=='N'){
+                                if ($request->is_draft=='N' && $qCoa){
                                     $qPaD = DB::table('tx_acceptance_plan_per_invoices AS tx_appi')
                                     ->where('invoice_no', $prosesTagihan->kwitansi_no)
                                     ->whereRaw('payment_receipt_no IS NULL')

@@ -4,6 +4,7 @@ namespace App\Rules;
 
 use Illuminate\Contracts\Validation\InvokableRule;
 use Illuminate\Support\Facades\DB;
+use App\Models\Mst_coa;
 
 class CheckRencanaPenerimaan implements InvokableRule
 {
@@ -33,7 +34,12 @@ class CheckRencanaPenerimaan implements InvokableRule
      */
     public function __invoke($attribute, $value, $fail)
     {
-        if ($this->isDraft=='N'){
+        $qCoa = Mst_coa::where('id', $this->coaID)
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
+        ->first();
+
+        if ($this->isDraft=='N' && $qCoa){
             $invoice_date = explode('/', $this->periodDate);
     
             // cek di rencana penerimaan

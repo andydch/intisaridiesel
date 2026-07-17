@@ -4,7 +4,7 @@ namespace App\Http\Controllers\tx;
 
 use Exception;
 use App\Models\Mst_global;
-// use App\Models\User;
+use App\Models\Mst_coa;
 use App\Models\Userdetail;
 use Illuminate\Http\Request;
 use App\Models\Tx_receipt_order;
@@ -374,14 +374,22 @@ class PaymentVoucherApprovalServerSideController extends Controller
                 ])
                 ->first();
                 if ($q){
-                    // update flag approval di rencana pembayaran
-                    $upd = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $q->id)
+
+                    $qCoa = Mst_coa::where('id', $q->coa_id)
+                    ->where('is_cashflow', 'Y')
                     ->where('active', 'Y')
-                    ->update([
-                        'is_pv_approved' => 'Y',
-                        'updated_by' => Auth::user()->id,
-                    ]);
-                    // update flag approval di rencana pembayaran
+                    ->first();
+                    if ($qCoa){
+                        // jika COA terkait cashflow
+                        // update flag approval di rencana pembayaran
+                        $upd = Tx_payment_plan_per_rc_order::where('payment_voucher_id', $q->id)
+                        ->where('active', 'Y')
+                        ->update([
+                            'is_pv_approved' => 'Y',
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                        // update flag approval di rencana pembayaran
+                    }
 
                     $branch_id = '';
                     $methodNm = '';

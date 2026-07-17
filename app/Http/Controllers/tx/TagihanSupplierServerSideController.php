@@ -387,10 +387,10 @@ class TagihanSupplierServerSideController extends Controller
         }
 
         $validateInput = [
-            'supplier_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
+            'supplier_id' => ['required', 'numeric'],
             'receipt_order_no_all' => ['required', new ValdROforTagihanSupplierRules(0)],
             'payment_plan_date' => 'required',
-            'bank_id' => 'required|numeric',
+            'bank_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
         ];
         $errMsg = [
             'supplier_id.numeric' => 'Please select a valid supplier',
@@ -578,29 +578,37 @@ class TagihanSupplierServerSideController extends Controller
             ]);
 
             if ($request->is_draft!='Y'){
-                // create rencana pembayaran
-                $period_date = explode('/', $request->payment_plan_date);
-
-                $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
-                ->where('bank_id', $request->bank_id)
-                ->where('is_draft', 'N')
+                $qCoa = Mst_coa::where('id', $request->bank_id)
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y')
                 ->first();
-                if ($qPp){
-                    $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
-                        'payment_plan_id' => $qPp->id,
-                        'supplier_id' => $request->supplier_id,
-                        'tagihan_supplier_id' => $maxId,
-                        'tagihan_supplier_no' => $tagihan_supplier_no,
-                        'plan_date' => $tagihan_supplier_date,
-                        'plan_pay' => $totalAmount+$total_vat_val,
-                        // 'payment_voucher_id',
-                        // 'payment_voucher_no',
-                        // 'actual_date',
-                        // 'actual_payment',
-                        'active' => 'Y',
-                        'created_by' => Auth::user()->id,
-                        'updated_by' => Auth::user()->id
-                    ]);
+                if ($qCoa){
+                    // jika COA terkait dg cashflow
+
+                    // create rencana pembayaran untuk cashflow
+                    $period_date = explode('/', $request->payment_plan_date);
+    
+                    $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
+                    ->where('bank_id', $request->bank_id)
+                    ->where('is_draft', 'N')
+                    ->first();
+                    if ($qPp){
+                        $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
+                            'payment_plan_id' => $qPp->id,
+                            'supplier_id' => $request->supplier_id,
+                            'tagihan_supplier_id' => $maxId,
+                            'tagihan_supplier_no' => $tagihan_supplier_no,
+                            'plan_date' => $tagihan_supplier_date,
+                            'plan_pay' => $totalAmount+$total_vat_val,
+                            // 'payment_voucher_id',
+                            // 'payment_voucher_no',
+                            // 'actual_date',
+                            // 'actual_payment',
+                            'active' => 'Y',
+                            'created_by' => Auth::user()->id,
+                            'updated_by' => Auth::user()->id
+                        ]);
+                    }
                 }
             }
 
@@ -910,10 +918,10 @@ class TagihanSupplierServerSideController extends Controller
         }
 
         $validateInput = [
-            'supplier_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
+            'supplier_id' => ['required', 'numeric'],
             'receipt_order_no_all' => ['required', new ValdROforTagihanSupplierRules($maxId)],
             'payment_plan_date' => 'required',
-            'bank_id' => 'required|numeric',
+            'bank_id' => ['required', 'numeric', new CheckRencanaPembayaran($request->is_draft, $request->payment_plan_date, $request->bank_id)],
         ];
         $errMsg = [
             'supplier_id.numeric' => 'Please select a valid supplier',
@@ -1046,42 +1054,50 @@ class TagihanSupplierServerSideController extends Controller
             ]);
 
             if ($request->is_draft!='Y'){
-                // create rencana pembayaran
-                $period_date = explode('/', $request->payment_plan_date);
-
-                $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
-                ->where('bank_id', $request->bank_id)
-                ->where('is_draft', 'N')
+                $qCoa = Mst_coa::where('id', $request->bank_id)
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y')
                 ->first();
-                if ($qPp){
-                    $qCheckRencanaPembayaran = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $maxId)
-                    ->whereRaw('payment_voucher_no IS null')
-                    ->orderBy('id', 'asc')
+                if ($qCoa){
+                    // jika COA terkait dg cashflow
+
+                    // create rencana pembayaran
+                    $period_date = explode('/', $request->payment_plan_date);
+    
+                    $qPp = Tx_payment_plan::where('payment_month', $period_date[2].'-'.$period_date[1].'-01')
+                    ->where('bank_id', $request->bank_id)
+                    ->where('is_draft', 'N')
                     ->first();
-                    if ($qCheckRencanaPembayaran){
-                        $updRencanaPembayaran = Tx_payment_plan_per_rc_order::where('id', $qCheckRencanaPembayaran->id)
-                        ->update([
-                            'payment_plan_id' => $qPp->id,
-                            'supplier_id' => $request->supplier_id,
-                            'tagihan_supplier_id' => $maxId,
-                            'tagihan_supplier_no' => $ts_no,
-                            'plan_date' => $tagihan_supplier_date,
-                            'plan_pay' => $totalAmount+$total_vat_val,
-                            'active' => 'Y',
-                            'updated_by' => Auth::user()->id
-                        ]);
-                    }else{
-                        $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
-                            'payment_plan_id' => $qPp->id,
-                            'supplier_id' => $request->supplier_id,
-                            'tagihan_supplier_id' => $maxId,
-                            'tagihan_supplier_no' => $ts_no,
-                            'plan_date' => $tagihan_supplier_date,
-                            'plan_pay' => $totalAmount+$total_vat_val,
-                            'active' => 'Y',
-                            'created_by' => Auth::user()->id,
-                            'updated_by' => Auth::user()->id
-                        ]);
+                    if ($qPp){
+                        $qCheckRencanaPembayaran = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $maxId)
+                        ->whereRaw('payment_voucher_no IS null')
+                        ->orderBy('id', 'asc')
+                        ->first();
+                        if ($qCheckRencanaPembayaran){
+                            $updRencanaPembayaran = Tx_payment_plan_per_rc_order::where('id', $qCheckRencanaPembayaran->id)
+                            ->update([
+                                'payment_plan_id' => $qPp->id,
+                                'supplier_id' => $request->supplier_id,
+                                'tagihan_supplier_id' => $maxId,
+                                'tagihan_supplier_no' => $ts_no,
+                                'plan_date' => $tagihan_supplier_date,
+                                'plan_pay' => $totalAmount+$total_vat_val,
+                                'active' => 'Y',
+                                'updated_by' => Auth::user()->id
+                            ]);
+                        }else{
+                            $insRencanaPembayaran = Tx_payment_plan_per_rc_order::create([
+                                'payment_plan_id' => $qPp->id,
+                                'supplier_id' => $request->supplier_id,
+                                'tagihan_supplier_id' => $maxId,
+                                'tagihan_supplier_no' => $ts_no,
+                                'plan_date' => $tagihan_supplier_date,
+                                'plan_pay' => $totalAmount+$total_vat_val,
+                                'active' => 'Y',
+                                'created_by' => Auth::user()->id,
+                                'updated_by' => Auth::user()->id
+                            ]);
+                        }
                     }
                 }
             }

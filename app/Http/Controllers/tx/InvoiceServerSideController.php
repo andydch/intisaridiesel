@@ -73,7 +73,7 @@ class InvoiceServerSideController extends Controller
                 'usr_sales.initial as sales_initial',
                 'ety_type.title_ind as ety_type_name',
             )
-            ->when($userLogin->is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=24, 
+            ->when($userLogin->is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=1 && Auth::user()->id!=16, 
                 function($q) use ($userLogin) {
                     $q->where('usr.branch_id','=', $userLogin->branch_id);
                 }
@@ -251,7 +251,7 @@ class InvoiceServerSideController extends Controller
         ->first();
 
         // $finance_admin_id=37
-        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, 
+        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, 
         function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
@@ -319,7 +319,7 @@ class InvoiceServerSideController extends Controller
                 });
             });
         })
-        ->when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, function($c1) use($branch_id) {
+        ->when($is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
             ]);
@@ -367,10 +367,10 @@ class InvoiceServerSideController extends Controller
         }
 
         $validateInput = [
-            'customer_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
+            'customer_id' => ['required', 'numeric'],
             'all_selected_FK' => ['required', new CheckApprovedRetur()],
             'invoice_date' => 'required',
-            'payment_to_id' => 'required|numeric',
+            'payment_to_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
         ];
         if($request->is_director=='Y'){
             $validateInputBranch = [
@@ -581,24 +581,32 @@ class InvoiceServerSideController extends Controller
 
             // create/update rencana penerimaan
             if($request->is_draft!='Y'){
-                $qPa = DB::table('tx_acceptance_plans AS tx_ap')
-                ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
-                ->where('bank_id', $request->payment_to_id)
-                ->where('is_draft', 'N')
+                $qCoa = Mst_coa::where('id', $request->payment_to_id)
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y')
                 ->first();
-                if ($qPa){
-                    $insPad = Tx_acceptance_plan_per_invoice::create([
-                        'acceptance_plan_id' => $qPa->id,
-                        'inv_or_kwi_id' => $ins->id,
-                        'inv_or_kwi' => 'i',
-                        'customer_id' => $request->customer_id,
-                        'invoice_no' => $invoice_no,
-                        'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
-                        'plan_accept' => $request->totalValafterVAT,
-                        'active' => 'Y',
-                        'created_by' => Auth::user()->id,
-                        'updated_by' => Auth::user()->id,
-                    ]);
+                if ($qCoa){
+                    // jika kode COA terkait dg cashflow
+
+                    $qPa = DB::table('tx_acceptance_plans AS tx_ap')
+                    ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
+                    ->where('bank_id', $request->payment_to_id)
+                    ->where('is_draft', 'N')
+                    ->first();
+                    if ($qPa){
+                        $insPad = Tx_acceptance_plan_per_invoice::create([
+                            'acceptance_plan_id' => $qPa->id,
+                            'inv_or_kwi_id' => $ins->id,
+                            'inv_or_kwi' => 'i',
+                            'customer_id' => $request->customer_id,
+                            'invoice_no' => $invoice_no,
+                            'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                            'plan_accept' => $request->totalValafterVAT,
+                            'active' => 'Y',
+                            'created_by' => Auth::user()->id,
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                    }
                 }
             }
             // create/update rencana penerimaan
@@ -734,7 +742,7 @@ class InvoiceServerSideController extends Controller
         ])
         ->first();
 
-        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, 
+        $queryCustomer = Mst_customer::when($is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, 
         function($c1) use($branch_id) {
             $c1->where([
                 'branch_id'=>$branch_id,
@@ -845,7 +853,7 @@ class InvoiceServerSideController extends Controller
                     });
                 });
             })
-            ->when($is_director!='Y' && Auth::user()->email!='ellyzabet.mitrasby@gmail.com' && Auth::user()->id!=24 && Auth::user()->id!=1, function($c1) use($branch_id) {
+            ->when($is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, function($c1) use($branch_id) {
                 $c1->where([
                     'branch_id'=>$branch_id,
                 ]);
@@ -907,10 +915,10 @@ class InvoiceServerSideController extends Controller
         }
         
         $validateInput = [
-            'customer_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
+            'customer_id' => ['required', 'numeric'],
             'all_selected_FK' => ['required', new CheckApprovedRetur()],
             'invoice_date' => 'required',
-            'payment_to_id' => 'required|numeric',
+            'payment_to_id' => ['required', 'numeric', new CheckRencanaPenerimaan($request->is_draft, $request->invoice_date, $request->payment_to_id)],
         ];
         if($request->is_director=='Y'){
             $validateInputBranch = [
@@ -1135,42 +1143,50 @@ class InvoiceServerSideController extends Controller
 
             // create/update rencana penerimaan
             if($request->is_draft!='Y'){
-                $qPa = DB::table('tx_acceptance_plans AS tx_ap')
-                ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
-                ->where('bank_id', $request->payment_to_id)
-                ->where('is_draft', 'N')
+                $qCoa = Mst_coa::where('id', $request->payment_to_id)
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y')
                 ->first();
-                if ($qPa){
-                    $qPaD = DB::table('tx_acceptance_plan_per_invoices')
-                    // ->where('acceptance_plan_id', $qPa->id)
-                    ->where('inv_or_kwi_id', $id)
-                    ->where('inv_or_kwi', 'i')
-                    ->where('customer_id', $request->customer_id)
-                    ->where('invoice_no', $invoice_no)
-                    ->orderBy('id', 'ASC')
+                if ($qCoa){
+                    // jika kode COA terkait dg cashflow
+
+                    $qPa = DB::table('tx_acceptance_plans AS tx_ap')
+                    ->where('acceptance_month', $invoice_date[2].'-'.$invoice_date[1].'-01')
+                    ->where('bank_id', $request->payment_to_id)
+                    ->where('is_draft', 'N')
                     ->first();
-                    if ($qPaD){
-                        $updPad = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
-                        ->update([
-                            'acceptance_plan_id' => $qPa->id,
-                            'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
-                            'plan_accept' => $request->totalValafterVAT,
-                            'active' => 'Y',
-                            'updated_by' => Auth::user()->id,
-                        ]);
-                    }else{
-                        $insPad = Tx_acceptance_plan_per_invoice::create([
-                            'acceptance_plan_id' => $qPa->id,
-                            'inv_or_kwi_id' => $id,
-                            'inv_or_kwi' => 'i',
-                            'customer_id' => $request->customer_id,
-                            'invoice_no' => $invoice_no,
-                            'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
-                            'plan_accept' => $request->totalValafterVAT,
-                            'active' => 'Y',
-                            'created_by' => Auth::user()->id,
-                            'updated_by' => Auth::user()->id,
-                        ]);
+                    if ($qPa){
+                        $qPaD = DB::table('tx_acceptance_plan_per_invoices')
+                        // ->where('acceptance_plan_id', $qPa->id)
+                        ->where('inv_or_kwi_id', $id)
+                        ->where('inv_or_kwi', 'i')
+                        ->where('customer_id', $request->customer_id)
+                        ->where('invoice_no', $invoice_no)
+                        ->orderBy('id', 'ASC')
+                        ->first();
+                        if ($qPaD){
+                            $updPad = Tx_acceptance_plan_per_invoice::where('id', $qPaD->id)
+                            ->update([
+                                'acceptance_plan_id' => $qPa->id,
+                                'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                                'plan_accept' => $request->totalValafterVAT,
+                                'active' => 'Y',
+                                'updated_by' => Auth::user()->id,
+                            ]);
+                        }else{
+                            $insPad = Tx_acceptance_plan_per_invoice::create([
+                                'acceptance_plan_id' => $qPa->id,
+                                'inv_or_kwi_id' => $id,
+                                'inv_or_kwi' => 'i',
+                                'customer_id' => $request->customer_id,
+                                'invoice_no' => $invoice_no,
+                                'plan_date' => $invoice_date[2].'-'.$invoice_date[1].'-'.$invoice_date[0],
+                                'plan_accept' => $request->totalValafterVAT,
+                                'active' => 'Y',
+                                'created_by' => Auth::user()->id,
+                                'updated_by' => Auth::user()->id,
+                            ]);
+                        }
                     }
                 }
             }
