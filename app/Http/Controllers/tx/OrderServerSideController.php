@@ -29,7 +29,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -189,13 +189,9 @@ class OrderServerSideController extends Controller
 
                 if(($query->createdby==Auth::user()->id || $userLogin->is_director=='Y' || $userLogin->is_branch_head=='Y' || Auth::user()->id==1) 
                     && $query->order_active=='Y' && is_null($query->canceled_by)){
-                    if ((is_null($query->approved_by) && !$hasRO && $userLogin->is_director=='Y') || (!is_null($query->approved_by) && !$isReceived && $userLogin->is_director=='Y') ||
-                        (!$isReceived && is_null($query->approved_by) && is_null($query->canceled_by)) || Auth::user()->id==1){
-                        // if (!is_null($query->approved_by) && !$isReceived && $userLogin->is_director=='Y'){
-                        //     Log::info('test 1: '.$query->purchase_no);
-                        // }else{
-                        //     Log::info('test 1: '.$query->purchase_no.' (tidak sesuai)');
-                        // }
+                    if ((is_null($query->approved_by) && !$hasRO && $userLogin->is_director=='Y') || (!is_null($query->approved_by) && $isReceived && $userLogin->is_director=='Y') 
+                        || (!is_null($query->approved_by) && !$isReceived && $userLogin->is_director=='Y') 
+                        || (!$isReceived && is_null($query->approved_by) && is_null($query->canceled_by)) || Auth::user()->id==1){
                         $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$query->tx_id.'/edit').'" style="text-decoration: underline;">Edit</a> |
                             <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/order/'.$query->tx_id).'" style="text-decoration: underline;">View</a>';
                             if(!is_null($query->approved_by)){
