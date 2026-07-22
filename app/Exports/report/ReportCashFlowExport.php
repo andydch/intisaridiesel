@@ -7,16 +7,9 @@ use App\Models\Mst_customer;
 use App\Models\Mst_global;
 use App\Models\Mst_supplier;
 use App\Models\Tx_cash_flow;
-// use App\Models\Tx_invoice;
-// use App\Models\Tx_kwitansi;
-// use App\Models\Tx_nota_retur_non_tax;
-// use App\Models\Tx_nota_retur;
 use App\Models\Tx_payment_plan;
 use App\Models\Tx_payment_plan_per_rc_order;
-// use App\Models\Tx_payment_receipt_invoice;
-// use App\Models\Tx_payment_voucher;
-// use App\Models\Tx_lokal_journal_detail;
-// use App\Models\Tx_general_journal_detail;
+use App\Models\Tx_acceptance_plan;
 use DateInterval;
 use DateTime;
 use Illuminate\Contracts\View\View;
@@ -237,18 +230,25 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             // Menambahkan 1 bulan (P = Period, 1 = Angka, M = Month)
             $dateObjectNext->add(new DateInterval('P1M'));
 
-            $qCustomers = Mst_customer::where(function($q) use($dateObjectNow, $dateObjectNext){
-                $q->whereExists(function($q1) use($dateObjectNow, $dateObjectNext){
+            $qPlanCust = Tx_acceptance_plan::whereRaw('DATE_FORMAT(acceptance_month, \'%c-%Y\')=\''.$this->period.'\'')
+            ->where('bank_id', $this->bank_id)
+            ->where('is_draft', 'N')
+            ->where('active', 'Y')
+            ->first();
+
+            $qCustomers = Mst_customer::where(function($q) use($dateObjectNow, $dateObjectNext, $qPlanCust){
+                $q->whereExists(function($q1) use($dateObjectNow, $dateObjectNext, $qPlanCust){
                     $q1->select(DB::raw(1))
                     ->from('tx_acceptance_plan_per_invoices AS tx_appi')
-                    ->leftJoin('tx_acceptance_plans AS tx_ap', function($join){
-                        $join->on('tx_appi.acceptance_plan_id', '=', 'tx_ap.id')
-                        ->where('tx_ap.bank_id', $this->bank_id)
-                        ->where('tx_ap.is_draft', '=', 'N')
-                        ->where('tx_ap.active', '=', 'Y');
-                    })
+                    // ->leftJoin('tx_acceptance_plans AS tx_ap', function($join){
+                    //     $join->on('tx_appi.acceptance_plan_id', '=', 'tx_ap.id')
+                    //     ->whereRaw('DATE_FORMAT(tx_ap.acceptance_month, \'%c-%Y\')=\''.$this->period.'\'')
+                    //     ->where('tx_ap.bank_id', $this->bank_id)
+                    //     ->where('tx_ap.is_draft', '=', 'N')
+                    //     ->where('tx_ap.active', '=', 'Y');
+                    // })
+                    ->where('tx_appi.acceptance_plan_id', ($qPlanCust?$qPlanCust->id:0))
                     ->whereColumn('tx_appi.customer_id', 'mst_customers.id')
-                    // ->whereRaw('(tx_appi.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.plan_date<\''.$dateObjectNext->format('Y-m-d').'\')')
                     ->whereRaw('((tx_appi.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.plan_date<\''.$dateObjectNext->format('Y-m-d').'\') OR 
                         (tx_appi.payment_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.payment_date<\''.$dateObjectNext->format('Y-m-d').'\'))')
                     ->where('tx_appi.active', 'Y');
@@ -983,7 +983,10 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 ->from('tx_payment_plan_per_rc_orders')
                 ->whereColumn('tx_payment_plan_per_rc_orders.supplier_id', 'mst_suppliers.id')
                 ->where('tx_payment_plan_per_rc_orders.payment_plan_id', $qPaymentPlan->id)
-                ->whereRaw('(tx_payment_plan_per_rc_orders.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_payment_plan_per_rc_orders.plan_date<\''.$dateObjectNext->format('Y-m-d').'\')')
+                ->whereRaw('((tx_payment_plan_per_rc_orders.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' 
+                    AND tx_payment_plan_per_rc_orders.plan_date<\''.$dateObjectNext->format('Y-m-d').'\') 
+                    OR (tx_payment_plan_per_rc_orders.actual_date>=\''.$dateObjectNow->format('Y-m-d').'\' 
+                    AND tx_payment_plan_per_rc_orders.actual_date<\''.$dateObjectNext->format('Y-m-d').'\'))')
                 ->where('tx_payment_plan_per_rc_orders.active', 'Y');
             })
             ->where('active', 'Y')
