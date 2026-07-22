@@ -39,7 +39,7 @@ class CheckRencanaPembayaran implements InvokableRule
         ->where('active', 'Y')
         ->first();
 
-        if ($this->isDraft=='N' && $qCoa){
+        if ($this->isDraft=='N' && $qCoa && $this->periodDate!=null){
             $period_date = explode('/', $this->periodDate);
     
             // cek di rencana penerimaan

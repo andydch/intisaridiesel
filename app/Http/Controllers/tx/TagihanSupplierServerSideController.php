@@ -286,6 +286,9 @@ class TagihanSupplierServerSideController extends Controller
      */
     public function create()
     {
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
+        ->first();
+
         $qSuppliers = Mst_supplier::where([
             'active' => 'Y'
         ])
@@ -308,6 +311,9 @@ class TagihanSupplierServerSideController extends Controller
             $q->where([
                 'local' => 'X',
             ]);
+        })
+        ->when($userLogin->is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, function($q) use($userLogin) {
+            $q->where('branch_id', $userLogin->branch_id);
         })
         ->where('active', '=', 'Y')
         ->orderBy('coa_name', 'ASC')
@@ -749,6 +755,9 @@ class TagihanSupplierServerSideController extends Controller
      */
     public function edit($ts_no)
     {
+        $userLogin = Userdetail::where('user_id', '=', Auth::user()->id)
+        ->first();
+
         $qSuppliers = Mst_supplier::where([
             'active' => 'Y'
         ])
@@ -781,6 +790,9 @@ class TagihanSupplierServerSideController extends Controller
             })
             ->when(old('vat_val')!='(VAT)' && old('vat_val')!='(Non VAT)' && $qTS->is_vat!='Y' && $qTS->is_vat!='N', function($q) {
                 $q->where('local', '=', 'X');
+            })
+            ->when($userLogin->is_director!='Y' && Auth::user()->email!='ekadessyarfianti@gmail.com' && Auth::user()->id!=16 && Auth::user()->id!=1, function($q) use($userLogin) {
+                $q->where('branch_id', $userLogin->branch_id);
             })
             ->where('active', '=', 'Y')
             ->orderBy('coa_name', 'ASC')
