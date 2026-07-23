@@ -32,7 +32,7 @@
         <!--end breadcrumb-->
         <h6 class="mb-0 text-uppercase">{{ $title.' - '.date_format(date_create($qPlans->acceptance_month),"F Y").' ('.$bank_name.')' }}</h6>
         <hr />
-        @if (Auth::user()->id==1)
+        @if (Auth::user()->id==1 || Auth::user()->email=='maeger@koidigital.co.id')
             <div class="col-12">
                 <a class="btn btn-primary px-5" href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/sync/'.$qPlans->id.'/'.date_format(date_create($qPlans->acceptance_month),"Y-m").'/'.$qPlans->bank_id) }}" style="margin-bottom: 15px;">Synchronize</a>
             </div>
