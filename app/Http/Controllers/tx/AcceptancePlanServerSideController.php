@@ -709,7 +709,7 @@ class AcceptancePlanServerSideController extends Controller
                 foreach($qPlanDtl as $qPDtl){
                     $updPlanDtl = Tx_acceptance_plan_per_invoice::where('id', $qPDtl->tx_ppro_id)
                     ->update([
-                        'payment_plan_id' => $qPlan->id,
+                        'acceptance_plan_id' => $qPlan->id,
                         'updated_by' => Auth::user()->id,
                     ]);
                 }
@@ -735,7 +735,7 @@ class AcceptancePlanServerSideController extends Controller
                     ->where('active', 'Y')
                     ->first();
                     if ($qPlanA){
-                        Log::debug([$qPDtl->invoice_no, $qPDtl->payment_to_id, $qPlanA->id]);
+                        // Log::debug([$qPDtl->invoice_no, $qPDtl->payment_to_id, $qPlanA->id]);
                         $updPlanDtlA = Tx_acceptance_plan_per_invoice::where('id', $qPDtl->tx_appi_id)
                         ->update([
                             'acceptance_plan_id' => $qPlanA->id,
