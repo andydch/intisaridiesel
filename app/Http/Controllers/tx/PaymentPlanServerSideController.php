@@ -2,27 +2,27 @@
 
 namespace App\Http\Controllers\tx;
 
-use Exception;
-use App\Models\Mst_global;
+use App\Helpers\GlobalFuncHelper;
+use App\Http\Controllers\Controller;
 use App\Models\Mst_coa;
+use App\Models\Mst_global;
+use App\Models\Mst_menu_user;
+use App\Models\Tx_payment_plan_per_rc_order;
+use App\Models\Tx_payment_plan;
+use App\Models\Tx_payment_voucher;
+use App\Models\Tx_receipt_order;
+use App\Models\Tx_tagihan_supplier;
 use App\Models\Userdetail;
 use App\Rules\NumericCustom;
-use Illuminate\Http\Request;
-use App\Models\Tx_payment_plan;
-use App\Models\Tx_receipt_order;
-use App\Helpers\GlobalFuncHelper;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
 use App\Rules\PaymentPlanPeriodDupCheck;
-use Yajra\DataTables\Facades\DataTables;
-use App\Models\Tx_payment_plan_per_rc_order;
-use App\Models\Tx_payment_voucher;
-// use App\Models\Tx_payment_voucher_invoice;
-use App\Models\Tx_tagihan_supplier;
-use App\Models\Mst_menu_user;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Yajra\DataTables\Facades\DataTables;
 
 class PaymentPlanServerSideController extends Controller
 {
@@ -202,40 +202,6 @@ class PaymentPlanServerSideController extends Controller
                 'created_by'=>Auth::user()->id,
                 'updated_by'=>Auth::user()->id,
             ]);
-
-            // // cek setiap RO yg memiliki jatuh tempo sesuai pilihan periode
-            // $q = Tx_receipt_order::leftJoin('mst_suppliers as sp','tx_receipt_orders.supplier_id','=','sp.id')
-            // ->leftJoin('tx_tagihan_suppliers as tx_ts','sp.id','=','tx_ts.supplier_id')
-            // ->select(
-            //     'tx_receipt_orders.id as ro_id',
-            //     'tx_receipt_orders.receipt_date',
-            //     // 'tx_receipt_orders.total_after_vat',
-            //     DB::raw('IF(ISNULL(tx_receipt_orders.total_after_vat_rp), tx_receipt_orders.total_after_vat, tx_receipt_orders.total_after_vat_rp) as total_after_vat'),
-            //     // 'sp.payment_from_id as bank_id',
-            //     'sp.top as supplier_top',
-            //     DB::raw('DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY) AS due_date_payment'),
-            //     'tx_ts.bank_id as bank_id',
-            // )
-            // ->whereRaw('DATE_FORMAT(DATE_ADD(tx_receipt_orders.receipt_date, INTERVAL sp.top DAY), "%c-%Y")=\''.$request->month_id.'-'.$request->year_id.'\'')
-            // ->where('tx_receipt_orders.receipt_no','NOT LIKE','%Draft%')
-            // ->where([
-            //     'tx_receipt_orders.active'=>'Y',
-            //     'tx_ts.bank_id'=>$request->bank_id,
-            //     // 'sp.payment_from_id'=>$request->bank_id,
-            // ])
-            // ->orderBy('tx_receipt_orders.receipt_date','DESC')
-            // ->get();
-            // foreach($q as $ro){
-            //     $inDtls = Tx_payment_plan_per_rc_order::create([
-            //         'payment_plan_id'=>$ins->id,
-            //         'plan_date'=>$ro->due_date_payment,
-            //         'plan_pay'=>$ro->total_after_vat,
-            //         'receipt_order_id'=>$ro->ro_id,
-            //         'active'=>'Y',
-            //         'created_by'=>Auth::user()->id,
-            //         'updated_by'=>Auth::user()->id,
-            //     ]);
-            // }
 
         } catch(ValidationException $e){
             // Rollback and then redirect
@@ -424,7 +390,7 @@ class PaymentPlanServerSideController extends Controller
                     })
                     ->where('is_draft', 'N')
                     ->where('active', 'Y')
-                    ->orderBy('receipt_no', 'desc')
+                    ->orderBy('receipt_no', 'asc')
                     ->get();
                     if ($qRO){
                         foreach($qRO as $ro){
@@ -460,7 +426,7 @@ class PaymentPlanServerSideController extends Controller
                     })
                     ->where('is_draft', 'N')
                     ->where('active', 'Y')
-                    ->orderBy('receipt_no', 'desc')
+                    ->orderBy('receipt_no', 'asc')
                     ->get();
                     if ($qRO){
                         foreach($qRO as $ro){
@@ -731,6 +697,64 @@ class PaymentPlanServerSideController extends Controller
         DB::beginTransaction();
 
         try {
+            $qPlan = Tx_payment_plan::whereRaw('DATE_FORMAT(payment_month, "%Y-%m")=\''.$date.'\'')
+            ->where('bank_id', $bank_id)
+            ->where('is_draft', 'N')
+            ->where('active', 'Y')
+            ->first();
+            if ($qPlan){
+                // sinkronisasikan ID plan detail terhadap ID plan induk
+                $qPlanDtl = Tx_payment_plan_per_rc_order::leftJoin('tx_tagihan_suppliers AS tx_ts', 'tx_payment_plan_per_rc_orders.tagihan_supplier_id', '=', 'tx_ts.id')
+                ->select(
+                    'tx_payment_plan_per_rc_orders.id AS tx_ppro_id',
+                    'tx_ts.tagihan_supplier_no',
+                    'tx_ts.bank_id AS tx_ts_bank_id',
+                )
+                ->where('tx_payment_plan_per_rc_orders.payment_plan_id', '<>', $qPlan->id)
+                ->whereRaw('DATE_FORMAT(tx_payment_plan_per_rc_orders.plan_date, "%Y-%m")=\''.$date.'\'')
+                ->where('tx_payment_plan_per_rc_orders.active', 'Y')
+                ->where('tx_ts.bank_id', $bank_id)
+                ->get();
+                foreach($qPlanDtl as $qPDtl){
+                    $updPlanDtl = Tx_payment_plan_per_rc_order::where('id', $qPDtl->tx_ppro_id)
+                    ->update([
+                        'payment_plan_id' => $qPlan->id,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+                // sinkronisasikan ID plan detail terhadap ID plan induk
+
+                // cari data plan detail yg memiliki perbedaan periode dengan periode di plan induk dan perbedaan kode bank
+                $qPlanDtl = Tx_payment_plan_per_rc_order::leftJoin('tx_tagihan_suppliers AS tx_ts', 'tx_payment_plan_per_rc_orders.tagihan_supplier_id', '=', 'tx_ts.id')
+                ->select(
+                    'tx_payment_plan_per_rc_orders.id AS tx_ppro_id',
+                    'tx_payment_plan_per_rc_orders.plan_date',
+                    'tx_ts.tagihan_supplier_no',
+                    'tx_ts.bank_id AS tx_ts_bank_id',
+                )
+                ->where('tx_payment_plan_per_rc_orders.payment_plan_id', $qPlan->id)
+                ->whereRaw('DATE_FORMAT(tx_payment_plan_per_rc_orders.plan_date, "%Y-%m")=\''.$date.'\'')
+                ->where('tx_payment_plan_per_rc_orders.active', 'Y')
+                ->where('tx_ts.bank_id', '<>', $bank_id)
+                ->get();
+                foreach($qPlanDtl as $qPDtl){
+                    $qPlanA = Tx_payment_plan::whereRaw('DATE_FORMAT(payment_month, "%Y-%m")=\''.date_format(date_create($qPDtl->plan_date),"Y-m").'\'')
+                    ->where('bank_id', $qPDtl->tx_ts_bank_id)
+                    ->where('is_draft', 'N')
+                    ->where('active', 'Y')
+                    ->first();
+                    if ($qPlanA){
+                        // Log::debug([$qPDtl->tagihan_supplier_no, $qPDtl->tx_ts_bank_id]);
+                        $updPlanDtlA = Tx_payment_plan_per_rc_order::where('id', $qPDtl->tx_ppro_id)
+                        ->update([
+                            'payment_plan_id' => $qPlanA->id,
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                    }
+                }
+                // cari data plan detail yg memiliki perbedaan periode dengan periode di plan induk
+            }
+
             // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
             $qCts = Tx_tagihan_supplier::whereNotIn('id', function($q1) {
                 $q1->select('tagihan_supplier_id')
@@ -741,13 +765,16 @@ class PaymentPlanServerSideController extends Controller
                 $q1->select('tagihan_supplier_id')
                 ->from('tx_payment_vouchers')
                 ->whereRaw('payment_voucher_no IS NOT null')
+                ->whereRaw('tagihan_supplier_id IS NOT null')
                 ->where('is_draft', 'N')
                 ->where('active', 'Y');
             })
             ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            ->where('bank_id', $bank_id)
             ->where('active', 'Y')
             ->orderBy('id', 'ASC')
             ->get();
+            // Log::debug($bank_id);
             foreach($qCts as $qC){
                 $ins = Tx_payment_plan_per_rc_order::create([
                     'payment_plan_id' => $id,
@@ -761,6 +788,19 @@ class PaymentPlanServerSideController extends Controller
                     'updated_by' => Auth::user()->id,
                 ]);
             }
+            // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
+
+            // reset
+            $qUpdDtlSetZero = Tx_payment_plan_per_rc_order::where('payment_plan_id', ($qPlan?$qPlan->id:0))
+            ->update([
+                'payment_voucher_id' => null,
+                'payment_voucher_no' => null,
+                'actual_date' => null,
+                'actual_payment' => 0,
+                'is_pv_approved' => 'N',
+                'updated_by' => Auth::user()->id,
+            ]);
+            // reset
 
             $next_cts_payment = 0;
             $next_cts_id = 0;
@@ -856,7 +896,7 @@ class PaymentPlanServerSideController extends Controller
             ->with('status-error',ENV('ERR_MSG_01'));
         } catch(Exception $e){
             DB::rollback();
-            throw $e;
+            // throw $e;
 
             return redirect()
             ->back()
