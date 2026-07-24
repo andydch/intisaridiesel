@@ -5,17 +5,17 @@ namespace App\Http\Controllers\tx;
 use App\Helpers\GlobalFuncHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Auto_inc;
+use App\Models\Mst_coa;
 use App\Models\Mst_global;
 use App\Models\Mst_menu_user;
 use App\Models\Mst_supplier;
 use App\Models\Tx_general_journal;
 use App\Models\Tx_lokal_journal;
+use App\Models\Tx_payment_plan_per_rc_order;
 use App\Models\Tx_payment_voucher_invoice;
 use App\Models\Tx_payment_voucher;
 use App\Models\Tx_receipt_order;
 use App\Models\Userdetail;
-use App\Models\Tx_payment_plan_per_rc_order;
-use App\Models\Mst_coa;
 use App\Rules\CheckDiffFullVsPartialPaymentReceipt;
 use App\Rules\CheckRemainingPaymentVoucher;
 use App\Rules\NumericCustom;
@@ -24,6 +24,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -370,6 +371,11 @@ class PaymentVoucherServerSideController extends Controller
             ->with('status-error', ENV('ERR_MSG_02')?ENV('ERR_MSG_02'):'You are not allowed to access this page!');
         }
 
+        $qCoa = Mst_coa::where('id', $request->coa_id)
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
+        ->first();
+
         $total = GlobalFuncHelper::moneyValidate($request['grandTotalTerbayar']);
         $validateInput = [
             'payment_mode_id' => 'numeric',
@@ -387,6 +393,24 @@ class PaymentVoucherServerSideController extends Controller
             'biaya_kirim' => [new NumericCustom('Biaya Kirim')],
             'diskon_pembelian' => [new NumericCustom('Diskon Pembelian')],
         ];
+        for ($i = 0; $i < $request->totalRow; $i++) {
+            $total_inv_validate = 0;
+            $total_inv_o_validate = 0;
+            if ($request['invoice_no_'.$i]) {
+                if ($qCoa){
+                    // hanya COA cashflow yg di validasi
+                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    if ((float)$total_inv_validate<>(float)$total_inv_o_validate){
+                        $validateInputNextPlanDate = [
+                            'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
+                        ];
+                        $validateInput = array_merge($validateInput, $validateInputNextPlanDate);
+                        break;
+                    }
+                }
+            }
+        }
         $errMsg = [
             'payment_mode_id.numeric' => 'Please select a valid Payment Method',
             'tagihan_supplier_id.numeric' => 'Please select a valid No Tagihan Supplier',
@@ -413,26 +437,15 @@ class PaymentVoucherServerSideController extends Controller
                     }
                 }
             }
-            $qCoa = Mst_coa::where('id', $request->coa_id)
-            ->where('is_cashflow', 'Y')
-            ->where('active', 'Y')
-            ->first();
+            
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $total_inv_validate = 0;
-                    $total_inv_o_validate = 0;
-                    if ($qCoa){
-                        $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
-                        $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
-                    }
-
                     $validateShipmentInput = [
                         'invoice_no_'.$i => 'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
-                        'total_inv_'.$i => ['required',new NumericCustom('Total'), new CheckRemainingPaymentVoucher($request['invoice_no_'.$i],0,0)],
-                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
+                        'total_inv_'.$i => ['required', new NumericCustom('Total'), new CheckRemainingPaymentVoucher($request['invoice_no_'.$i],0,0)],
                     ];
                     $errShipmentMsg = [
-                        'invoice_no_'.$i.'.different' => 'You cannot choose the same invoice number',
+                        'invoice_no_'.$i.'.different' => 'You cannot choose the same invoice number', 
                         'invoice_no_'.$i.'.required' => 'Please select a valid invoice no',
                         'invoice_no_'.$i.'.numeric' => 'Please select a valid invoice no',
                         'total_inv_'.$i.'.required' => 'The total field is required',
@@ -1151,6 +1164,11 @@ class PaymentVoucherServerSideController extends Controller
             }
         }
 
+        $qCoa = Mst_coa::where('id', $request->coa_id)
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
+        ->first();
+
         $validateInput = [
             'payment_mode_id' => 'numeric',
             'tagihan_supplier_id' => 'required|numeric',
@@ -1167,6 +1185,24 @@ class PaymentVoucherServerSideController extends Controller
             'biaya_kirim' => [new NumericCustom('Biaya Kirim')],
             'diskon_pembelian' => [new NumericCustom('Diskon Pembelian')],
         ];
+        for ($i = 0; $i < $request->totalRow; $i++) {
+            $total_inv_validate = 0;
+            $total_inv_o_validate = 0;
+            if ($request['invoice_no_'.$i]) {
+                if ($qCoa){
+                    // hanya COA cashflow yg di validasi
+                    $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
+                    $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
+                    if ((float)$total_inv_validate<>(float)$total_inv_o_validate){
+                        $validateInputNextPlanDate = [
+                            'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
+                        ];
+                        $validateInput = array_merge($validateInput, $validateInputNextPlanDate);
+                        break;
+                    }
+                }
+            }
+        }
         $errMsg = [
             'payment_mode_id.numeric' => 'Please select a valid Payment Method',
             'tagihan_supplier_id.numeric' => 'Please select a valid No Tagihan Supplier',
@@ -1193,23 +1229,12 @@ class PaymentVoucherServerSideController extends Controller
                     }
                 }
             }
-            $qCoa = Mst_coa::where('id', $request->coa_id)
-            ->where('is_cashflow', 'Y')
-            ->where('active', 'Y')
-            ->first();
+            
             for ($i = 0; $i < $request->totalRow; $i++) {
                 if ($request['invoice_no_'.$i]) {
-                    $total_inv_validate = 0;
-                    $total_inv_o_validate = 0;
-                    if ($qCoa){
-                        $total_inv_validate = GlobalFuncHelper::moneyValidate($request['total_inv_'.$i]);
-                        $total_inv_o_validate = GlobalFuncHelper::moneyValidate($request['total_inv_o_'.$i]);
-                    }
-
                     $validateShipmentInput = [
                         'invoice_no_'.$i=>'required|numeric'.str_replace('invoice_no_'.$i,"", $different_rule),
                         'total_inv_'.$i=>['required',new NumericCustom('Total'),new CheckRemainingPaymentVoucher($request['invoice_no_'.$i], $request['inv_id_'.$i], $qPv->id)],
-                        'next_plan_date' => [new CheckDiffFullVsPartialPaymentReceipt($total_inv_o_validate, $total_inv_validate)],
                     ];
                     $errShipmentMsg = [
                         'invoice_no_'.$i.'.different' => 'You cannot choose the same invoice number',
@@ -1530,6 +1555,7 @@ class PaymentVoucherServerSideController extends Controller
                 ->where('active', 'Y')
                 ->first();
                 if ($qTAgSup){
+                    // jika CTS terkait ditemukan
                     $sumTot = Tx_payment_voucher_invoice::where('payment_voucher_id', $qPv->id)
                     ->where('active', 'Y')
                     ->sum('total_payment_after_vat');
@@ -1588,6 +1614,73 @@ class PaymentVoucherServerSideController extends Controller
                         }
                     }
                     // siapkan plan selanjutnya jika dibutuhkan
+                }else{
+                    // jika CTS terkait tidak ditemukan
+                    $qTAgSup = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $request->tagihan_supplier_id)
+                    ->whereRaw('payment_voucher_id IS null')
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'ASC')
+                    ->first();
+                    if ($qTAgSup){
+                        $sumTot = Tx_payment_voucher_invoice::where('payment_voucher_id', $qPv->id)
+                        ->where('active', 'Y')
+                        ->sum('total_payment_after_vat');
+
+                        $upd = Tx_payment_plan_per_rc_order::where('id', $qTAgSup->id)
+                        ->update([
+                            'payment_voucher_id' => $qPv->id,
+                            'payment_voucher_no' => urldecode($voucher_no),
+                            'actual_date' => (!is_null($request->payment_date)?$payment_date[2].'-'.$payment_date[1].'-'.$payment_date[0]:null),
+                            'actual_payment' => $sumTot,
+                            'updated_by' => Auth::user()->id,
+                        ]);
+
+                        // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+                        $updPA = Tx_payment_voucher::where('id', '<', $qPv->id)
+                        ->where('tagihan_supplier_id', $qPv->tagihan_supplier_id)
+                        ->update([
+                            'next_plan_date_status' => 'N',
+                            'updated_by' => Auth::user()->id,
+                        ]);
+                        // matikan edit next plan date dari PV yg terbentuk sebelum PV ini
+
+                        // siapkan plan selanjutnya jika dibutuhkan
+                        if ($isDiffFullVsPartialPaymentReceipt=='Y'){
+
+                            $diffTot = $qTAgSup->plan_pay - $sumTot;     // selisih sbg next payment plan
+                            $qTAgSupCheck = Tx_payment_plan_per_rc_order::where([
+                                'payment_plan_id' => $qTAgSup->payment_plan_id,
+                                'supplier_id' => $qTAgSup->supplier_id,
+                                'tagihan_supplier_id' => $qTAgSup->tagihan_supplier_id,
+                                'tagihan_supplier_no' => $qTAgSup->tagihan_supplier_no,
+                            ])
+                            ->whereRaw('payment_voucher_id IS NULL')
+                            ->orderBy('id', 'asc')
+                            ->first();
+                            if ($qTAgSupCheck){
+                                $updTAgSupCheck = Tx_payment_plan_per_rc_order::where('id', $qTAgSupCheck->id)
+                                ->update([
+                                    'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                                    'plan_pay' => $diffTot,
+                                    'active' => 'Y',
+                                    'updated_by' => Auth::user()->id,
+                                ]);
+                            }else{
+                                $insNextPlan = Tx_payment_plan_per_rc_order::create([
+                                    'payment_plan_id' => $qTAgSup->payment_plan_id,
+                                    'supplier_id' => $qTAgSup->supplier_id,
+                                    'tagihan_supplier_id' => $qTAgSup->tagihan_supplier_id,
+                                    'tagihan_supplier_no' => $qTAgSup->tagihan_supplier_no,
+                                    'plan_date' => (!is_null($request->next_plan_date)?$next_plan_date[2].'-'.$next_plan_date[1].'-'.$next_plan_date[0]:null),
+                                    'plan_pay' => $diffTot,
+                                    'active' => 'Y',
+                                    'created_by' => Auth::user()->id,
+                                    'updated_by' => Auth::user()->id,
+                                ]);
+                            }
+                        }
+                        // siapkan plan selanjutnya jika dibutuhkan
+                    }
                 }
             }
             // update rencana penerimaan

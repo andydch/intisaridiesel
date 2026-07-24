@@ -30,8 +30,8 @@ class CheckDiffFullVsPartialPaymentReceipt implements InvokableRule
     public function __invoke($attribute, $value, $fail)
     {
         // rule ini digunakan di PA dan PV
-        if ($this->full_payment <> $this->partial_payment && $value=='') {
-            $fail('Due to partial payment, the next planned date must be filled in..');
+        if ((float)$this->full_payment <> (float)$this->partial_payment && $value=='') {
+            $fail('Due to partial payment, the next planned date must be filled in.');
         }
     }
 }

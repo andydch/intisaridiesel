@@ -240,13 +240,6 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 $q->whereExists(function($q1) use($dateObjectNow, $dateObjectNext, $qPlanCust){
                     $q1->select(DB::raw(1))
                     ->from('tx_acceptance_plan_per_invoices AS tx_appi')
-                    // ->leftJoin('tx_acceptance_plans AS tx_ap', function($join){
-                    //     $join->on('tx_appi.acceptance_plan_id', '=', 'tx_ap.id')
-                    //     ->whereRaw('DATE_FORMAT(tx_ap.acceptance_month, \'%c-%Y\')=\''.$this->period.'\'')
-                    //     ->where('tx_ap.bank_id', $this->bank_id)
-                    //     ->where('tx_ap.is_draft', '=', 'N')
-                    //     ->where('tx_ap.active', '=', 'Y');
-                    // })
                     ->where('tx_appi.acceptance_plan_id', ($qPlanCust?$qPlanCust->id:0))
                     ->whereColumn('tx_appi.customer_id', 'mst_customers.id')
                     ->whereRaw('((tx_appi.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.plan_date<\''.$dateObjectNext->format('Y-m-d').'\') OR 
@@ -294,7 +287,6 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         ->where('tx_ap.active', 'Y');
                     })
                     ->select(
-                        // DB::raw('SUM(tx_appi.plan_accept) AS total_nominal'),
                         'tx_appi.plan_date',
                         'tx_appi.plan_accept',
                         'tx_appi.invoice_no',
@@ -302,25 +294,34 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         'tx_appi.payment_date',
                         'tx_appi.payment_total',
                     )
-                    ->where('tx_appi.plan_date', $dayToValidate)
-                    // ->where(function($q) use($dayToValidate){
-                    //     $q->where('tx_appi.plan_date', $dayToValidate)
-                    //     ->orWhere('tx_appi.payment_date', $dayToValidate);
-                    // })
+                    // ->where('tx_appi.plan_date', $dayToValidate)
+                    ->where(function($q) use($dayToValidate){
+                        $q->where('tx_appi.plan_date', $dayToValidate)
+                        ->orWhere('tx_appi.payment_date', $dayToValidate);
+                    })
                     ->where('tx_appi.customer_id', $customer->id)
                     ->where('tx_appi.active', 'Y')
                     ->get();
                     foreach($qNominalPlanAndActual as $qNPA){
+                        // if (date_format(date_create($qNPA->plan_date),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]) 
+                        //     || date_format(date_create($qNPA->payment_date),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
+                        // }
                         if ($qNPA->payment_total!=null && $qNPA->payment_total>0){
-                            $totalPaymentActualPerDay += $qNPA->payment_total;
-                            $dateActual = new DateTime($qNPA->payment_date);
+                            if (date_format(date_create($qNPA->payment_date),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
+                                $totalPaymentActualPerDay += $qNPA->payment_total;
+                                $dateActual = new DateTime($qNPA->payment_date);
+                            }
                         }else{
                             $totalNominalPlanPerDay += $qNPA->plan_accept;
                             $datePlan = new DateTime($qNPA->plan_date);
                         }
                     }
 
-                    if ($totalPaymentActualPerDay>0 || $totalNominalPlanPerDay>0){
+                    // if (date_format($datePlan,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]) 
+                    //     || date_format($dateActual,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
+                    // }
+                    if (($totalPaymentActualPerDay>0 && date_format($dateActual,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])) 
+                        || $totalNominalPlanPerDay>0){
                         $qRptCashFlow = Tx_cash_flow::where([
                             'report_code' => $randomString,
                             'row_number' => $rowInXls,
@@ -375,7 +376,9 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         }
                     }
 
-                    $totalPerRow += $totalPaymentActualPerDay>0?$totalPaymentActualPerDay:$totalNominalPlanPerDay;
+                    $totalPerRow += ($totalPaymentActualPerDay>0 && date_format($dateActual,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]))?
+                        $totalPaymentActualPerDay:
+                        $totalNominalPlanPerDay;
                     $lastCol = 2+$iDay;
                 }
 
@@ -1029,11 +1032,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         'tx_payment_plan_per_rc_orders.actual_payment',
                         'tx_payment_plan_per_rc_orders.is_pv_approved',
                     )
-                    ->where('tx_payment_plan_per_rc_orders.plan_date', $dayToValidate)
-                    // ->where(function($q) use($dayToValidate){
-                    //     $q->where('tx_payment_plan_per_rc_orders.plan_date', $dayToValidate)
-                    //     ->orWhere('tx_payment_plan_per_rc_orders.actual_date', $dayToValidate);
-                    // })
+                    // ->where('tx_payment_plan_per_rc_orders.plan_date', $dayToValidate)
+                    ->where(function($q) use($dayToValidate){
+                        $q->where('tx_payment_plan_per_rc_orders.plan_date', $dayToValidate)
+                        ->orWhere('tx_payment_plan_per_rc_orders.actual_date', $dayToValidate);
+                    })
                     ->where('tx_payment_plan_per_rc_orders.supplier_id', $qS->id)
                     ->where('tx_payment_plan_per_rc_orders.active', 'Y')
                     ->where('tx_pp.bank_id', $this->bank_id)
@@ -1041,15 +1044,18 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     ->get();
                     foreach($qSpPerDay as $qNPA){
                         if ($qNPA->actual_payment!=null && $qNPA->actual_payment>0 && $qNPA->is_pv_approved=='Y'){
-                            $totalPaymentActualPerDay += ($qNPA->is_pv_approved=='Y'?$qNPA->actual_payment:0);
-                            $dateActual = new DateTime($qNPA->actual_date);
+                            if (date_format(date_create($qNPA->actual_payment),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
+                                $totalPaymentActualPerDay += ($qNPA->is_pv_approved=='Y'?$qNPA->actual_payment:0);
+                                $dateActual = new DateTime($qNPA->actual_date);
+                            }
                         }else{
                             $totalNominalPlanPerDay += $qNPA->plan_pay;
                             $datePlan = new DateTime($qNPA->plan_date);
                         }
                     }
 
-                    if ($totalPaymentActualPerDay>0 || $totalNominalPlanPerDay>0){
+                    if (($totalPaymentActualPerDay>0 && date_format($dateActual,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])) 
+                        || $totalNominalPlanPerDay>0){
                         $qRptCashFlow = Tx_cash_flow::where([
                             'report_code' => $randomString,
                             'row_number' => $rowInXls,
@@ -1099,7 +1105,8 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         }
                     }
 
-                    $totalPerRow += $totalPaymentActualPerDay>0?($totalPaymentActualPerDay*-1):($totalNominalPlanPerDay*-1);
+                    $totalPerRow += ($totalPaymentActualPerDay>0 && date_format($dateActual,"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]))?
+                        ($totalPaymentActualPerDay*-1):($totalNominalPlanPerDay*-1);
                     $lastCol = 2+$iDay;
                 }
 
