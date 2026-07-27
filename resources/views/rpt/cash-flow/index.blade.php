@@ -79,7 +79,8 @@
                                                 @endphp
                                                 @foreach ($coas as $coa)
                                                     <option @if ($bank_id==$coa->id) {{ 'selected' }} @endif value="{{ $coa->id }}">
-                                                        {{ ucwords(strtolower($coa->coa_name)) }}
+                                                        {{ $coa->coa_name }}
+                                                        {{-- {{ ucwords(strtolower($coa->coa_name)) }} --}}
                                                     </option>
                                                 @endforeach
                                             </select>

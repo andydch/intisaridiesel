@@ -18,7 +18,7 @@ use App\Models\Tx_receipt_order;
 use App\Models\Tx_stock_adjustment;
 use App\Models\Tx_stock_transfer;
 use App\Models\Userdetail;
-use App\Rules\NumericCustom;
+// use App\Rules\NumericCustom;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -300,8 +300,10 @@ class GeneralJournalServerSideController extends Controller
                     $validateShipmentInput = [
                         'coa_code_'.$i=>'required|numeric',
                         // 'coa_code_'.$i=>'required|numeric'.$validateCoaCode,     // --- validasi duplikasi
-                        'debet_amount'.$i=>['required_without:credit_amount'.$i,new NumericCustom('Debet Amount')],
-                        'credit_amount'.$i=>['required_without:debet_amount'.$i,new NumericCustom('Credit Amount')],
+                        'debet_amount'.$i=>['required_without:credit_amount'.$i],
+                        'credit_amount'.$i=>['required_without:debet_amount'.$i],
+                        // 'debet_amount'.$i=>['required_without:credit_amount'.$i,new NumericCustom('Debet Amount')],
+                        // 'credit_amount'.$i=>['required_without:debet_amount'.$i,new NumericCustom('Credit Amount')],
                     ];
                     $errShipmentMsg = [
                         'coa_code_'.$i.'.numeric'=>'Please select a valid COA code',
@@ -701,8 +703,10 @@ class GeneralJournalServerSideController extends Controller
                     $validateShipmentInput = [
                         'coa_code_'.$i=>'required|numeric',
                         // 'coa_code_'.$i=>'required|numeric'.$validateCoaCode,     // --- validasi duplikasi
-                        'debet_amount'.$i=>['required_without:credit_amount'.$i,new NumericCustom('Debet Amount')],
-                        'credit_amount'.$i=>['required_without:debet_amount'.$i,new NumericCustom('Credit Amount')],
+                        'debet_amount'.$i=>['required_without:credit_amount'.$i],
+                        'credit_amount'.$i=>['required_without:debet_amount'.$i],
+                        // 'debet_amount'.$i=>['required_without:credit_amount'.$i,new NumericCustom('Debet Amount')],
+                        // 'credit_amount'.$i=>['required_without:debet_amount'.$i,new NumericCustom('Credit Amount')],
                     ];
                     $errShipmentMsg = [
                         'coa_code_'.$i.'.numeric'=>'Please select a valid COA code',

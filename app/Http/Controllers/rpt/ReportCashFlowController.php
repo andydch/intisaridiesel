@@ -33,9 +33,8 @@ class ReportCashFlowController extends Controller
                 'active' => 'Y',
             ]);
         })
-        ->where([
-            'active' => 'Y',
-        ])
+        ->where('is_cashflow', 'Y')
+        ->where('active', 'Y')
         ->orderBy('coa_name', 'ASC')
         ->get();
 

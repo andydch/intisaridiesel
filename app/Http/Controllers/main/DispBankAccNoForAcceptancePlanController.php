@@ -29,6 +29,7 @@ class DispBankAccNoForAcceptancePlanController extends Controller
             ]);
         })
         ->where([
+            'is_cashflow' => 'Y',
             'active' => 'Y',
         ])
         ->orderBy('coa_name', 'ASC')

@@ -2,7 +2,7 @@
 
 @section('style')
 <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+{{-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> --}}
 <style>
     .select2-selection {
         height: 38px !important;

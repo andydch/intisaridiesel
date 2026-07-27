@@ -17,7 +17,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -50,6 +50,14 @@ class AcceptancePlanServerSideController extends Controller
                 DB::raw('DATE_FORMAT(acceptance_month, "%M %Y") as acceptance_month_f'),
                 'is_draft',
             )
+            ->whereExists(function($q){
+                $q->selectRaw(1)
+                ->from('mst_coas')
+                ->whereColumn('mst_coas.id', 'tx_acceptance_plans.bank_id')
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y');
+            })
+            ->where('active', 'Y')
             ->orderBy('acceptance_month','DESC');
 
             return DataTables::of($query)

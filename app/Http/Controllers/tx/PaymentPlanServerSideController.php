@@ -19,7 +19,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -53,6 +53,14 @@ class PaymentPlanServerSideController extends Controller
                 'bank_id',
                 'is_draft',
             )
+            ->whereExists(function($q){
+                $q->selectRaw(1)
+                ->from('mst_coas')
+                ->whereColumn('mst_coas.id', 'tx_payment_plans.bank_id')
+                ->where('is_cashflow', 'Y')
+                ->where('active', 'Y');
+            })
+            ->where('active', 'Y')
             ->orderBy('payment_month','DESC');
 
             return DataTables::of($query)
@@ -125,6 +133,7 @@ class PaymentPlanServerSideController extends Controller
         ->whereIn('local', ['A','P','N'])
         ->where([
             'coa_level' => 5,
+            'is_cashflow' => 'Y',
             'active' => 'Y',
         ])
         ->get();
