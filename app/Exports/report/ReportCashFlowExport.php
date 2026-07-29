@@ -1044,7 +1044,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     ->get();
                     foreach($qSpPerDay as $qNPA){
                         if ($qNPA->actual_payment!=null && $qNPA->actual_payment>0 && $qNPA->is_pv_approved=='Y'){
-                            if (date_format(date_create($qNPA->actual_payment),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
+                            if (date_format(date_create($qNPA->actual_date),"Y-m")==$period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0])){
                                 $totalPaymentActualPerDay += ($qNPA->is_pv_approved=='Y'?$qNPA->actual_payment:0);
                                 $dateActual = new DateTime($qNPA->actual_date);
                             }

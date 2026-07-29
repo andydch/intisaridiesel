@@ -64,7 +64,7 @@ use App\Exports\report\SalesPerBranchPerCustomerExport;
 use App\Exports\report\StockInventoryAccPerBranchExport;
 use App\Exports\report\SummaryStockPerGudangPerMerkExport;
 use App\Exports\report\SummaryStockPerMerkPerGudangExport;
-use App\Exports\report\TagihanSupplierExport;
+use App\Exports\report\TagihanSupplierAllExport;
 use App\Http\Controllers\adm\AutomaticJournalController;
 use App\Http\Controllers\adm\BranchController;
 use App\Http\Controllers\adm\BranchImportController;
@@ -619,6 +619,8 @@ Route::group(
         'middleware' => ['forceHttps', 'auth', 'valdUser']
     ],
     function () {
+        $date_xls=date_create(now());
+
         // memo
         Route::resource('/memo', MemoServerSideController::class)->except(['destroy']);
         Route::resource('/print-memo', MemoPrintController::class)->except(['index', 'create', 'store', 'edit', 'update', 'destroy']);
@@ -722,8 +724,8 @@ Route::group(
         Route::get('/tagihan-supplier/rm', [TagihanSupplierServerSideController::class, 'rmTagihanSupplier']);
         Route::resource('/tagihan-supplier', TagihanSupplierServerSideController::class)->except(['destroy']);
         Route::post('/tagihan-supplier/download-rpt', [TagihanSupplierServerSideController::class, 'downloadRpt']);
-        Route::get('/tagihan-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id, string $date_start, string $date_end) {
-            return Excel::download(new TagihanSupplierExport($branch_id, $date_start, $date_end), 'tagihan-supplier.xlsx');
+        Route::get('/tagihan-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id, string $date_start, string $date_end) use($date_xls){
+            return Excel::download(new TagihanSupplierAllExport($branch_id, $date_start, $date_end), 'tagihan-supplier-'.date_format($date_xls, "YmdHis").'.xlsx');
         });
 
         // payment voucher
@@ -811,7 +813,7 @@ Route::group(
         'middleware' => ['forceHttps', 'auth', 'valdUser']
     ],
     function () {
-        $date_xls=date_create(now());
+        $date_xls = date_create(now());
 
         // master inventory
         Route::resource('/master-inventory', ReportMasterInventoryController::class)->except(['show','edit','update','destroy']);
