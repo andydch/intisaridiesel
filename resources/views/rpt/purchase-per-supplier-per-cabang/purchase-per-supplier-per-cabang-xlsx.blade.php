@@ -42,6 +42,7 @@
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">INV NO</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">RO NO</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">NO PO/MO</th>
+                        <th style="text-align: center;border:1px solid black;background-color:#daeef3;">NO CTS</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">DPP ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">PPN ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;border:1px solid black;background-color:#daeef3;">TOTAL ({{ $qCurrency->string_val }})</th>
@@ -66,6 +67,7 @@
                     @foreach ($branches as $branch)
                         <tr>
                             <td style="font-weight:700;border-left:1px solid black;font-weight:700;">{{ $branch->name }}</td>
+                            <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
@@ -123,6 +125,15 @@
                                     <td style="text-align:left;">{!! $ro->invoice_no !!}</td>
                                     <td style="text-align:center;">{{ $ro->receipt_no }}</td>
                                     <td style="text-align:center;">{!! str_replace(",","<br/>",substr($ro->po_or_pm_no,1,strlen($ro->po_or_pm_no))) !!}</td>
+                                    @php
+                                        $qCts = \App\Models\Tx_tagihan_supplier_detail::leftJoin('tx_tagihan_suppliers AS tx_ts', 'tx_ts.id', '=', 'tx_tagihan_supplier_details.tagihan_supplier_id')
+                                        ->select('tx_ts.tagihan_supplier_no')
+                                        ->where('tx_tagihan_supplier_details.receipt_order_id', $ro->id)
+                                        ->where('tx_tagihan_supplier_details.active', 'Y')
+                                        ->where('tx_ts.active', 'Y')
+                                        ->first();
+                                    @endphp
+                                    <td style="text-align:center;">{{ $qCts?$qCts->tagihan_supplier_no:'' }}</td>
                                     <td style="text-align:right;">{{ number_format($dpp_last,0,'.','') }}</td>
                                     <td style="text-align:right;">{{ number_format($vat_last,0,'.','') }}</td>
                                     <td style="text-align:right;">{{ number_format($dpp_last+$vat_last,0,'.','') }}</td>
@@ -158,6 +169,15 @@
                                         <td style="color:red;">&nbsp;</td>
                                         <td style="color:red;text-align:center;">{{ $pr->purchase_retur_no}}</td>
                                         <td style="color:red;text-align:center;">{!! str_replace(",","<br/>",substr($ro->po_or_pm_no,1,strlen($ro->po_or_pm_no))) !!}</td>
+                                        @php
+                                            $qCtsPr = \App\Models\Tx_tagihan_supplier_detail::leftJoin('tx_tagihan_suppliers AS tx_ts', 'tx_ts.id', '=', 'tx_tagihan_supplier_details.tagihan_supplier_id')
+                                            ->select('tx_ts.tagihan_supplier_no')
+                                            ->where('tx_tagihan_supplier_details.receipt_order_id', $pr->receipt_order_id)
+                                            ->where('tx_tagihan_supplier_details.active', 'Y')
+                                            ->where('tx_ts.active', 'Y')
+                                            ->first();
+                                        @endphp
+                                        <td style="color:red;text-align:center;">{{ $qCtsPr?$qCtsPr->tagihan_supplier_no:'' }}</td>
                                         <td style="color:red;text-align:right;">-{{ number_format($pr->total_before_vat,0,'.','') }}</td>
                                         @php
                                             $vat_val = $pr->total_after_vat-$pr->total_before_vat;
@@ -185,6 +205,7 @@
                                     'tx_purchase_returs.purchase_retur_date',
                                     'tx_purchase_returs.purchase_retur_no',
                                     'tx_purchase_returs.vat_val',
+                                    'tx_purchase_returs.receipt_order_id',
                                     'tx_ro.po_or_pm_no',
                                     'tx_ro.invoice_no',
                                     'usr.initial as createdUserInit',
@@ -230,6 +251,15 @@
                                     <td style="color:red;">&nbsp;</td>
                                     <td style="color:red;text-align:center;">{{ $qPR_o->purchase_retur_no}}</td>
                                     <td style="color:red;text-align:center;">{!! str_replace(",","<br/>",substr($qPR_o->po_or_pm_no,1,strlen($qPR_o->po_or_pm_no))) !!}</td>
+                                    @php
+                                        $qCtsPr = \App\Models\Tx_tagihan_supplier_detail::leftJoin('tx_tagihan_suppliers AS tx_ts', 'tx_ts.id', '=', 'tx_tagihan_supplier_details.tagihan_supplier_id')
+                                        ->select('tx_ts.tagihan_supplier_no')
+                                        ->where('tx_tagihan_supplier_details.receipt_order_id', $qPR_o->receipt_order_id)
+                                        ->where('tx_tagihan_supplier_details.active', 'Y')
+                                        ->where('tx_ts.active', 'Y')
+                                        ->first();
+                                    @endphp
+                                    <td style="color:red;text-align:center;">{{ $qCtsPr?$qCtsPr->tagihan_supplier_no:'' }}</td>
                                     <td style="color:red;text-align:right;">-{{ number_format($qPR_o->total_before_vat,0,'.','') }}</td>
                                     <td style="color:red;text-align:right;">-{{ number_format($pr_before_vat_ppn,0,'.','') }}</td>
                                     <td style="color:red;text-align:right;">-{{ number_format($qPR_o->total_after_vat,0,'.','') }}</td>
@@ -244,6 +274,7 @@
                                 <tr>
                                     <td style="border-left:1px solid black;">&nbsp;</td>
                                     <td style="text-align: center;font-weight:700;">SUB TOTAL</td>
+                                    <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -263,6 +294,7 @@
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
+                                    <td>&nbsp;</td>
                                     <td style="border-right:1px solid black;">&nbsp;</td>
                                 </tr>
                             @else
@@ -270,6 +302,7 @@
                                     <tr>
                                         <td style="border-left:1px solid black;">&nbsp;</td>
                                         <td style="text-align: center;font-weight:700;">SUB TOTAL</td>
+                                        <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
@@ -281,6 +314,7 @@
                                     </tr>
                                     <tr>
                                         <td style="border-left:1px solid black;">&nbsp;</td>
+                                        <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
@@ -304,6 +338,7 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
+                            <td>&nbsp;</td>
                             <td style="font-weight: 700;text-align:right;">{{ number_format($totalPerBranchDPP,0,'.','') }}</td>
                             <td style="font-weight: 700;text-align:right;">{{ number_format($totalPerBranchVAT,0,'.','') }}</td>
                             <td style="font-weight: 700;text-align:right;">{{ number_format($totalPerBranchDPP+$totalPerBranchVAT,0,'.','') }}</td>
@@ -320,11 +355,13 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
+                            <td>&nbsp;</td>
                             <td style="border-right:1px solid black;">&nbsp;</td>
                         </tr>
                     @endforeach
                     <tr>
                         <td style="text-align: center;font-weight:700;border-left:1px solid black;border-bottom:1px solid black;">GRAND TOTAL</td>
+                        <td style="border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>

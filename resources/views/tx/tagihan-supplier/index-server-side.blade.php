@@ -71,7 +71,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <label for="end_date" class="col-sm-1 col-form-label" style="text-align: right;">End RO Date*</label>
+                        <label for="end_date" class="col-sm-2 col-form-label" style="text-align: right;">End RO Date*</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('end_date') is-invalid @enderror"
                                 maxlength="10" id="end_date" name="end_date" placeholder="end date"

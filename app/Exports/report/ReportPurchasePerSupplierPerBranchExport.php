@@ -140,7 +140,7 @@ class ReportPurchasePerSupplierPerBranchExport implements FromView, ShouldAutoSi
             // 'A1' => ['font' => ['bold' => true]],
             // 'N4' => ['font' => ['bold' => true]],
             'A4' => ['font' => ['bold' => true]],
-            'A6:J6' => ['font' => ['bold' => true]],
+            'A6:K6' => ['font' => ['bold' => true]],
             // 'D'.$lastHighestRow => ['font' => ['bold' => true]],
             // 'M'.$lastHighestRow => ['font' => ['bold' => true]],
 
