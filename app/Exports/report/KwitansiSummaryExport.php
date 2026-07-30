@@ -12,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
-class KwitansiExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
+class KwitansiSummaryExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
     protected $branch_id;
     protected $start_date;
@@ -47,7 +47,7 @@ class KwitansiExport implements FromView, ShouldAutoSize, WithStyles, WithColumn
             'qCurrency' => $qCurrency,
             'company' => $company,
         ];
-        return view('tx.kwitansi.kwitansi-xlsx', $data);
+        return view('tx.kwitansi.kwitansi-summary-xlsx', $data);
     }
 
     public function styles(Worksheet $sheet)

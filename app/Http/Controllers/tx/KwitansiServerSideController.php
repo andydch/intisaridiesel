@@ -47,6 +47,11 @@ class KwitansiServerSideController extends Controller
         $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
         ->first();
 
+        // branch
+        $branches = Mst_branch::where('active', 'Y')
+        ->orderBy('name','ASC')
+        ->get();
+
         if ($request->ajax()){
             $query = Tx_kwitansi::leftJoin('userdetails AS usr','tx_kwitansis.created_by','=','usr.user_id')
             ->leftJoin('mst_customers','tx_kwitansis.customer_id','=','mst_customers.id')
@@ -211,6 +216,7 @@ class KwitansiServerSideController extends Controller
             'title' => $this->title,
             'folder' => $this->folder,
             'qCurrency' => $qCurrency,
+            'branches' => $branches,
             'is_director_now' => $userLogin->is_director,
             'is_branch_head_now' => $userLogin->is_branch_head,
         ];
@@ -1163,10 +1169,13 @@ class KwitansiServerSideController extends Controller
     public function rptKwitansi(Request $request)
     {
         $validateInput = [
+            'branch_id' => 'required|numeric',
             'start_date' => 'required',
             'end_date' => 'required',
         ];
         $errMsg = [
+            'branch_id.required' => 'Branch is required',
+            'branch_id.numeric' => 'Branch is required',
             'start_date.required' => 'Start Date must be filled',
             'end_date.required' => 'End Date must be filled',
         ];
@@ -1178,7 +1187,8 @@ class KwitansiServerSideController extends Controller
         ->validate();
 
         return redirect('tx/kwitansi-xlsx/'.
-                $request->start_date.'/'.
-                $request->end_date);
+            urlencode($request->branch_id).'/'.
+            urlencode($request->start_date).'/'.
+            urlencode($request->end_date));
     }
 }

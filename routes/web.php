@@ -19,7 +19,7 @@ use App\Exports\report\InventoryOverStockUnderStockExport;
 use App\Exports\report\InventoryPerGudangPerPartNoExport;
 use App\Exports\report\InventoryPerMerkPerPartNoExport;
 use App\Exports\report\InvoiceAllExport;
-use App\Exports\report\KwitansiExport;
+use App\Exports\report\KwitansiAllExport;
 use App\Exports\report\MasterInventoryExport;
 use App\Exports\report\OutstandingPurchaseOrderExport;
 use App\Exports\report\OverdueReceivablesPerBranchExport;
@@ -788,10 +788,11 @@ Route::group(
 
         // kwitansi
         Route::post('/kwitansi/rpt', [KwitansiServerSideController::class, 'rptKwitansi']);
-        Route::get('/kwitansi-xlsx/{start_date}/{end_date}', function (
+        Route::get('/kwitansi-xlsx/{branch_id}/{start_date}/{end_date}', function (
+            string $branch_id,
             string $start_date,
-            string $end_date) {
-            return Excel::download(new KwitansiExport($start_date,$end_date), 'kwitansi.xlsx');
+            string $end_date) use($date_xls){
+            return Excel::download(new KwitansiAllExport($branch_id, $start_date, $end_date), 'proses-tagihan-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
         
         Route::resource('/kwitansi', KwitansiServerSideController::class)->except(['destroy']);

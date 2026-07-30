@@ -30,7 +30,24 @@
                 <form name="form_search" id="form-search" action="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/rpt') }}" method="POST" enctype="application/x-www-form-urlencoded">
                     @csrf
                     <div class="row mb-3">
-                        <label for="start_date" class="col-sm-1 col-form-label">Start NP Date</label>
+                        <label for="branch_id" class="col-sm-2 col-form-label" style="text-align: right;">Branch</label>
+                        <div class="col-sm-2">
+                            <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id" onchange="dispPoPm('');">
+                                <option value="#">Choose...</option>
+                                @php
+                                    $p_Id = (old('branch_id')?old('branch_id'):0);
+                                @endphp
+                                @foreach ($branches as $branch)
+                                    <option @if ($p_Id==$branch->id) {{ 'selected' }} @endif value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('branch_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="start_date" class="col-sm-2 col-form-label" style="text-align: right;">Start NP Date</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('start_date') is-invalid @enderror" maxlength="10"
                                 id="start_date" name="start_date" placeholder="start date" value="@if(old('start_date')){{ old('start_date') }}@endif">
@@ -38,7 +55,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <label for="end_date" class="col-sm-1 col-form-label">End NP Date</label>
+                        <label for="end_date" class="col-sm-2 col-form-label" style="text-align: right;">End NP Date</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('end_date') is-invalid @enderror" maxlength="10"
                                 id="end_date" name="end_date" placeholder="end date" value="@if(old('end_date')){{ old('end_date') }}@endif">
