@@ -120,18 +120,25 @@
                         ->when($userLogin->is_director!='Y' 
                             && Auth::user()->email!='ekadessyarfianti@gmail.com' 
                             && Auth::user()->id!=1 
-                            && Auth::user()->id!=24, 
+                            && Auth::user()->id!=16, 
                             function($q) use ($userLogin) {
                                 $q->where('usr.branch_id','=', $userLogin->branch_id);
                             }
                         )
+                        ->orderBy('mst_customers.name', 'asc')
                         ->orderBy('tx_invoices.is_draft', 'DESC')
                         ->orderBy('tx_invoices.invoice_no', 'DESC')
                         ->get();
+
+                        $custNm = '';
+                        $custNmTmp = '';
                     @endphp
                     @foreach ($qInvoices as $qInv)
+                        @php
+                            $custNm = $qInv->customer_unique_code.' - '.$qInv->ety_type_name.' '.$qInv->cust_name;
+                        @endphp
                         <tr>
-                            <td style="text-align: left;">{{ $qInv->customer_unique_code.' - '.$qInv->ety_type_name.' '.$qInv->cust_name }}</td>
+                            <td style="text-align: left;">{{ $custNm<>$custNmTmp?$custNm:'' }}</td>
                             <td style="text-align: center;">{{ $qInv->coa_name }}</td>
                             <td style="font-weight:bold;border-left:1px solid black;text-align: center;">{{ $qInv->invoice_no }}</td>
                             <td style="text-align: center;">{{ $qInv->plan_date }}</td>
@@ -173,6 +180,9 @@
                             @endphp
                             <td style="text-align: center;border-right:1px solid black;">{{ $status }}</td>
                         </tr>
+                        @php
+                            $custNmTmp = $qInv->customer_unique_code.' - '.$qInv->ety_type_name.' '.$qInv->cust_name;
+                        @endphp
                     @endforeach 
                 </tbody>
                 <tfoot>
