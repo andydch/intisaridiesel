@@ -19,7 +19,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -770,7 +770,7 @@ class PaymentPlanServerSideController extends Controller
                 ->from('tx_payment_plan_per_rc_orders')
                 ->where('active', 'Y');
             })
-            ->whereNotIn('id', function($q1) {
+            ->whereIn('id', function($q1) {
                 $q1->select('tagihan_supplier_id')
                 ->from('tx_payment_vouchers')
                 ->whereRaw('payment_voucher_no IS NOT null')
@@ -783,7 +783,6 @@ class PaymentPlanServerSideController extends Controller
             ->where('active', 'Y')
             ->orderBy('id', 'ASC')
             ->get();
-            // Log::debug($bank_id);
             foreach($qCts as $qC){
                 $ins = Tx_payment_plan_per_rc_order::create([
                     'payment_plan_id' => $id,
@@ -810,6 +809,54 @@ class PaymentPlanServerSideController extends Controller
                 'updated_by' => Auth::user()->id,
             ]);
             // reset
+
+            // kumpulkan CTS yg sudah terbentuk plan nya tapi PV nya masih kosong di rencana pembayaran
+            $qCts = Tx_tagihan_supplier::whereIn('id', function($q1) {
+                $q1->select('tagihan_supplier_id')
+                ->from('tx_payment_plan_per_rc_orders')
+                ->whereRaw('payment_voucher_id IS null')
+                ->where('active', 'Y');
+            })
+            // ->whereIn('id', function($q1) {
+            //     $q1->select('tagihan_supplier_id')
+            //     ->from('tx_payment_vouchers')
+            //     ->whereRaw('payment_voucher_no IS NOT null')
+            //     ->whereRaw('tagihan_supplier_id IS NOT null')
+            //     ->where('is_draft', 'N')
+            //     ->where('active', 'Y');
+            // })
+            ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            ->where('bank_id', $bank_id)
+            ->where('active', 'Y')
+            ->orderBy('id', 'ASC')
+            ->get();
+            foreach($qCts as $qC){
+                $qPvCts = Tx_payment_voucher::where('tagihan_supplier_id', $qC->id)
+                // ->whereNotIn('payment_voucher_no', function($q1) {
+                //     $q1->select('payment_voucher_no')
+                //     ->from('tx_payment_plan_per_rc_orders')
+                //     // ->whereRaw('payment_voucher_id IS NOT null')
+                //     ->where('active', 'Y');
+                // })
+                ->whereRaw('payment_voucher_no IS NOT null')
+                ->where('active', 'Y')
+                ->orderBy('id', 'asc')
+                ->first();
+                if ($qPvCts){
+                    Log::debug($qPvCts->tagihan_supplier_id);
+                    $upd = Tx_payment_plan_per_rc_order::where('tagihan_supplier_no', $qC->tagihan_supplier_no)
+                    ->update([
+                        'payment_voucher_id' => $qPvCts->pv_id,
+                        'payment_voucher_no' => $qPvCts->payment_voucher_no,
+                        'actual_date' => $qPvCts->payment_date,
+                        'actual_payment' => $qPvCts->payment_total_after_vat,
+                        'is_pv_approved' => $qPvCts->approved_by!=null?'Y':'N',
+                        'active' => 'Y',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+            }
+            // kumpulkan CTS yg sudah terbentuk plan nya tapi PV nya masih kosong di rencana pembayaran
 
             $next_cts_payment = 0;
             $next_cts_id = 0;

@@ -359,19 +359,19 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                                 ]);
                             }else{
                                 // jika sudah ada data actual, maka tambahkan dengan data actual yg baru
-                                $qRptCashFlow->update([
-                                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                                    'bank_id' => $this->bank_id,
-                                    'cell_values' => $totalPaymentActualPerDay>0?
-                                        number_format(($totalPaymentActualPerDay+$qRptCashFlow->first()->cell_values),0,"",""):
-                                        number_format($totalNominalPlanPerDay,0,"",""),
-                                    'f_color' => '#000000',
-                                    'b_color' => $totalPaymentActualPerDay>0?'#8ea9db':'#ffffff',
-                                    'font_size' => '12',
-                                    'font_weight' => '300',
-                                    'font_style' => 'normal',
-                                    'text_align' => 'right',
-                                ]);
+                                // $qRptCashFlow->update([
+                                //     'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                                //     'bank_id' => $this->bank_id,
+                                //     'cell_values' => $totalPaymentActualPerDay>0?
+                                //         number_format(($totalPaymentActualPerDay+$qRptCashFlow->first()->cell_values),0,"",""):
+                                //         number_format($totalNominalPlanPerDay,0,"",""),
+                                //     'f_color' => '#000000',
+                                //     'b_color' => $totalPaymentActualPerDay>0?'#8ea9db':'#ffffff',
+                                //     'font_size' => '12',
+                                //     'font_weight' => '300',
+                                //     'font_style' => 'normal',
+                                //     'text_align' => 'right',
+                                // ]);
                             }
                         }
                     }
