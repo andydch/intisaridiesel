@@ -17,7 +17,7 @@
                 @php
                     $date = now();
                     $month = date_format($date,"m");
-                    $totCols = 13;
+                    $totCols = 14;
                     $monthNm = '';
                 @endphp
                 <thead>
@@ -74,6 +74,7 @@
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">DATE</th>
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">NO SO</th>
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">NO FK/NR</th>
+                            <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">NO INV/KWI</th>
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">DPP ({{ $qCurrency->string_val }})</th>
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">PPN ({{ $qCurrency->string_val }})</th>
                             <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">TOTAL ({{ $qCurrency->string_val }})</th>
@@ -150,9 +151,13 @@
                                 @foreach ($qSO as $q)
                                     @php
                                         $faktur_no = '';
-                                        $faktur = \App\Models\Tx_delivery_order_part::leftJoin('tx_delivery_orders AS txdo','tx_delivery_order_parts.delivery_order_id','=','txdo.id')
+                                        $invoice_no = '';
+                                        $faktur = \App\Models\Tx_delivery_order_part::leftJoin('tx_delivery_orders AS txdo', 'tx_delivery_order_parts.delivery_order_id', '=', 'txdo.id')
+                                        ->leftJoin('tx_invoice_details AS tx_invd', 'tx_invd.fk_id', '=', 'tx_delivery_order_parts.delivery_order_id')
+                                        ->leftJoin('tx_invoices AS tx_inv', 'tx_inv.id', '=', 'tx_invd.invoice_id')
                                         ->select(
                                             'txdo.delivery_order_no',
+                                            'tx_inv.invoice_no',
                                         )
                                         ->where([
                                             'tx_delivery_order_parts.sales_order_id'=>$q->sales_order_id,
@@ -162,6 +167,7 @@
                                         ->first();
                                         if($faktur){
                                             $faktur_no = $faktur->delivery_order_no;
+                                            $invoice_no = $faktur->invoice_no;
                                         }
 
                                         $totalDPP += $q->total_before_vat;
@@ -178,6 +184,7 @@
                                         <td style="text-align: center;">{{ date_format(date_create($q->sales_order_date),"d/m/Y") }}</td>
                                         <td style="text-align: center;">{{ $q->sales_order_no }}</td>
                                         <td style="text-align: center;">{{ strpos($faktur_no,"Draft")>0?'':$faktur_no }}</td>
+                                        <td style="text-align: center;">{{ $invoice_no!=''?$invoice_no:'' }}</td>
                                         <td style="text-align: right;">{{ number_format($q->total_before_vat,0,'.','') }}</td>
                                         <td style="text-align: right;">{{ number_format(($q->total_after_vat-$q->total_before_vat),0,'.','') }}</td>
                                         <td style="text-align: right;">{{ number_format($q->total_after_vat,0,'.','') }}</td>
@@ -249,6 +256,7 @@
                                             <td style="text-align: center;color: red;">{{ date_format(date_create($qNRd->nota_retur_date),"d/m/Y") }}</td>
                                             <td style="text-align: center;color: red;">{{ $q->sales_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no }}</td>
+                                            <td style="text-align: center;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_before_vat,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">-{{ number_format(($qNRd->total_after_vat-$qNRd->total_before_vat),0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_after_vat,0,'.','') }}</td>
@@ -384,6 +392,7 @@
                                             <td style="text-align: center;color: red;">{{ date_format(date_create($qN->nota_retur_date),"d/m/Y") }}</td>
                                             <td style="text-align: center;color: red;">{{ $qSo->sales_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no }}</td>
+                                            <td style="text-align: center;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qN->total_before_vat,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">-{{ number_format(($qN->total_after_vat-$qN->total_before_vat),0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qN->total_after_vat,0,'.','') }}</td>
@@ -472,8 +481,14 @@
                                         $totalDPPplusPPNperCust += $q->total;
 
                                         $np_no = '';
+                                        $kwitansi_no = '';
                                         $np = \App\Models\Tx_delivery_order_non_tax_part::leftJoin('tx_delivery_order_non_taxes AS txdo','tx_delivery_order_non_tax_parts.delivery_order_id','=','txdo.id')
-                                        ->select('txdo.delivery_order_no')
+                                        ->leftJoin('tx_kwitansi_details AS tx_kwd', 'tx_kwd.np_id', '=', 'tx_delivery_order_non_tax_parts.delivery_order_id')
+                                        ->leftJoin('tx_kwitansis AS tx_kw', 'tx_kw.id', '=', 'tx_kwd.kwitansi_id')
+                                        ->select(
+                                            'txdo.delivery_order_no',
+                                            'tx_kw.kwitansi_no',
+                                        )
                                         ->where([
                                             'tx_delivery_order_non_tax_parts.sales_order_id'=>$q->surat_jalan_id,
                                             'tx_delivery_order_non_tax_parts.active'=>'Y',
@@ -482,6 +497,7 @@
                                         ->first();
                                         if($np){
                                             $np_no = $np->delivery_order_no;
+                                            $kwitansi_no = $np->kwitansi_no;
                                         }
                                     @endphp
                                     <tr>
@@ -489,6 +505,7 @@
                                         <td style="text-align: center;">{{ date_format(date_create($q->surat_jalan_date),"d/m/Y") }}</td>
                                         <td style="text-align: center;">{{ $q->surat_jalan_no }}</td>
                                         <td style="text-align: center;">{{ strpos($np_no,"Draft")>0?'':$np_no }}</td>
+                                        <td style="text-align: center;">{{ $kwitansi_no }}</td>
                                         <td style="text-align: right;">{{ number_format($q->total,0,'.','') }}</td>
                                         <td style="text-align: right;">&nbsp;</td>
                                         <td style="text-align: right;">{{ number_format($q->total,0,'.','') }}</td>
@@ -555,6 +572,7 @@
                                             <td style="text-align: center;color: red;">{{ date_format(date_create($qNRd->nota_retur_date),"d/m/Y") }}</td>
                                             <td style="text-align: center;color: red;">{{ $q->surat_jalan_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no }}</td>
+                                            <td style="text-align: center;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_price,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_price,0,'.','') }}</td>
@@ -684,6 +702,7 @@
                                             <td style="text-align: center;color: red;">{{ date_format(date_create($qRo->nota_retur_date),"d/m/Y") }}</td>
                                             <td style="text-align: center;color: red;">{{ $qSJo->surat_jalan_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no }}</td>
+                                            <td style="text-align: center;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qRo->total_price,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">&nbsp;</td>
                                             <td style="text-align: right;color: red;">-{{ number_format($qRo->total_price,0,'.','') }}</td>
@@ -740,6 +759,7 @@
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
+                                    <td>&nbsp;</td>
                                     <td style="text-align: right;font-weight:700;">{{ number_format($totalDPPperCust,0,'.','') }}</td>
                                     <td style="text-align: right;font-weight:700;">{{ $totalPPNperCust>0?number_format($totalPPNperCust,0,'.',''):'' }}</td>
                                     <td style="text-align: right;font-weight:700;">{{ number_format($totalDPPplusPPNperCust,0,'.','') }}</td>
@@ -763,6 +783,7 @@
                                     <td style="border-bottom:1px solid black;">&nbsp;</td>
                                     <td style="border-bottom:1px solid black;">&nbsp;</td>
                                     <td style="border-bottom:1px solid black;">&nbsp;</td>
+                                    <td style="border-bottom:1px solid black;">&nbsp;</td>
                                     <td style="border-right:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                                 </tr>
                             @endif
@@ -771,6 +792,7 @@
                             <tr>
                                 <td style="text-align: rightborder-left:1px solid black;font-weight:700;">Total</td>
                                 <td style="text-align: left;font-weight:700;">{{ $branch->name }}</td>
+                                <td>&nbsp;</td>
                                 <td>&nbsp;</td>
                                 <td>&nbsp;</td>
                                 <td style="text-align: right;font-weight:700;">{{ number_format($totalDPP,0,'.','') }}</td>
@@ -797,6 +819,7 @@
                             <td style="border-bottom:1px solid black;">&nbsp;</td>
                             <td style="border-bottom:1px solid black;">&nbsp;</td>
                             <td style="border-bottom:1px solid black;">&nbsp;</td>
+                            <td style="border-bottom:1px solid black;">&nbsp;</td>
                             <td style="border-right:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                         </tr>
                         @php
@@ -808,6 +831,7 @@
                     @endforeach
                     <tr>
                         <td colspan="4" style="text-align: center;font-weight:bold;border:1px solid black;">Grand Total</td>
+                        <td style="border:1px solid black;">&nbsp;</td>
                         <td style="text-align: right;font-weight:bold;border:1px solid black;">{{ number_format($grandtotalDPP,0,'.','') }}</td>
                         <td style="text-align: right;font-weight:bold;border:1px solid black;">{{ number_format($grandtotalPPN,0,'.','') }}</td>
                         <td style="text-align: right;font-weight:bold;border:1px solid black;">{{ number_format($grandtotalDPPplusPPN,0,'.','') }}</td>
