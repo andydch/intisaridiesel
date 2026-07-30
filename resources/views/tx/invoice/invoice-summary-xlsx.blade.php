@@ -9,7 +9,7 @@
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
-        <title>Detail</title>
+        <title>Summary</title>
     </head>
     <body>
         <div class="table-responsive">
@@ -17,7 +17,7 @@
                 @php
                     $date = now();
                     $month = date_format($date, "m");
-                    $totCols = 10;
+                    $totCols = 8;
                     $monthNm = '';
                 @endphp
                 <thead>
@@ -28,7 +28,7 @@
                         <th>&nbsp;</th>
                     </tr>
                     <tr>
-                        <th colspan="{{ $totCols }}">BILLING PROCESS</th>
+                        <th colspan="{{ $totCols }}">SUMMARY BILLING PROCESS</th>
                     </tr>
                     <tr>
                         <th colspan="{{ $totCols }}" style="text-align: right;">PERIODE FK:&nbsp;{{ $start_date.' s/d '.$end_date }}</th>
@@ -42,8 +42,6 @@
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">Nama Customer</th>
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">Bank Account</th>
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">INV NO</th>
-                        <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">FAKTUR NO</th>
-                        <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">FAKTUR DATE</th>
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">PLAN DATE</th>
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">TOTAL ({{ $qCurrency->string_val }})</th>
                         <th style="text-align: center;font-weight:bold;border:1px solid black;background-color:#daeef3;">CREATE DATE</th>
@@ -105,28 +103,6 @@
                                 ->whereRaw('approved_by IS NOT NULL')
                                 ->where('active', 'Y')
                         ])
-                        ->addSelect([
-                            'all_fk_no' => \App\Models\Tx_delivery_order::selectRaw('GROUP_CONCAT(delivery_order_no SEPARATOR ",") AS all_fk_no')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_invd.fk_id')
-                                    ->from('tx_invoice_details AS tx_invd')
-                                    ->whereColumn('tx_invd.invoice_id', 'tx_invoices.id')
-                                    ->where('tx_invd.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
-                        ->addSelect([
-                            'all_fk_date' => \App\Models\Tx_delivery_order::selectRaw('GROUP_CONCAT(DATE_FORMAT(tx_delivery_orders.delivery_order_date, "%d-%m-%Y") SEPARATOR ",") AS all_fk_date')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_invd.fk_id')
-                                    ->from('tx_invoice_details AS tx_invd')
-                                    ->whereColumn('tx_invd.invoice_id', 'tx_invoices.id')
-                                    ->where('tx_invd.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
                         ->whereIn('tx_invoices.id', function($q) use($dt_s, $dt_e) {
                             $q->select('invoice_id')
                             ->from('tx_invoice_details')
@@ -154,16 +130,10 @@
                         ->get();
                     @endphp
                     @foreach ($qInvoices as $qInv)
-                        @php
-                            $fkNoArr = explode(',', $qInv->all_fk_no);
-                            $fkDateArr = explode(',', $qInv->all_fk_date);
-                        @endphp
                         <tr>
                             <td style="text-align: left;">{{ $qInv->customer_unique_code.' - '.$qInv->ety_type_name.' '.$qInv->cust_name }}</td>
                             <td style="text-align: center;">{{ $qInv->coa_name }}</td>
                             <td style="font-weight:bold;border-left:1px solid black;text-align: center;">{{ $qInv->invoice_no }}</td>
-                            <td style="text-align: center;">{{ $fkNoArr[0] }}</td>
-                            <td style="text-align: center;">{{ $fkDateArr[0] }}</td>
                             <td style="text-align: center;">{{ $qInv->plan_date }}</td>
                             @php
                                 $total += ($qInv->do_grandtotal_vat-$qInv->totRetur);
@@ -203,31 +173,15 @@
                             @endphp
                             <td style="text-align: center;border-right:1px solid black;">{{ $status }}</td>
                         </tr>
-                        @for ($i = 1; $i<count($fkNoArr);$i++)
-                            <tr>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;border-left:1px solid black;">&nbsp;</td>
-                                <td style="text-align: center;">{{ $fkNoArr[$i] }}</td>
-                                <td style="text-align: center;">{{ $fkDateArr[$i] }}</td>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;">&nbsp;</td>
-                                <td style="text-align: center;border-right:1px solid black;">&nbsp;</td>
-                            </tr>
-                        @endfor
                     @endforeach 
                 </tbody>
                 <tfoot>
                     <tr>
                         <td style="border-left:1px solid black;border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
-                        <td style="border-bottom:1px solid black;border-left:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
-                        <td style="border-bottom:1px solid black;">&nbsp;</td>
-                        <td style="border-bottom:1px solid black;font-weight:blod;">TOTAL</td>
-                        <td style="border-bottom:1px solid black;font-weight:blod;">{{ number_format($total,0,".","") }}</td>
+                        <td style="border-bottom:1px solid black;font-weight:700;">TOTAL</td>
+                        <td style="border-bottom:1px solid black;font-weight:700;">{{ number_format($total,0,".","") }}</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;">&nbsp;</td>
                         <td style="border-bottom:1px solid black;border-right:1px solid black;">&nbsp;</td>

@@ -18,7 +18,7 @@ use App\Exports\report\CustomerPaymentStatusExport;
 use App\Exports\report\InventoryOverStockUnderStockExport;
 use App\Exports\report\InventoryPerGudangPerPartNoExport;
 use App\Exports\report\InventoryPerMerkPerPartNoExport;
-use App\Exports\report\InvoiceExport;
+use App\Exports\report\InvoiceAllExport;
 use App\Exports\report\KwitansiExport;
 use App\Exports\report\MasterInventoryExport;
 use App\Exports\report\OutstandingPurchaseOrderExport;
@@ -743,10 +743,11 @@ Route::group(
 
         // invoice
         Route::post('/invoice/rpt', [InvoiceServerSideController::class, 'rptInvoice']);
-        Route::get('/invoice-xlsx/{start_date}/{end_date}', function (
+        Route::get('/invoice-xlsx/{branch_id}/{start_date}/{end_date}', function (
+            string $branch_id,
             string $start_date,
-            string $end_date) {
-            return Excel::download(new InvoiceExport($start_date,$end_date), 'invoice.xlsx');
+            string $end_date) use($date_xls){
+            return Excel::download(new InvoiceAllExport($branch_id, $start_date, $end_date), 'billing-process-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
         
         Route::resource('/invoice/tax-inv', InvoiceTaxInvController::class)->except(['index','create','store','destroy']);

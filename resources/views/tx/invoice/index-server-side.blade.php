@@ -2,9 +2,6 @@
 
 @section('style')
 <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
-{{-- <link href="{{ asset('assets/plugins/datetimepicker/css/classic.css') }}" rel="stylesheet" />
-<link href="{{ asset('assets/plugins/datetimepicker/css/classic.time.css') }}" rel="stylesheet" />
-<link href="{{ asset('assets/plugins/datetimepicker/css/classic.date.css') }}" rel="stylesheet" /> --}}
 <link rel="stylesheet" href="{{ asset('assets/plugins/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.min.css') }}">
 <style>
     .text-left {
@@ -33,7 +30,24 @@
                 <form name="form_search" id="form-search" action="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/'.$folder.'/rpt') }}" method="POST" enctype="application/x-www-form-urlencoded">
                     @csrf
                     <div class="row mb-3">
-                        <label for="start_date" class="col-sm-1 col-form-label">Start FK Date</label>
+                        <label for="branch_id" class="col-sm-2 col-form-label" style="text-align: right;">Branch</label>
+                        <div class="col-sm-2">
+                            <select class="form-select single-select @error('branch_id') is-invalid @enderror" id="branch_id" name="branch_id" onchange="dispPoPm('');">
+                                <option value="#">Choose...</option>
+                                @php
+                                    $p_Id = (old('branch_id')?old('branch_id'):0);
+                                @endphp
+                                @foreach ($branches as $branch)
+                                    <option @if ($p_Id==$branch->id) {{ 'selected' }} @endif value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('branch_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="start_date" class="col-sm-2 col-form-label" style="text-align: right;">Start FK Date</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('start_date') is-invalid @enderror" maxlength="10"
                                 id="start_date" name="start_date" placeholder="start date" value="@if(old('start_date')){{ old('start_date') }}@endif">
@@ -41,7 +55,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <label for="end_date" class="col-sm-1 col-form-label">End FK Date</label>
+                        <label for="end_date" class="col-sm-2 col-form-label" style="text-align: right;">End FK Date</label>
                         <div class="col-sm-2">
                             <input readonly type="text" class="form-control @error('end_date') is-invalid @enderror" maxlength="10"
                                 id="end_date" name="end_date" placeholder="end date" value="@if(old('end_date')){{ old('end_date') }}@endif">
@@ -132,8 +146,9 @@
         $('#print-id').val(i);
         let downloadLInk = '<a '+dl+' href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/invoice-print?inv=') }}'+$('#print-id').val()+'&doc=1&p='+print_type+'" target="_new" class="btn btn-primary">Permohonan Pembayaran</a>&nbsp;'+
             '<a '+dl+' href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/invoice-print?inv=') }}'+$('#print-id').val()+'&doc=2&p='+print_type+'" target="_new" class="btn btn-primary">Tanda Terima</a>&nbsp;'+
-            '<a '+dl+' href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/invoice-print?inv=') }}'+$('#print-id').val()+'&doc=3&p='+print_type+'" target="_new" class="btn btn-primary">Kwitansi</a>';
-        console.log(downloadLInk);
+            '<a '+dl+' href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/invoice-print?inv=') }}'+$('#print-id').val()+'&doc=3&p='+print_type+'" target="_new" class="btn btn-primary">Kwitansi</a>'+
+            '<a '+dl+' href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/invoice-print-to-xlsx') }}/'+$('#print-id').val()+'" target="_new" class="btn btn-primary mt-3">Permohonan Pembayaran (xlsx)</a>&nbsp;';
+        // console.log(downloadLInk);
         $("#msg-modal").html(downloadLInk);
         $('#print-info').modal('show');
     }

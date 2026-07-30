@@ -12,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
-class InvoiceExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
+class InvoiceSummaryExport implements FromView, ShouldAutoSize, WithStyles, WithColumnFormatting
 {
     protected $branch_id;
     protected $start_date;
@@ -47,7 +47,7 @@ class InvoiceExport implements FromView, ShouldAutoSize, WithStyles, WithColumnF
             'qCurrency' => $qCurrency,
             'company' => $company,
         ];
-        return view('tx.invoice.invoice-xlsx', $data);
+        return view('tx.invoice.invoice-summary-xlsx', $data);
     }
 
     public function styles(Worksheet $sheet)
