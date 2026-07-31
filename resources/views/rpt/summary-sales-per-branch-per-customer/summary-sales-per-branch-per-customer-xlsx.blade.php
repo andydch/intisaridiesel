@@ -240,7 +240,8 @@
                                     $total_avg = $qS->total_avg - $qS->total_avg_retur;
                                     $gp = $total_dpp - $total_avg;
                                     // $gp = $total_dpp - $total_avg - $qS->total_after_vat_retur - $qS->total_avg_retur;
-                                    $gp_percent = $total_dpp>0?($gp/$total_dpp)*100:0;
+                                    $gp_percent = ($gp/$total_dpp)*100;
+                                    // $gp_percent = $total_dpp>0?($gp/$total_dpp)*100:0;
                                     // $gp_percent = ($gp/($total_dpp - $qS->total_after_vat_retur))*100;
 
                                     $total_dpp_per_branch += $total_dpp;
@@ -248,10 +249,11 @@
                                     $total_amount_per_branch += $total_amount;
                                     $total_avg_per_branch += $total_avg;
                                     $gp_per_branch += $gp;
-                                    $gp_percent_per_branch = $total_dpp_per_branch>0?($gp_per_branch/$total_dpp_per_branch)*100:0;
+                                    $gp_percent_per_branch = ($gp_per_branch/$total_dpp_per_branch)*100;
+                                    // $gp_percent_per_branch = $total_dpp_per_branch>0?($gp_per_branch/$total_dpp_per_branch)*100:0;
                                 @endphp
                                 <td style="text-align: right;">{{ number_format($total_dpp, 0, '.', '') }}</td>
-                                <td style="text-align: right;">{{ $total_ppn>0?number_format($total_ppn, 0, '.', ''):'' }}</td>
+                                <td style="text-align: right;">{{ number_format($total_ppn, 0, '.', '') }}</td>
                                 <td style="text-align: right;">{{ number_format($total_amount, 0, '.', '') }}</td>
                                 <td style="text-align: right;">{{ number_format($total_avg, 0, '.', '') }}</td>
                                 <td style="text-align: right;">{{ number_format($gp, 0, '.', '') }}</td>
