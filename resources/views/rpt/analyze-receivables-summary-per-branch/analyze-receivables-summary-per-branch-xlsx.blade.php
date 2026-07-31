@@ -21,11 +21,13 @@
 
                     $dateNow = now();
                     $date = now();
+                    date_add($date, date_interval_create_from_date_string(env('WAKTU_ID')." hours"));
                     $month = date_format($date,"m");
                     $year = date_format($date,"Y");
                     $totCols = 8;
                     $monthNm = '';
 
+                    date_add($date, date_interval_create_from_date_string("-1 months"));
                     $thismonth = date_format($date,"m");
                     $thismonthYear = date_format($date,"Y");
                     date_add($date, date_interval_create_from_date_string("-1 months"));
@@ -37,6 +39,13 @@
                     date_add($date, date_interval_create_from_date_string("-1 months"));
                     $next3month = date_format($date,"m");
                     $next3monthYear = date_format($date,"Y");
+
+                    // Log::debug([
+                    //     '$thismonth' => $thismonth,
+                    //     '$next1month' => $next1month,
+                    //     '$next2month' => $next2month,
+                    //     '$next3month' => $next3month,
+                    // ]);
                 @endphp
                 <thead>
                     <tr>

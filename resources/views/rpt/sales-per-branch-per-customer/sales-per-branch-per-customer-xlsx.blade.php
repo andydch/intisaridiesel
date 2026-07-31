@@ -147,6 +147,8 @@
                                     ])
                                     ->orderBy('tx_sales_orders.sales_order_date','ASC')
                                     ->get();
+
+                                    $noReturTmp = '';
                                 @endphp
                                 @foreach ($qSO as $q)
                                     @php
@@ -257,47 +259,69 @@
                                             <td style="text-align: center;color: red;">{{ $q->sales_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no }}</td>
                                             <td style="text-align: center;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_before_vat,0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format(($qNRd->total_after_vat-$qNRd->total_before_vat),0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_after_vat,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">
-                                                @php
-                                                    $qNRavg = \App\Models\Tx_nota_retur_part::leftJoin('tx_sales_order_parts as tx_sop','tx_nota_retur_parts.sales_order_part_id','=','tx_sop.id')
-                                                    ->select(
-                                                        'tx_nota_retur_parts.qty_retur',
-                                                        'tx_sop.last_avg_cost',
-                                                    )
-                                                    ->where([
-                                                        'tx_nota_retur_parts.nota_retur_id'=>$qNRd->nr_id,
-                                                        'tx_nota_retur_parts.active'=>'Y',
-                                                    ])
-                                                    ->get();
-                                                    $totAVG = 0;
-                                                @endphp
-                                                @foreach ($qNRavg as $qAvg)
-                                                    @php
-                                                        $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
-                                                    @endphp
-                                                @endforeach
-                                                -{{ number_format($totAVG,0,'.','') }}
+                                                @if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)
+                                                -{{ number_format($qNRd->total_before_vat,0,'.','') }}
+                                                @endif
                                             </td>
-                                            <td style="text-align: right;color: red;">{{ number_format(($qNRd->total_before_vat!=0)?((($qNRd->total_before_vat-$totAVG)/$qNRd->total_before_vat)*100):0,0,'.','') }}%</td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)
+                                                -{{ number_format(($qNRd->total_after_vat-$qNRd->total_before_vat),0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)
+                                                -{{ number_format($qNRd->total_after_vat,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)
+                                                    @php
+                                                        $qNRavg = \App\Models\Tx_nota_retur_part::leftJoin('tx_sales_order_parts as tx_sop','tx_nota_retur_parts.sales_order_part_id','=','tx_sop.id')
+                                                        ->select(
+                                                            'tx_nota_retur_parts.qty_retur',
+                                                            'tx_sop.last_avg_cost',
+                                                        )
+                                                        ->where([
+                                                            'tx_nota_retur_parts.nota_retur_id'=>$qNRd->nr_id,
+                                                            'tx_nota_retur_parts.active'=>'Y',
+                                                        ])
+                                                        ->get();
+                                                        $totAVG = 0;
+                                                    @endphp
+                                                    @foreach ($qNRavg as $qAvg)
+                                                        @php
+                                                            $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
+                                                        @endphp
+                                                    @endforeach
+                                                    -{{ number_format($totAVG,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)
+                                                {{ number_format(($qNRd->total_before_vat!=0)?((($qNRd->total_before_vat-$totAVG)/$qNRd->total_before_vat)*100):0,0,'.','') }}%
+                                                @endif
+                                            </td>
                                             <td style="text-align: center;color: red;">{{ $q->customer_doc_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qNRd->delivery_order->delivery_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $q->customer->salesman01->initial }}</td>
                                             <td style="text-align: center;color: red;border-right:1px solid black;">{{ $q->createdBy->userDetail->initial }}</td>
                                         </tr>
                                         @php
-                                            $totalDPP = $totalDPP-$qNRd->total_before_vat;
-                                            $totalPPN = $totalPPN-($qNRd->total_after_vat-$qNRd->total_before_vat);
-                                            $totalDPPplusPPN = $totalDPPplusPPN-$qNRd->total_after_vat;
-                                            $totalAVG = $totalAVG-$totAVG;
-
-                                            $totalDPPperCust = $totalDPPperCust-$qNRd->total_before_vat;
-                                            $totalPPNperCust = $totalPPNperCust-($qNRd->total_after_vat-$qNRd->total_before_vat);
-                                            $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qNRd->total_after_vat;
-                                            $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            if ($noReturTmp<>strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no){
+                                                $totalDPP = $totalDPP-$qNRd->total_before_vat;
+                                                $totalPPN = $totalPPN-($qNRd->total_after_vat-$qNRd->total_before_vat);
+                                                $totalDPPplusPPN = $totalDPPplusPPN-$qNRd->total_after_vat;
+                                                $totalAVG = $totalAVG-$totAVG;
+    
+                                                $totalDPPperCust = $totalDPPperCust-$qNRd->total_before_vat;
+                                                $totalPPNperCust = $totalPPNperCust-($qNRd->total_after_vat-$qNRd->total_before_vat);
+                                                $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qNRd->total_after_vat;
+                                                $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            }
                                             $isCustExist = true;
+
+                                            $noReturTmp = strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no;
                                         @endphp
                                     @endforeach
 
@@ -351,6 +375,8 @@
                                     ])
                                     ->orderBy('tx_sales_orders.sales_order_date','ASC')
                                     ->get();
+
+                                    $noReturTmp = '';
                                 @endphp
                                 @foreach ($qSOoth as $qSo)
                                     @php
@@ -393,31 +419,49 @@
                                             <td style="text-align: center;color: red;">{{ $qSo->sales_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no }}</td>
                                             <td style="text-align: center;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qN->total_before_vat,0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format(($qN->total_after_vat-$qN->total_before_vat),0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qN->total_after_vat,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">
-                                                @php
-                                                    $qNRavg = \App\Models\Tx_nota_retur_part::leftJoin('tx_sales_order_parts as tx_sop','tx_nota_retur_parts.sales_order_part_id','=','tx_sop.id')
-                                                    ->select(
-                                                        'tx_nota_retur_parts.qty_retur',
-                                                        'tx_sop.last_avg_cost',
-                                                    )
-                                                    ->where([
-                                                        'tx_nota_retur_parts.nota_retur_id'=>$qN->nr_id,
-                                                        'tx_nota_retur_parts.active'=>'Y',
-                                                    ])
-                                                    ->get();
-                                                    $totAVG = 0;
-                                                @endphp
-                                                @foreach ($qNRavg as $qAvg)
-                                                    @php
-                                                        $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
-                                                    @endphp
-                                                @endforeach
-                                                -{{ number_format($totAVG,0,'.','') }}
+                                                @if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no))
+                                                -{{ number_format($qN->total_before_vat,0,'.','') }}
+                                                @endif
                                             </td>
-                                            <td style="text-align: right;color: red;">{{ number_format(($qN->total_before_vat!=0)?((($qN->total_before_vat-$totAVG)/$qN->total_before_vat)*100):0,0,'.','') }}%</td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no))
+                                                -{{ number_format(($qN->total_after_vat-$qN->total_before_vat),0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no))
+                                                -{{ number_format($qN->total_after_vat,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no))
+                                                    @php
+                                                        $qNRavg = \App\Models\Tx_nota_retur_part::leftJoin('tx_sales_order_parts as tx_sop','tx_nota_retur_parts.sales_order_part_id','=','tx_sop.id')
+                                                        ->select(
+                                                            'tx_nota_retur_parts.qty_retur',
+                                                            'tx_sop.last_avg_cost',
+                                                        )
+                                                        ->where([
+                                                            'tx_nota_retur_parts.nota_retur_id'=>$qN->nr_id,
+                                                            'tx_nota_retur_parts.active'=>'Y',
+                                                        ])
+                                                        ->get();
+                                                        $totAVG = 0;
+                                                    @endphp
+                                                    @foreach ($qNRavg as $qAvg)
+                                                        @php
+                                                            $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
+                                                        @endphp
+                                                    @endforeach
+                                                    -{{ number_format($totAVG,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no))
+                                                {{ number_format(($qN->total_before_vat!=0)?((($qN->total_before_vat-$totAVG)/$qN->total_before_vat)*100):0,0,'.','') }}%
+                                                @endif
+                                            </td>
                                             <td style="text-align: center;color: red;">{{ $qSo->customer_doc_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qN->delivery_order->delivery_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qSo->customer->salesman01->initial }}</td>
@@ -425,16 +469,20 @@
                                         </tr>
 
                                         @php
-                                            $totalDPP = $totalDPP-$qN->total_before_vat;
-                                            $totalPPN = $totalPPN-($qN->total_after_vat-$qN->total_before_vat);
-                                            $totalDPPplusPPN = $totalDPPplusPPN-$qN->total_after_vat;
-                                            $totalAVG = $totalAVG-$totAVG;
-
-                                            $totalDPPperCust = $totalDPPperCust-$qN->total_before_vat;
-                                            $totalPPNperCust = $totalPPNperCust-($qN->total_after_vat-$qN->total_before_vat);
-                                            $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qN->total_after_vat;
-                                            $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            if ($noReturTmp<>(strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no)){
+                                                $totalDPP = $totalDPP-$qN->total_before_vat;
+                                                $totalPPN = $totalPPN-($qN->total_after_vat-$qN->total_before_vat);
+                                                $totalDPPplusPPN = $totalDPPplusPPN-$qN->total_after_vat;
+                                                $totalAVG = $totalAVG-$totAVG;
+    
+                                                $totalDPPperCust = $totalDPPperCust-$qN->total_before_vat;
+                                                $totalPPNperCust = $totalPPNperCust-($qN->total_after_vat-$qN->total_before_vat);
+                                                $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qN->total_after_vat;
+                                                $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            }
                                             $isCustExist = true;
+
+                                            $noReturTmp = strpos($qN->nota_retur_no,"Draft")>0?'':$qN->nota_retur_no;
                                         @endphp
                                     @endforeach
 
@@ -472,6 +520,8 @@
                                     ])
                                     ->orderBy('tx_surat_jalans.surat_jalan_date','ASC')
                                     ->get();
+
+                                    $noReturTmp = '';
                                 @endphp
                                 @foreach ($qSJ as $q)
                                     @php
@@ -573,45 +623,63 @@
                                             <td style="text-align: center;color: red;">{{ $q->surat_jalan_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no }}</td>
                                             <td style="text-align: center;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_price,0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qNRd->total_price,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">
-                                                @php
-                                                    $qNRavg = \App\Models\Tx_nota_retur_part_non_tax::leftJoin('tx_surat_jalan_parts as tx_sjp','tx_nota_retur_part_non_taxes.surat_jalan_part_id','=','tx_sjp.id')
-                                                    ->select(
-                                                        'tx_nota_retur_part_non_taxes.qty_retur',
-                                                        'tx_sjp.last_avg_cost',
-                                                    )
-                                                    ->where([
-                                                        'tx_nota_retur_part_non_taxes.nota_retur_id'=>$qNRd->nr_id,
-                                                        'tx_nota_retur_part_non_taxes.active'=>'Y',
-                                                    ])
-                                                    ->get();
-                                                    $totAVG = 0;
-                                                @endphp
-                                                @foreach ($qNRavg as $qAvg)
-                                                    @php
-                                                        $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
-                                                    @endphp
-                                                @endforeach
-                                                -{{ number_format($totAVG,0,'.','') }}
+                                                @if ($noReturTmp <> (strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no))
+                                                -{{ number_format($qNRd->total_price,0,'.','') }}
+                                                @endif
                                             </td>
-                                            <td style="text-align: right;color: red;">{{ number_format(($qNRd->total_price!=0)?((($qNRd->total_price-$totAVG)/$qNRd->total_price)*100):0,0,'.','') }}%</td>
+                                            <td style="text-align: right;color: red;">&nbsp;</td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> (strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no))
+                                                -{{ number_format($qNRd->total_price,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> (strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no))
+                                                    @php
+                                                        $qNRavg = \App\Models\Tx_nota_retur_part_non_tax::leftJoin('tx_surat_jalan_parts as tx_sjp','tx_nota_retur_part_non_taxes.surat_jalan_part_id','=','tx_sjp.id')
+                                                        ->select(
+                                                            'tx_nota_retur_part_non_taxes.qty_retur',
+                                                            'tx_sjp.last_avg_cost',
+                                                        )
+                                                        ->where([
+                                                            'tx_nota_retur_part_non_taxes.nota_retur_id'=>$qNRd->nr_id,
+                                                            'tx_nota_retur_part_non_taxes.active'=>'Y',
+                                                        ])
+                                                        ->get();
+                                                        $totAVG = 0;
+                                                    @endphp
+                                                    @foreach ($qNRavg as $qAvg)
+                                                        @php
+                                                            $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
+                                                        @endphp
+                                                    @endforeach
+                                                    -{{ number_format($totAVG,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> (strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no))
+                                                {{ number_format(($qNRd->total_price!=0)?((($qNRd->total_price-$totAVG)/$qNRd->total_price)*100):0,0,'.','') }}%
+                                                @endif
+                                            </td>
                                             <td style="text-align: center;color: red;">{{ $q->customer_doc_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qNRd->delivery_order->delivery_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $q->customer->salesman01->initial }}</td>
                                             <td style="text-align: center;color: red;border-right:1px solid black;">{{ $q->createdBy->userDetail->initial }}</td>
                                         </tr>
                                         @php
-                                            $totalDPP = $totalDPP-$qNRd->total_price;
-                                            $totalDPPplusPPN = $totalDPPplusPPN-$qNRd->total_price;
-                                            $totalAVG = $totalAVG-$totAVG;
-
-                                            $totalDPPperCust = $totalDPPperCust-$qNRd->total_price;
-                                            $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qNRd->total_price;
-                                            $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            if ($noReturTmp <> (strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no)){
+                                                $totalDPP = $totalDPP-$qNRd->total_price;
+                                                $totalDPPplusPPN = $totalDPPplusPPN-$qNRd->total_price;
+                                                $totalAVG = $totalAVG-$totAVG;
+    
+                                                $totalDPPperCust = $totalDPPperCust-$qNRd->total_price;
+                                                $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qNRd->total_price;
+                                                $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            }
                                             $isCustExist = true;
+
+                                            $noReturTmp = strpos($qNRd->nota_retur_no,"Draft")>0?'':$qNRd->nota_retur_no;
                                         @endphp
                                     @endforeach
 
@@ -664,6 +732,8 @@
                                     ])
                                     ->orderBy('tx_surat_jalans.surat_jalan_date','ASC')
                                     ->get();
+
+                                    $noReturTmp = '';
                                 @endphp
                                 @foreach ($qSJoth as $qSJo)
                                     @php
@@ -703,31 +773,45 @@
                                             <td style="text-align: center;color: red;">{{ $qSJo->surat_jalan_no }}</td>
                                             <td style="text-align: center;color: red;">{{ strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no }}</td>
                                             <td style="text-align: center;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qRo->total_price,0,'.','') }}</td>
-                                            <td style="text-align: right;color: red;">&nbsp;</td>
-                                            <td style="text-align: right;color: red;">-{{ number_format($qRo->total_price,0,'.','') }}</td>
                                             <td style="text-align: right;color: red;">
-                                                @php
-                                                    $qNRavg = \App\Models\Tx_nota_retur_part_non_tax::leftJoin('tx_surat_jalan_parts as tx_sjp','tx_nota_retur_part_non_taxes.surat_jalan_part_id','=','tx_sjp.id')
-                                                    ->select(
-                                                        'tx_nota_retur_part_non_taxes.qty_retur',
-                                                        'tx_sjp.last_avg_cost',
-                                                    )
-                                                    ->where([
-                                                        'tx_nota_retur_part_non_taxes.nota_retur_id'=>$qRo->nr_id,
-                                                        'tx_nota_retur_part_non_taxes.active'=>'Y',
-                                                    ])
-                                                    ->get();
-                                                    $totAVG = 0;
-                                                @endphp
-                                                @foreach ($qNRavg as $qAvg)
-                                                    @php
-                                                        $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
-                                                    @endphp
-                                                @endforeach
-                                                -{{ number_format($totAVG,0,'.','') }}
+                                                @if ($noReturTmp <> strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no)
+                                                -{{ number_format($qRo->total_price,0,'.','') }}
+                                                @endif
                                             </td>
-                                            <td style="text-align: right;color: red;">{{ number_format(($qRo->total_price!=0)?((($qRo->total_price-$totAVG)/$qRo->total_price)*100):0,0,'.','') }}%</td>
+                                            <td style="text-align: right;color: red;">&nbsp;</td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no)
+                                                -{{ number_format($qRo->total_price,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no)
+                                                    @php
+                                                        $qNRavg = \App\Models\Tx_nota_retur_part_non_tax::leftJoin('tx_surat_jalan_parts as tx_sjp','tx_nota_retur_part_non_taxes.surat_jalan_part_id','=','tx_sjp.id')
+                                                        ->select(
+                                                            'tx_nota_retur_part_non_taxes.qty_retur',
+                                                            'tx_sjp.last_avg_cost',
+                                                        )
+                                                        ->where([
+                                                            'tx_nota_retur_part_non_taxes.nota_retur_id'=>$qRo->nr_id,
+                                                            'tx_nota_retur_part_non_taxes.active'=>'Y',
+                                                        ])
+                                                        ->get();
+                                                        $totAVG = 0;
+                                                    @endphp
+                                                    @foreach ($qNRavg as $qAvg)
+                                                        @php
+                                                            $totAVG += ($qAvg->qty_retur*$qAvg->last_avg_cost);
+                                                        @endphp
+                                                    @endforeach
+                                                    -{{ number_format($totAVG,0,'.','') }}
+                                                @endif
+                                            </td>
+                                            <td style="text-align: right;color: red;">
+                                                @if ($noReturTmp <> strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no)
+                                                    {{ number_format(($qRo->total_price!=0)?((($qRo->total_price-$totAVG)/$qRo->total_price)*100):0,0,'.','') }}%
+                                                @endif
+                                            </td>
                                             <td style="text-align: center;color: red;">{{ $qSJo->customer_doc_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qRo->delivery_order->delivery_order_no }}</td>
                                             <td style="text-align: center;color: red;">{{ $qSJo->customer->salesman01->initial }}</td>
@@ -735,14 +819,18 @@
                                         </tr>
 
                                         @php
-                                            $totalDPP = $totalDPP-$qRo->total_price;
-                                            $totalDPPplusPPN = $totalDPPplusPPN-$qRo->total_price;
-                                            $totalAVG = $totalAVG-$totAVG;
-
-                                            $totalDPPperCust = $totalDPPperCust-$qRo->total_price;
-                                            $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qRo->total_price;
-                                            $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            if ($noReturTmp <> strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no){
+                                                $totalDPP = $totalDPP-$qRo->total_price;
+                                                $totalDPPplusPPN = $totalDPPplusPPN-$qRo->total_price;
+                                                $totalAVG = $totalAVG-$totAVG;
+    
+                                                $totalDPPperCust = $totalDPPperCust-$qRo->total_price;
+                                                $totalDPPplusPPNperCust = $totalDPPplusPPNperCust-$qRo->total_price;
+                                                $totalAVGperCust = $totalAVGperCust-$totAVG;
+                                            }
                                             $isCustExist = true;
+
+                                            $noReturTmp = strpos($qRo->nota_retur_no,"Draft")>0?'':$qRo->nota_retur_no;
                                         @endphp
                                     @endforeach
 
