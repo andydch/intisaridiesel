@@ -19,7 +19,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -753,7 +753,6 @@ class PaymentPlanServerSideController extends Controller
                     ->where('active', 'Y')
                     ->first();
                     if ($qPlanA){
-                        // Log::debug([$qPDtl->tagihan_supplier_no, $qPDtl->tx_ts_bank_id]);
                         $updPlanDtlA = Tx_payment_plan_per_rc_order::where('id', $qPDtl->tx_ppro_id)
                         ->update([
                             'payment_plan_id' => $qPlanA->id,
@@ -765,58 +764,11 @@ class PaymentPlanServerSideController extends Controller
             }
 
             // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
-            $qCts = Tx_tagihan_supplier::whereNotIn('id', function($q1) {
-                $q1->select('tagihan_supplier_id')
-                ->from('tx_payment_plan_per_rc_orders')
-                ->where('active', 'Y');
-            })
-            ->whereIn('id', function($q1) {
-                $q1->select('tagihan_supplier_id')
-                ->from('tx_payment_vouchers')
-                ->whereRaw('payment_voucher_no IS NOT null')
-                ->whereRaw('tagihan_supplier_id IS NOT null')
-                ->where('is_draft', 'N')
-                ->where('active', 'Y');
-            })
-            ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
-            ->where('bank_id', $bank_id)
-            ->where('active', 'Y')
-            ->orderBy('id', 'ASC')
-            ->get();
-            foreach($qCts as $qC){
-                $ins = Tx_payment_plan_per_rc_order::create([
-                    'payment_plan_id' => $id,
-                    'supplier_id' => $qC->supplier_id,
-                    'tagihan_supplier_id' => $qC->id,
-                    'tagihan_supplier_no' => $qC->tagihan_supplier_no,
-                    'plan_date' => $qC->tagihan_supplier_date,
-                    'plan_pay' => $qC->grandtotal_price,
-                    'active' => 'Y',
-                    'created_by' => Auth::user()->id,
-                    'updated_by' => Auth::user()->id,
-                ]);
-            }
-            // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
-
-            // reset
-            $qUpdDtlSetZero = Tx_payment_plan_per_rc_order::where('payment_plan_id', ($qPlan?$qPlan->id:0))
-            ->update([
-                'payment_voucher_id' => null,
-                'payment_voucher_no' => null,
-                'actual_date' => null,
-                'actual_payment' => 0,
-                'is_pv_approved' => 'N',
-                'updated_by' => Auth::user()->id,
-            ]);
-            // reset
-
-            // kumpulkan CTS yg sudah terbentuk plan nya tapi PV nya masih kosong di rencana pembayaran
-            $qCts = Tx_tagihan_supplier::whereIn('id', function($q1) {
-                $q1->select('tagihan_supplier_id')
-                ->from('tx_payment_plan_per_rc_orders')
-                ->whereRaw('payment_voucher_id IS null')
-                ->where('active', 'Y');
-            })
+            // $qCts = Tx_tagihan_supplier::whereNotIn('id', function($q1) {
+            //     $q1->select('tagihan_supplier_id')
+            //     ->from('tx_payment_plan_per_rc_orders')
+            //     ->where('active', 'Y');
+            // })
             // ->whereIn('id', function($q1) {
             //     $q1->select('tagihan_supplier_id')
             //     ->from('tx_payment_vouchers')
@@ -825,6 +777,165 @@ class PaymentPlanServerSideController extends Controller
             //     ->where('is_draft', 'N')
             //     ->where('active', 'Y');
             // })
+            // ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            // ->where('bank_id', $bank_id)
+            // ->where('active', 'Y')
+            // ->orderBy('id', 'ASC')
+            // ->get();
+
+            $qCts = Tx_tagihan_supplier::leftJoin('tx_payment_vouchers AS tx_pv', 'tx_pv.tagihan_supplier_id', '=', 'tx_tagihan_suppliers.id')
+            ->select(
+                'tx_tagihan_suppliers.id AS tx_ts_id',
+                'tx_tagihan_suppliers.supplier_id',
+                'tx_tagihan_suppliers.tagihan_supplier_no',
+                'tx_tagihan_suppliers.tagihan_supplier_date',
+                'tx_tagihan_suppliers.grandtotal_price',
+                'tx_pv.id AS payment_voucher_id',
+                'tx_pv.payment_voucher_no',
+                'tx_pv.payment_date',
+                'tx_pv.payment_total_after_vat',
+                'tx_pv.approved_by',
+            )
+            ->addSelect([
+                'next_plan_date' => Tx_payment_voucher::select('next_plan_date')
+                    ->whereRaw('id < tx_pv.id')
+                    ->whereNotNull('payment_voucher_no')
+                    ->where('payment_voucher_no', '<>', 'tx_pv.payment_voucher_no')
+                    ->where('tagihan_supplier_id', 'tx_tagihan_suppliers.id')
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'desc')
+                    ->limit(1)
+            ])
+            ->addSelect([
+                'last_plan_payment' => Tx_payment_voucher::selectRaw('SUM(payment_total_after_vat)')
+                    ->whereRaw('id < tx_pv.id')
+                    ->whereNotNull('payment_voucher_no')
+                    ->where('payment_voucher_no', '<>', 'tx_pv.payment_voucher_no')
+                    ->where('tagihan_supplier_id', 'tx_tagihan_suppliers.id')
+                    ->where('active', 'Y')
+            ])
+            ->where(function($q) use($id){
+                $q->whereNotIn('tx_tagihan_suppliers.id', function($q1) use($id){
+                    $q1->select('tagihan_supplier_id')
+                    ->from('tx_payment_plan_per_rc_orders')
+                    ->where('payment_plan_id', $id)
+                    ->where('active', 'Y');
+                })
+                ->orWhereNotIn('tx_pv.payment_voucher_no', function($q1) use($id){
+                    $q1->select('payment_voucher_no')
+                    ->from('tx_payment_plan_per_rc_orders')
+                    ->where('payment_plan_id', $id)
+                    ->whereNotNull('payment_voucher_no')
+                    ->where('active', 'Y');
+                });
+            })
+            ->whereRaw('DATE_FORMAT(tx_tagihan_suppliers.tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
+            ->where('tx_tagihan_suppliers.bank_id', $bank_id)
+            ->where('tx_tagihan_suppliers.active', 'Y')
+            ->where('tx_pv.active', 'Y')
+            ->orderBy('tx_tagihan_suppliers.tagihan_supplier_date', 'ASC')
+            ->get();
+
+            $lastTagihanSupplierNo = '';
+            $lastTagihanSupplierId = 0;
+            $lastSupplierId = 0;
+            $last_plan_pay = 0;
+            $last_plan_payment = null;
+            $lastPaymentVoucherNo = '';
+            $lastPaymentDate = '';
+            foreach($qCts as $qC){
+                // Log::debug([
+                //     'payment_voucher_no' => $qC->payment_voucher_no,
+                //     'grandtotal_price' => $qC->grandtotal_price,
+                //     'last_plan_payment' => $qC->last_plan_payment?$qC->last_plan_payment:777,
+                //     'last_plan_pay' => $qC->last_plan_payment?$qC->grandtotal_price-$qC->last_plan_payment:$qC->grandtotal_price,
+                // ]);
+                if ($qC->tagihan_supplier_no!=$lastTagihanSupplierNo && $lastTagihanSupplierNo!='' && $last_plan_pay>0 && $lastPaymentVoucherNo!='' && $last_plan_payment){
+                    // cari pembayaran supplier terakhir dengan pembayaran sebagian, maka buatkan plan pembayaran berikutnya
+                    $ins = Tx_payment_plan_per_rc_order::create([
+                        'payment_plan_id' => $id,
+                        'supplier_id' => $lastSupplierId,
+                        'tagihan_supplier_id' => $lastTagihanSupplierId,
+                        'tagihan_supplier_no' => $lastTagihanSupplierNo,
+                        'plan_date' => $lastPaymentDate,
+                        'plan_pay' => $last_plan_pay,
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+
+                    $updPV = Tx_payment_voucher::where('payment_voucher_no', $lastPaymentVoucherNo)
+                    ->where('active', 'Y')
+                    ->update([
+                        'next_plan_date' => date_format(date_add(date_create($lastPaymentDate), date_interval_create_from_date_string("1 days")), "Y-m-d"),
+                        'next_plan_date_status' => 'Y',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+                $lastTagihanSupplierNo = $qC->tagihan_supplier_no;
+                $lastTagihanSupplierId = $qC->tx_ts_id;
+                $lastSupplierId = $qC->supplier_id;
+                $last_plan_pay = $qC->last_plan_payment?$qC->grandtotal_price-$qC->last_plan_payment:$qC->grandtotal_price;
+                $last_plan_payment = $qC->last_plan_payment;
+                $lastPaymentVoucherNo = $qC->payment_voucher_no;
+                $lastPaymentDate = $qC->payment_date;
+
+                $qDtl = Tx_payment_plan_per_rc_order::where('tagihan_supplier_id', $qC->tx_ts_id)
+                ->whereNull('payment_voucher_no')
+                ->where('active', 'Y')
+                ->orderBy('id', 'asc')
+                ->first();
+                if ($qDtl){
+                    $upd = Tx_payment_plan_per_rc_order::where('id', $qDtl->id)
+                    ->update([
+                        'payment_voucher_id' => $qC->payment_voucher_id,
+                        'payment_voucher_no' => $qC->payment_voucher_no,
+                        'actual_date' => $qC->payment_date,
+                        'actual_payment' => $qC->payment_total_after_vat,
+                        'is_pv_approved' => $qC->approved_by?'Y':'N',
+                        'active' => 'Y',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }else{
+                    $ins = Tx_payment_plan_per_rc_order::create([
+                        'payment_plan_id' => $id,
+                        'supplier_id' => $qC->supplier_id,
+                        'tagihan_supplier_id' => $qC->tx_ts_id,
+                        'tagihan_supplier_no' => $qC->tagihan_supplier_no,
+                        'plan_date' => $qC->tagihan_supplier_date,
+                        'plan_pay' => $qC->last_plan_payment?$qC->grandtotal_price-$qC->last_plan_payment:$qC->grandtotal_price,
+                        'payment_voucher_id' => $qC->payment_voucher_id,
+                        'payment_voucher_no' => $qC->payment_voucher_no,
+                        'actual_date' => $qC->payment_date,
+                        'actual_payment' => $qC->payment_total_after_vat,
+                        'is_pv_approved' => $qC->approved_by?'Y':'N',
+                        'active' => 'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+            }
+            // kumpulkan semua CTS aktif yang belum pernah dibuatkan plan pembayarannya
+
+            // // reset
+            // $qUpdDtlSetZero = Tx_payment_plan_per_rc_order::where('payment_plan_id', ($qPlan?$qPlan->id:0))
+            // ->update([
+            //     'payment_voucher_id' => null,
+            //     'payment_voucher_no' => null,
+            //     'actual_date' => null,
+            //     'actual_payment' => 0,
+            //     'is_pv_approved' => 'N',
+            //     'updated_by' => Auth::user()->id,
+            // ]);
+            // // reset
+
+            // kumpulkan CTS yg sudah terbentuk plan nya tapi PV nya masih kosong di rencana pembayaran
+            $qCts = Tx_tagihan_supplier::whereIn('id', function($q1) {
+                $q1->select('tagihan_supplier_id')
+                ->from('tx_payment_plan_per_rc_orders')
+                ->whereRaw('payment_voucher_id IS null')
+                ->where('active', 'Y');
+            })
             ->whereRaw('DATE_FORMAT(tagihan_supplier_date, "%Y-%m")=\''.$date.'\'')
             ->where('bank_id', $bank_id)
             ->where('active', 'Y')
@@ -832,18 +943,12 @@ class PaymentPlanServerSideController extends Controller
             ->get();
             foreach($qCts as $qC){
                 $qPvCts = Tx_payment_voucher::where('tagihan_supplier_id', $qC->id)
-                // ->whereNotIn('payment_voucher_no', function($q1) {
-                //     $q1->select('payment_voucher_no')
-                //     ->from('tx_payment_plan_per_rc_orders')
-                //     // ->whereRaw('payment_voucher_id IS NOT null')
-                //     ->where('active', 'Y');
-                // })
                 ->whereRaw('payment_voucher_no IS NOT null')
                 ->where('active', 'Y')
                 ->orderBy('id', 'asc')
                 ->first();
                 if ($qPvCts){
-                    Log::debug($qPvCts->tagihan_supplier_id);
+                    // Log::debug($qPvCts->tagihan_supplier_id);
                     $upd = Tx_payment_plan_per_rc_order::where('tagihan_supplier_no', $qC->tagihan_supplier_no)
                     ->update([
                         'payment_voucher_id' => $qPvCts->pv_id,

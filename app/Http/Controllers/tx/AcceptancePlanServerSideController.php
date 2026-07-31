@@ -10,6 +10,7 @@ use App\Models\Tx_acceptance_plan_per_invoice;
 use App\Models\Tx_acceptance_plan;
 use App\Models\Tx_invoice;
 use App\Models\Tx_kwitansi;
+use App\Models\Tx_payment_receipt;
 use App\Models\Tx_payment_receipt_invoice;
 use App\Models\V_invoice;
 use App\Rules\AcceptancePlanPeriodDupCheck;
@@ -133,6 +134,7 @@ class AcceptancePlanServerSideController extends Controller
                 ]);
             })
             ->where([
+                'is_cashflow' => 'Y',
                 'active' => 'Y',
             ])
             ->orderBy('coa_name', 'ASC')
@@ -756,6 +758,8 @@ class AcceptancePlanServerSideController extends Controller
 
             // kumpulkan billing process dan proses tagihan
             $qPerInv = V_invoice::leftJoin('mst_customers as cust','v_invoices.customer_id','=','cust.id')
+            ->leftJoin('tx_payment_receipt_invoices AS tx_pri', 'tx_pri.invoice_no', '=', 'v_invoices.invoice_no')
+            ->leftJoin('tx_payment_receipts AS tx_pr', 'tx_pr.id', '=', 'tx_pri.payment_receipt_id')
             ->select(
                 'v_invoices.inv_id',
                 'v_invoices.invoice_no',
@@ -769,60 +773,136 @@ class AcceptancePlanServerSideController extends Controller
                 'cust.name as cust_name',
                 'cust.customer_unique_code',
                 'cust.top as cust_top',
+                'tx_pr.payment_receipt_no',
+                'tx_pr.payment_date',
+                'tx_pri.total_payment_full_after_vat',
+                'tx_pri.total_payment_after_vat',
                 DB::raw('CONCAT(cust.customer_unique_code, " - ", cust.name) AS customer_identity'),
                 DB::raw('v_invoices.invoice_date AS due_date_acceptance'),
             )
+            ->addSelect([
+                'next_plan_date' => Tx_payment_receipt::select('next_plan_date')
+                        ->whereIn('id', function($q) {
+                        $q->select('payment_receipt_id')
+                        ->from('tx_payment_receipt_invoices')
+                        ->where('invoice_no', 'v_invoices.invoice_no')
+                        ->where('active', 'Y');
+                    })
+                    ->whereRaw('id < tx_pr.id')
+                    ->where('payment_receipt_no', '<>', 'tx_pr.payment_receipt_no')
+                    ->where('active', 'Y')
+                    ->orderBy('id', 'desc')
+                    ->limit(1)
+            ])
             ->whereRaw('DATE_FORMAT(v_invoices.invoice_date, "%Y-%m")=\''.$date.'\'')
             ->where('v_invoices.payment_to_id', $bank_id)
-            ->whereNotIn('v_invoices.invoice_no', function($query) use($id) {
-                $query->select('invoice_no')
-                ->from('tx_acceptance_plan_per_invoices')
-                ->where('acceptance_plan_id', $id)
-                ->where('active', 'Y');
+            ->where(function($q) use($id){
+                $q->whereNotIn('v_invoices.invoice_no', function($query) use($id) {
+                    $query->select('invoice_no')
+                    ->from('tx_acceptance_plan_per_invoices')
+                    ->where('acceptance_plan_id', $id)
+                    ->where('active', 'Y');
+                })
+                ->orWhereNotIn('tx_pr.payment_receipt_no', function($query) use($id) {
+                    $query->select('payment_receipt_no')
+                    ->from('tx_acceptance_plan_per_invoices')
+                    ->where('acceptance_plan_id', $id)
+                    ->whereRaw('payment_receipt_no IS NOT null')
+                    ->where('active', 'Y');
+                });
             })
-            ->orderBy('v_invoices.invoice_date','DESC')
+            ->orderBy('v_invoices.invoice_date','ASC')
             ->get();
+
+            $lastInvoiceNo = '';
+            $lastInvoiceId = 0;
+            $lastInvIdentity = '';
+            $lastCustomerId = 0;
+            $last_plan_accept = 0;
+            $lastPaymentReceiptNo = '';
+            $lastPaymentDate = '';
+            $payment_total = 0;
             foreach ($qPerInv as $qPI){
-                $qDtl = Tx_acceptance_plan_per_invoice::where([
-                    'invoice_no'=>$qPI->invoice_no,
-                ]);
-                if (!$qDtl->first()){
+                if ($qPI->invoice_no!=$lastInvoiceNo && $lastInvoiceNo!='' && $last_plan_accept!=$payment_total && $payment_total>0 && $lastPaymentReceiptNo!=''){
+                    // cari penerimaan cust terakhir dengan pembayaran sebagian, maka buatkan plan pembayaran berikutnya
                     $insDtl = Tx_acceptance_plan_per_invoice::create([
-                        'acceptance_plan_id'=>$id,
-                        'plan_date'=>$qPI->due_date_acceptance,
-                        'plan_accept'=>$qPI->tagihan,
-                        'inv_or_kwi_id'=>$qPI->inv_id,
-                        'inv_or_kwi'=>$qPI->inv_identity,
-                        'customer_id'=>$qPI->cust_id,
-                        'invoice_no'=>$qPI->invoice_no,
-                        'created_by'=>Auth::user()->id,
+                        'acceptance_plan_id' => $id,
+                        'plan_date' => date_format(date_add(date_create($lastPaymentDate), date_interval_create_from_date_string("1 days")), "Y-m-d"),
+                        'plan_accept' => $last_plan_accept,
+                        'inv_or_kwi_id' => $lastInvoiceId,
+                        'inv_or_kwi' => $lastInvIdentity,
+                        'customer_id' => $lastCustomerId,
+                        'invoice_no' => $lastInvoiceNo,
+                        'active'=>'Y',
+                        'created_by' => Auth::user()->id,
+                        'updated_by' => Auth::user()->id,
+                    ]);
+
+                    $updLastPayment = Tx_payment_receipt::where('payment_receipt_no', $lastPaymentReceiptNo)
+                    ->whereNull('next_plan_date')
+                    ->where('active', 'Y')
+                    ->update([
+                        'next_plan_date' => date_format(date_add(date_create($lastPaymentDate), date_interval_create_from_date_string("1 days")), "Y-m-d"),
+                        'next_plan_date_status' => 'Y',
+                        'updated_by' => Auth::user()->id,
+                    ]);
+                }
+                $lastInvoiceNo = $qPI->invoice_no;
+                $lastInvoiceId = $qPI->inv_id;
+                $lastInvIdentity = $qPI->inv_identity;
+                $lastCustomerId = $qPI->cust_id;
+                $last_plan_accept = $qPI->total_payment_full_after_vat!=null?$qPI->total_payment_full_after_vat:$qPI->tagihan;
+                $lastPaymentReceiptNo = $qPI->payment_receipt_no ?? '';
+                $lastPaymentDate = $qPI->payment_date;
+                $payment_total = $qPI->total_payment_after_vat ?? 0;
+
+                $qDtl = Tx_acceptance_plan_per_invoice::where('invoice_no', $qPI->invoice_no)
+                ->whereRaw('payment_receipt_no IS null')
+                ->where('active', 'Y')
+                ->orderBy('id', 'asc')
+                ->first();
+                if ($qDtl){
+                    // jika ditemukan field payment_receipt_no = NULL maka lakukan update saja
+                    $qDtl->update([
+                        'payment_receipt_no' => $qPI->payment_receipt_no,
+                        'payment_date' => $qPI->payment_date,
+                        'payment_total' => $qPI->total_payment_after_vat,
+                        'active'=>'Y',
                         'updated_by'=>Auth::user()->id,
                     ]);
                 }else{
-                    $qDtl->update([
-                        'plan_date'=>$qPI->due_date_acceptance,
-                        'plan_accept'=>$qPI->tagihan,
+                    // jika data tidak ditemukan maka create data plan baru beserta actual payment jika ada
+                    $insDtl = Tx_acceptance_plan_per_invoice::create([
+                        'acceptance_plan_id' => $id,
+                        'plan_date' => $qPI->next_plan_date!=null?$qPI->next_plan_date:($qPI->payment_date!=null?$qPI->payment_date:$qPI->invoice_date),
+                        'plan_accept' => $qPI->total_payment_full_after_vat!=null?$qPI->total_payment_full_after_vat:$qPI->tagihan,
+                        'inv_or_kwi_id' => $qPI->inv_id,
+                        'inv_or_kwi' => $qPI->inv_identity,
+                        'customer_id' => $qPI->cust_id,
+                        'invoice_no' => $qPI->invoice_no,
+                        'payment_receipt_no' => $qPI->payment_receipt_no,
+                        'payment_date' => $qPI->payment_date,
+                        'payment_total' => $qPI->total_payment_after_vat,
                         'active'=>'Y',
+                        'created_by'=>Auth::user()->id,
                         'updated_by'=>Auth::user()->id,
                     ]);
                 }
             }
             // kumpulkan billing process dan proses tagihan
 
-            // reset
-            $qUpdDtlSetZero = Tx_acceptance_plan_per_invoice::where('acceptance_plan_id', ($qPlan?$qPlan->id:0))
-            ->update([
-                'payment_receipt_no' => null,
-                'payment_date' => null,
-                'payment_total' => 0,
-                'updated_by' => Auth::user()->id,
-            ]);
-            // reset
+            // // reset
+            // $qUpdDtlSetZero = Tx_acceptance_plan_per_invoice::where('acceptance_plan_id', ($qPlan?$qPlan->id:0))
+            // ->update([
+            //     'payment_receipt_no' => null,
+            //     'payment_date' => null,
+            //     'payment_total' => 0,
+            //     'updated_by' => Auth::user()->id,
+            // ]);
+            // // reset
 
             // tambahkan data PA terkait dg billing process/proses tagihan jika ada
             $qDtl = Tx_acceptance_plan_per_invoice::whereRaw('DATE_FORMAT(plan_date, "%Y-%m")=\''.$date.'\'')
-            // whereRaw('payment_receipt_no IS NULL')
-            // ->where('invoice_no', 'KWM26-00037')
             ->where('active', 'Y')
             ->orderBy('id', 'ASC')
             ->get();
@@ -847,7 +927,6 @@ class AcceptancePlanServerSideController extends Controller
                     ->from('tx_acceptance_plan_per_invoices')
                     ->where('invoice_no', $invoiceNo)
                     ->whereRaw('payment_receipt_no IS NOT null')
-                    // ->where('payment_receipt_no', 'pr.payment_receipt_no')
                     ->where('active', 'Y');
                 })
                 ->where([
@@ -865,13 +944,13 @@ class AcceptancePlanServerSideController extends Controller
                         'updated_by' => Auth::user()->id,
                     ]);
                 }else{
-                    $qDtl = Tx_acceptance_plan_per_invoice::where('id', $qD->id)
-                    ->update([
-                        'payment_receipt_no' => null,
-                        'payment_date' => null,
-                        'payment_total' => 0,
-                        'updated_by' => Auth::user()->id,
-                    ]);
+                    // $qDtl = Tx_acceptance_plan_per_invoice::where('id', $qD->id)
+                    // ->update([
+                    //     'payment_receipt_no' => null,
+                    //     'payment_date' => null,
+                    //     'payment_total' => 0,
+                    //     'updated_by' => Auth::user()->id,
+                    // ]);
                 }
             }
             // tambahkan data PA terkait dg billing process/proses tagihan jika ada

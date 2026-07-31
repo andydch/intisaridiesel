@@ -123,7 +123,10 @@
                             <div class="row mb-3">
                                 <label for="" class="col-sm-3 col-form-label">Remark</label>
                                 <label for="" class="col-sm-9 col-form-label">{{ $qPaymentInv->remark }}</label>
-                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <label for="" class="col-sm-3 col-form-label">Next Plan Date</label>
+                                <label for="" class="col-sm-9 col-form-label">{{ $qPaymentInv->next_plan_date?date_format(date_create($qPaymentInv->next_plan_date), 'd/m/Y'):'' }}</label>
                             </div>
                         </div>
                     </div>
@@ -216,9 +219,9 @@
                                                 @endphp
                                                 {{-- <label id="total_inv_lbl_{{ $i }}" class="col-form-label"
                                                     style="padding-bottom:0;">{{ number_format((($qRO?$qRO->total_before_vat:0)*$exchange_rate),0,".",",") }}</label><br/> --}}
-                                                <label id="total_inv_lbl_{{ $i }}" class="col-form-label"
-                                                    style="padding-bottom:0;">{{ number_format($qI->total_payment_before_retur,0,".",",") }}</label><br/>
-                                                {{-- $qI --}}
+                                                <label id="total_inv_lbl_{{ $i }}" class="col-form-label" style="padding-bottom:0;">{{ number_format($qI->total_payment_before_retur,0,".",",") }}</label>
+                                                {{-- <label id="total_inv_lbl_{{ $i }}" class="col-form-label" style="padding-bottom:0;">{{ number_format($qI->total_payment,0,".",",") }}</label> --}}
+                                                <br/>
                                                 <label id="retur_val_{{ $i }}" class="col-form-label" style="color: red;padding-top:0;">{!! $totEveryReturBeforeVat !!}</label>
                                             </td>
                                             <td style="text-align: right;">
@@ -241,7 +244,8 @@
                                                             'active' => 'Y',
                                                         ]);
                                                     })
-                                                    ->where('tx_payment_voucher_invoices.id', '<>', $qI->id)
+                                                    ->where('tx_payment_voucher_invoices.id', $qI->id)
+                                                    // ->where('tx_payment_voucher_invoices.id', '<>', $qI->id)
                                                     ->where([
                                                         'tx_payment_voucher_invoices.receipt_order_id' => $receipt_id,
                                                         'tx_payment_voucher_invoices.active' => 'Y',
@@ -252,7 +256,7 @@
                                                 @endphp
                                                 <label for="" class="col-form-label">
                                                     {{ number_format($total_before_vat-$sumDibayar-$sumTotBeforeVat,0,".",",") }}
-                                                    {{-- {{ number_format(floor($sumTotBeforeVat),0,".",",") }} --}}
+                                                    {{-- {{ $total_before_vat }} --}}
                                                     {{-- {{ number_format(floor($qI->total_payment_before_retur-$sumTotBeforeVat-$qI->total_payment),0,".",",") }} --}}
                                                 </label>
                                             </td>
