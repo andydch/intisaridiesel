@@ -485,32 +485,18 @@ class SalesQuotationServerSideController extends Controller
 
         $query = Tx_sales_quotation::where('id', '=', $id)->first();
         if($query){
-            $customerPic = [];
-            if (old('customer_id')) {
-                $customerPic = Mst_customer::where([
-                    'id' => old('customer_id'),
-                    'active' => 'Y'
-                ])
-                ->orderBy('name', 'ASC')
-                ->get();
-            }else{
-                $customerPic = Mst_customer::where([
-                    'id' => $query->customer_id,
-                    'active' => 'Y'
-                ])
-                ->orderBy('name', 'ASC')
-                ->get();
-            }
+            $customerId = old('customer_id') ?? $query->customer_id;
+            $customerPic = Mst_customer::where([
+                'id' => $customerId,
+                'active' => 'Y'
+            ])
+            ->orderBy('name', 'ASC')
+            ->get();
 
             $querySalesQuoPart = Tx_sales_quotation_part::where([
                 'sales_quotation_id' => $query->id,
                 'active' => 'Y'
             ]);
-            // $querySalesQuoPartCount = Tx_sales_quotation_part::where([
-            //     'sales_quotation_id' => $query->id,
-            //     'active' => 'Y'
-            // ])
-            // ->count();
 
             $data = [
                 'title' => $this->title,
