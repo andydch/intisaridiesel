@@ -19,6 +19,10 @@
         font-weight: 700;
     }
 </style>
+
+<!-- include summernote css/js-->
+<link href="{{ asset('assets/plugins/summernote-0.9.0-dist/summernote-bs5.css') }}" rel="stylesheet">
+
 @endsection
 
 @section('wrapper')
@@ -416,12 +420,15 @@
 <script src="{{ asset('assets/plugins/bootstrap-material-datetimepicker/js/bootstrap-material-datetimepicker.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 <script src="{{ asset('assets/js/my-custom.js') }}"></script>
-<script src="https://cdn.tiny.cloud/1/{{ ENV('TINYMCEKEY') }}/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+{{-- <script src="https://cdn.tiny.cloud/1/{{ ENV('TINYMCEKEY') }}/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 tinymce.init({
     selector: '#salesHeader,#salesFooter'
 });
-</script>
+</script> --}}
+<!-- include summernote css/js-->
+<script src="{{ asset('assets/plugins/summernote-0.9.0-dist/summernote-bs5.js') }}"></script>
+
 <script>
     function formatAmount(elm){
         let amount = elm.val().replaceAll(',','');
@@ -431,7 +438,7 @@ tinymce.init({
         elm.val(amount);
 
         // set cursor position
-        console.log(elm.val().length);
+        // console.log(elm.val().length);
         // if(elm.val().length>=3){
         //     elm.selectRange(elm.val().length-3); // set cursor position
         // }
@@ -511,6 +518,21 @@ tinymce.init({
     }
 
     $(document).ready(function() {
+        $('#salesHeader, #salesFooter').summernote({
+            placeholder: '...',
+            tabsize: 2,
+            height: 300,
+            toolbar: [
+                ['style', ['style']],
+                ['font', ['bold', 'underline', 'clear']],
+                ['color', ['color']],
+                ['para', ['ul', 'ol', 'paragraph']],
+                ['table', ['table']],
+                ['insert', ['link', 'picture', 'video']],
+                ['view', ['fullscreen', 'codeview', 'help']]
+            ]
+        });
+
         $("#save-as-draft").click(function() {
             if(!confirm("Data will be saved to database with DRAFT status. Make sure the data entered is correct.\nContinue?")){
                 event.preventDefault();

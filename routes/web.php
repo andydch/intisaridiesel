@@ -119,7 +119,7 @@ use App\Http\Controllers\auth\SignInController;
 use App\Http\Controllers\auth\SignOutController;
 use App\Http\Controllers\auth\SignUpController;
 use App\Http\Controllers\auth\UserProfileController;
-use App\Http\Controllers\Auth\VerificationController;
+// use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\dbg\AuthController;
 use App\Http\Controllers\dbg\BeginningBalancePerMonthDbgController;
 use App\Http\Controllers\dbg\CreateWordController;
@@ -448,7 +448,7 @@ Route::group(
         ]);
 
         // Route::get('email/verify', 'Auth\VerificationController@show')->name('verification.verify');
-        Route::get('email/verify', [VerificationController::class, 'show'])->name('verification.notice');
+        // Route::get('email/verify', [VerificationController::class, 'show'])->name('verification.notice');
 
         // registrasi & login
         Route::get('/err-notif', function () {
@@ -1480,7 +1480,7 @@ Route::group(
         Route::resource('/import-sub-district', ImportSubDistrictController::class)->except([
             'create', 'show', 'edit', 'update', 'destroy'
         ]);
-        Route::resource('/menu', MenuController::class)->except([
+        Route::resource('/menu-dbg', MenuController::class)->except([
             'create', 'show', 'edit', 'update', 'destroy'
         ]);
         Route::resource('/pdf', PdfController::class)->except([
