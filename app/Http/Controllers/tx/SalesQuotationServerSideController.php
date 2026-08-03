@@ -82,10 +82,7 @@ class SalesQuotationServerSideController extends Controller
             ->editColumn('sales_quotation_date', function ($query) {
                 return date_format(date_create($query->sales_quotation_date),"d/m/Y");
             })
-            ->addColumn('action', function ($query) {
-                $userLogin = Userdetail::where('user_id','=',Auth::user()->id)
-                ->first();
-
+            ->addColumn('action', function ($query) use($userLogin){
                 $links = '';
                 if (($query->createdby==Auth::user()->id || $userLogin->is_director_now=='Y' || $userLogin->is_branch_head_now=='Y') &&
                     $query->sq_active=='Y' && is_null($query->sales_order_no)){
@@ -132,8 +129,8 @@ class SalesQuotationServerSideController extends Controller
      */
     public function create()
     {
-        ini_set('memory_limit', '64M');
-        ini_set('max_execution_time', 1800);
+        // ini_set('memory_limit', '64M');
+        // ini_set('max_execution_time', 1800);
 
         $is_director = '';
         $branch_id = '';
@@ -364,7 +361,7 @@ class SalesQuotationServerSideController extends Controller
 
             $ins = Tx_sales_quotation::create([
                 'sales_quotation_no' => $sales_quotation_no,
-                'sales_quotation_date' => date_format(date_add(date_create(date("Y-m-d H:i:s")), date_interval_create_from_date_string((ENV("WAKTU_ID")??7)." hours")), "Y-m-d"),
+                'sales_quotation_date' => now()->addHours(config('app.waktu_id', 7))->format('Y-m-d'),
                 'customer_id' => $request->customer_id,
                 'customer_type_id' => null,
                 'customer_entity_type_id' => $qCustomer->entity_type_id,
@@ -508,13 +505,12 @@ class SalesQuotationServerSideController extends Controller
             $querySalesQuoPart = Tx_sales_quotation_part::where([
                 'sales_quotation_id' => $query->id,
                 'active' => 'Y'
-            ])
-            ->get();
-            $querySalesQuoPartCount = Tx_sales_quotation_part::where([
-                'sales_quotation_id' => $query->id,
-                'active' => 'Y'
-            ])
-            ->count();
+            ]);
+            // $querySalesQuoPartCount = Tx_sales_quotation_part::where([
+            //     'sales_quotation_id' => $query->id,
+            //     'active' => 'Y'
+            // ])
+            // ->count();
 
             $data = [
                 'title' => $this->title,
@@ -523,8 +519,8 @@ class SalesQuotationServerSideController extends Controller
                 'customers' => $customers,
                 'parts' => $parts,
                 'customerPics' => $customerPic,
-                'querySalesQuoPart' => $querySalesQuoPart,
-                'totalRow' => (old('totalRow') ? old('totalRow') : $querySalesQuoPartCount),
+                'querySalesQuoPart' => $querySalesQuoPart->get(),
+                'totalRow' => (old('totalRow') ? old('totalRow') : $querySalesQuoPart->count()),
                 'qCurrency' => $qCurrency,
             ];
 
@@ -545,8 +541,8 @@ class SalesQuotationServerSideController extends Controller
      */
     public function edit($id)
     {
-        ini_set('memory_limit', '128M');
-        ini_set('max_execution_time', 1800);
+        // ini_set('memory_limit', '128M');
+        // ini_set('max_execution_time', 1800);
 
         $is_director = '';
         $branch_id = '';
@@ -604,11 +600,7 @@ class SalesQuotationServerSideController extends Controller
                 'active' => 'Y'
             ])
             ->get();
-            $querySalesQuoPartCount = Tx_sales_quotation_part::where([
-                'sales_quotation_id' => $query->id,
-                'active' => 'Y'
-            ])
-            ->count();
+            $querySalesQuoPartCount = $querySalesQuoPart->count();
 
             $data = [
                 'title' => $this->title,
@@ -774,7 +766,7 @@ class SalesQuotationServerSideController extends Controller
                 $upd = Tx_sales_quotation::where('id', '=', $id)
                 ->update([
                     'sales_quotation_no' => $sales_quotation_no,
-                    'sales_quotation_date' => date_format(date_add(date_create(date("Y-m-d H:i:s")), date_interval_create_from_date_string((ENV("WAKTU_ID")??7)." hours")), "Y-m-d"),
+                    'sales_quotation_date' => now()->addHours(config('app.waktu_id', 7))->format('Y-m-d'),
                     'is_draft' => $request->is_draft,
                     'draft_to_created_at' => now(),
                     'updated_by' => Auth::user()->id
