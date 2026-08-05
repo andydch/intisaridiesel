@@ -49,92 +49,47 @@
             <tbody>
                 {!! html_entity_decode($emptyLine) !!}
                 @php
-                    $maxRow = \App\Models\Tx_cash_flow::where('report_code','=',$randomString)
+                    $maxRow = \App\Models\Tx_cash_flow::where('report_code', $randomString)
                     ->max('row_number');
 
-                    $maxCol = \App\Models\Tx_cash_flow::where('report_code','=',$randomString)
+                    $maxCol = \App\Models\Tx_cash_flow::where('report_code', $randomString)
                     ->max('col_number');
                 @endphp
-                @for ($row=1;$row<=$maxRow;$row++)
-                    <tr>                        
-                        @for ($col=1;$col<=$maxCol;$col++)
-                            @php
-                                $data = \App\Models\Tx_cash_flow::where([
-                                    'report_code' => $randomString,
-                                    'row_number' => $row,
-                                    'col_number' => $col,
-                                ])
-                                ->first();
-                            @endphp
-                            @if ($data)
-                                @if ($col==1)
-                                    <td></td>                                    
-                                @else                                    
-                                    <td style="font-size: {{ $data->font_size }}px; font-weight: {{ $data->font_weight }}px; background-color: {{ $data->b_color }}; 
-                                        color: {{ $data->f_color }}; text_align: {{ $data->text_align }};">
-                                        {{ $data->cell_values!=0?$data->cell_values:'' }}
-                                    </td>
+                @for ($row=1; $row<=$maxRow; $row++)
+                    @php
+                        $dataPerRow = \App\Models\Tx_cash_flow::where([
+                            'report_code' => $randomString,
+                            'row_number' => $row,
+                        ])
+                        ->first();
+                    @endphp
+                    @if ($dataPerRow)
+                        <tr>                        
+                            @for ($col=1; $col<=$maxCol; $col++)
+                                @php
+                                    $dataPerCol = \App\Models\Tx_cash_flow::where([
+                                        'report_code' => $randomString,
+                                        'row_number' => $row,
+                                        'col_number' => $col,
+                                    ])
+                                    ->first();
+                                @endphp
+                                @if ($dataPerCol)
+                                    @if ($col==1)
+                                        <td></td>                                    
+                                    @else                                    
+                                        <td style="font-size: {{ $dataPerCol->font_size }}px; font-weight: {{ $dataPerCol->font_weight }}px; background-color: {{ $dataPerCol->b_color }}; 
+                                            color: {{ $dataPerCol->f_color }}; text_align: {{ $dataPerCol->text_align }};">
+                                            {{ $dataPerCol->cell_values!=0?$dataPerCol->cell_values:'' }}
+                                        </td>
+                                    @endif
+                                @else
+                                    <td></td>
                                 @endif
-                            @else
-                                <td></td>
-                            @endif
-                        @endfor
-                    </tr>
+                            @endfor
+                        </tr>
+                    @endif
                 @endfor
-                {{-- <tr>
-                    <td colspan="2">{{ $start_datetime }}</td>
-                </tr>
-                @php
-                    $date1 = new DateTime($start_datetime); // Start Date
-                    $date2 = new DateTime($startCustomer_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2">Customer: {{ $startCustomer_datetime.' ('.$interval->i.' menit '.$interval->s.' detik'.')' }}</td>
-                </tr>
-                @php
-                    $date1 = new DateTime($startCustomer_datetime); // Start Date
-                    $date2 = new DateTime($startGjLj01_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2">GJ::LJ 01: {{ $startGjLj01_datetime.' ('.$interval->i.' menit '.$interval->s.' detik'.')' }}</td>
-                </tr>
-                @php
-                    $date1 = new DateTime($startGjLj01_datetime); // Start Date
-                    $date2 = new DateTime($startGjLj02_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2">GJ::LJ 02: {{ $startGjLj02_datetime.' ('.$interval->i.' menit '.$interval->s.' detik'.')' }}</td>
-                </tr>
-                @php
-                    $date1 = new DateTime($startGjLj02_datetime); // Start Date
-                    $date2 = new DateTime($startSupplier_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2">Supplier: {{ $startSupplier_datetime.' ('.$interval->i.' menit '.$interval->s.' detik'.')' }}</td>
-                </tr>
-                @php
-                    $stopDateTimeObj = new DateTime('now');
-                    $stop_datetime = $stopDateTimeObj->format('Y-m-d H:i:s');
-
-                    $date1 = new DateTime($startSupplier_datetime); // Start Date
-                    $date2 = new DateTime($stop_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2">{{ $stop_datetime.' ('.$interval->i.' menit '.$interval->s.' detik'.')' }}</td>
-                </tr>
-                @php
-                    $date1 = new DateTime($start_datetime); // Start Date
-                    $date2 = new DateTime($stop_datetime); // End Date
-                    $interval = $date1->diff($date2);
-                @endphp
-                <tr>
-                    <td colspan="2" style="text-align: left !important;">{{ 'Total waktu proses: '.$interval->i.' menit '.$interval->s.' detik' }}</td>
-                </tr> --}}
             </tbody>
             {{-- <tfooter></tfooter> --}}
         </table>

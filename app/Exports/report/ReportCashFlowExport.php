@@ -6,16 +6,17 @@ use App\Models\Mst_company;
 use App\Models\Mst_customer;
 use App\Models\Mst_global;
 use App\Models\Mst_supplier;
-use App\Models\Tx_cash_flow;
-use App\Models\Tx_payment_plan;
-use App\Models\Tx_payment_plan_per_rc_order;
-use App\Models\Tx_acceptance_plan;
 use App\Models\Tx_acceptance_plan_per_invoice;
+use App\Models\Tx_acceptance_plan;
+use App\Models\Tx_cash_flow;
+use App\Models\Tx_payment_plan_per_rc_order;
+use App\Models\Tx_payment_plan;
 use DateInterval;
 use DateTime;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -29,13 +30,22 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
     protected $bank_id;
     protected $monthDays;
     protected $daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
-    protected $MonthName = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOPEMBER','DESEMBER'];
+    protected $MonthName = [
+        'JANUARI',
+        'FEBRUARI',
+        'MARET',
+        'APRIL',
+        'MEI',
+        'JUNI',
+        'JULI',
+        'AGUSTUS',
+        'SEPTEMBER',
+        'OKTOBER',
+        'NOPEMBER',
+        'DESEMBER'];
 
     public function __construct($period, $bank_id)
     {
-        ini_set('memory_limit', '256M');
-        ini_set('max_execution_time', 3600);
-
         $this->period = $period;
         $this->bank_id = $bank_id;
     }
@@ -44,9 +54,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
     {
         $startDateTimeObj = new DateTime('now');
         $start_datetime = $startDateTimeObj->format('Y-m-d H:i:s');
+        $cashFlowRecords = [];
+        $delRows = [];
 
         // delete last report by opener ID
-        $updCashFlow = Tx_cash_flow::where(function($query) {
+        $delCashFlow = Tx_cash_flow::where('bank_id', $this->bank_id)
+        ->where(function($query) {
             $query->where('created_by', Auth::user()->id)
             ->orWhereNull('created_by');
         })
@@ -54,6 +67,10 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
         // delete last report by opener ID - end
 
         $period = explode("-", $this->period);
+        $monthPadded = sprintf('%02d', $period[0]);
+        $year = $period[1];
+        $stringTanggal = "{$year}-{$monthPadded}-01";
+
         $randomString = Str::random(6);
         if ($this->isLeapYear($period[1]) && $period[0]==2) {
             $this->monthDays = 29;
@@ -61,19 +78,13 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             $this->monthDays = $this->daysInMonth[$period[0]-1];
         }
 
-        $qCurrency = Mst_global::where([
-            'id' => 3,
-            'data_cat' => 'currency',
-            'active' => 'Y'
-        ])
-        ->first();
+        $qCurrency = Mst_global::select('id', 'title_ind')->find(3);
 
-        $company = Mst_company::whereRaw('id=1')
-        ->first();
-        $companyName = $company?$company->name:'';
+        $companyName = Mst_company::where('id', 1)->value('name') ?? '';
 
-        $qPaymentPlan = Tx_payment_plan::where([
-            'payment_month' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+        $qPaymentPlan = Tx_payment_plan::with('bank:id,coa_name')
+        ->where([
+            'payment_month' => $stringTanggal,
             'bank_id' => $this->bank_id,
             'is_draft' => 'N',
             'active' => 'Y',
@@ -82,11 +93,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
         if ($qPaymentPlan){
             $rowInXls = 1;
 
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -95,12 +106,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
-            $insRptCashFlow = Tx_cash_flow::create([
+            ];
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 2,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => $qPaymentPlan->bank->coa_name,
                 'f_color' => '#000000',
@@ -109,14 +120,14 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'left',
-            ]);
+            ];
 
             // $rowInXls++;    //2
             // $insRptCashFlow = Tx_cash_flow::create([
             //     'report_code' => $randomString,
             //     'row_number' => $rowInXls,
             //     'col_number' => 2,
-            //     'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+            //     'period' => $stringTanggal,
             //     'bank_id' => $this->bank_id,
             //     'cell_values' => 'x',
             //     // 'cell_values' => 'PAJAK',
@@ -129,11 +140,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
             // ]);
 
             $rowInXls++;    //3
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 2,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => 'SALDO AWAL',
                 'f_color' => '#000000',
@@ -142,12 +153,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '300',
                 'font_style' => 'normal',
                 'text_align' => 'left',
-            ]);
-            $insRptCashFlow = Tx_cash_flow::create([
+            ];
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 3,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => number_format($qPaymentPlan->beginning_balance, 0, "", ""),
                 'f_color' => '#000000',
@@ -156,12 +167,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'right',
-            ]);
-            $insRptCashFlow = Tx_cash_flow::create([
+            ];
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 3+$this->monthDays,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => number_format($qPaymentPlan->beginning_balance, 0, "", ""),
                 'f_color' => '#000000',
@@ -170,14 +181,14 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '300',
                 'font_style' => 'normal',
                 'text_align' => 'right',
-            ]);
+            ];
 
             $rowInXls++;    //4
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => '01-'.$this->MonthName[$period[0]-1].'-'.$period[1],
                 'f_color' => '#000000',
@@ -186,12 +197,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
-            $insRptCashFlow = Tx_cash_flow::create([
+            ];
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 2,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => number_format($qPaymentPlan->beginning_balance, 0, "", ""),
                 'f_color' => '#000000',
@@ -200,15 +211,15 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '300',
                 'font_style' => 'normal',
                 'text_align' => 'right',
-            ]);
+            ];
 
             // empty row
             $rowInXls++;    //5
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -217,49 +228,55 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
 
             // customers - x
             $startCustomerDateTimeObj = new DateTime('now');
             $startCustomer_datetime = $startCustomerDateTimeObj->format('Y-m-d H:i:s');
 
-            $stringTanggal = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01';
-
             $dateObjectNow = new DateTime($stringTanggal);
             $dateObjectNext = new DateTime($stringTanggal);
             // Menambahkan 1 bulan (P = Period, 1 = Angka, M = Month)
             $dateObjectNext->add(new DateInterval('P1M'));
 
-            $qPlanCust = Tx_acceptance_plan::whereRaw('DATE_FORMAT(acceptance_month, \'%c-%Y\')=\''.$this->period.'\'')
+            $qPlanCust = Tx_acceptance_plan::where('acceptance_month', $stringTanggal)
             ->where('bank_id', $this->bank_id)
             ->where('is_draft', 'N')
             ->where('active', 'Y')
             ->first();
 
-            $qCustomers = Mst_customer::where(function($q) use($dateObjectNow, $dateObjectNext, $qPlanCust){
-                $q->whereExists(function($q1) use($dateObjectNow, $dateObjectNext, $qPlanCust){
-                    $q1->select(DB::raw(1))
-                    ->from('tx_acceptance_plan_per_invoices AS tx_appi')
-                    ->where('tx_appi.acceptance_plan_id', ($qPlanCust?$qPlanCust->id:0))
-                    ->whereColumn('tx_appi.customer_id', 'mst_customers.id')
-                    ->whereRaw('((tx_appi.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.plan_date<\''.$dateObjectNext->format('Y-m-d').'\') OR 
-                        (tx_appi.payment_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.payment_date<\''.$dateObjectNext->format('Y-m-d').'\'))')
-                    ->where('tx_appi.active', 'Y');
-                });
-            })
+            // Ambil semua data sekaligus
+            $allCustomerPayments = Tx_acceptance_plan_per_invoice::select([
+                    'customer_id', 'plan_date', 'payment_date', 
+                    'plan_accept', 'payment_total', 'payment_receipt_no'
+                ])
+                ->where('acceptance_plan_id', $qPlanCust?->id??0)
+                ->where('active', 'Y')
+                ->get()
+                ->groupBy('customer_id');
+
+            $qCustomers = Mst_customer::select('id', 'customer_unique_code', 'name')
             ->where('active', 'Y')
+            ->whereExists(function($q1) use($dateObjectNow, $dateObjectNext, $qPlanCust){
+                $q1->select(DB::raw(1))
+                ->from('tx_acceptance_plan_per_invoices AS tx_appi')
+                ->where('tx_appi.acceptance_plan_id', $qPlanCust?->id??0)
+                ->whereColumn('tx_appi.customer_id', 'mst_customers.id')
+                ->whereRaw('((tx_appi.plan_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.plan_date<\''.$dateObjectNext->format('Y-m-d').'\') OR 
+                    (tx_appi.payment_date>=\''.$dateObjectNow->format('Y-m-d').'\' AND tx_appi.payment_date<\''.$dateObjectNext->format('Y-m-d').'\'))')
+                ->where('tx_appi.active', 'Y');
+            })
             ->orderBy('name', 'asc')
             ->get();
             foreach ($qCustomers as $customer) {
                 $rowInXls++;    //x
 
-                // customer name
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => strtoupper($customer->customer_unique_code.' - '.$customer->name),
                     'f_color' => '#000000',
@@ -268,7 +285,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'left',
-                ]);
+                ];
 
                 $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
                 $totalPerRow = 0;
@@ -276,25 +293,19 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
                     $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-                    $totalPlanPayment = Tx_acceptance_plan_per_invoice::where('acceptance_plan_id', ($qPlanCust?$qPlanCust->id:0))
-                    ->where('plan_date', $dayToValidate)
-                    ->where('customer_id', $customer->id)
-                    ->whereNull('payment_receipt_no')
-                    ->where('active', 'Y')
-                    ->sum('plan_accept');
+                    $customerPayments = $allCustomerPayments->get($customer->id) ?? collect();
+                    $totalPlanPayment = $customerPayments->where('plan_date', $dayToValidate)
+                        ->whereNull('payment_receipt_no')
+                        ->sum('plan_accept');
+                    $totalActualPayment = $customerPayments->where('payment_date', $dayToValidate)
+                        ->whereNotNull('payment_receipt_no')
+                        ->sum('payment_total');
 
-                    $totalActualPayment = Tx_acceptance_plan_per_invoice::where('acceptance_plan_id', ($qPlanCust?$qPlanCust->id:0))
-                    ->where('customer_id', $customer->id)
-                    ->where('payment_date', $dayToValidate)
-                    ->whereNotNull('payment_receipt_no')
-                    ->where('active', 'Y')
-                    ->sum('payment_total');
-
-                    $insRptCashFlow = Tx_cash_flow::create([
+                    $cashFlowRecords[] = [
                         'report_code' => $randomString,
                         'row_number' => $rowInXls,
                         'col_number' => 2 + $iDay,
-                        'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                        'period' => $stringTanggal,
                         'bank_id' => $this->bank_id,
                         'cell_values' => $totalActualPayment>0?number_format($totalActualPayment, 0, "", ""):number_format($totalPlanPayment, 0, "", ""),
                         'f_color' => '#000000',
@@ -303,17 +314,17 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         'font_weight' => '300',
                         'font_style' => 'normal',
                         'text_align' => 'right',
-                    ]);
+                    ];
 
                     $totalPerRow += $totalActualPayment>0?$totalActualPayment:$totalPlanPayment;
                     $lastCol = 2 + $iDay;
                 }
 
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($totalPerRow, 0, "", ""),
                     'f_color' => '#000000',
@@ -322,29 +333,21 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'right',
-                ]);
+                ];
 
                 if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
-
-                    $rowInXls--;
+                    $delRows[] = $rowInXls;
                 }
             }
             // customers - x
 
             // empty row
             $rowInXls++;    //5
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -353,7 +356,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
 
             // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
@@ -437,11 +440,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 $rowInXls++;
 
                 // journal desc
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
                     'f_color' => '#000000',
@@ -450,7 +453,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'left',
-                ]);
+                ];
 
                 $totalPerRow = 0;
                 $lastCol = 0;
@@ -483,7 +486,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         ->where('tx_gjd_1.coa_id', '=', $this->bank_id)
                         ->where('tx_gjd_1.active', 'Y');
                     })
-                    ->whereRaw('DATE_FORMAT(tx_gj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('tx_gj.general_journal_date', $dayToValidate)
                     ->where('msc.coa_code_complete', $j01->coa_code_complete)
                     ->where('tx_gjd.active', '=', 'Y');
 
@@ -510,7 +513,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
                         ->where('tx_ljd_1.active', 'Y');
                     })
-                    ->whereRaw('DATE_FORMAT(tx_lj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('tx_lj.general_journal_date', $dayToValidate)
                     ->where('msc.coa_code_complete', $j01->coa_code_complete)
                     ->where('tx_ljd.active', '=', 'Y');
 
@@ -526,77 +529,31 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
 
                     // amount
                     if (($kreditGJ+$debitGJ)!=0){
-                        $qRptCashFlow = Tx_cash_flow::where([
+                        $cashFlowRecords[] = [
                             'report_code' => $randomString,
                             'row_number' => $rowInXls,
                             'col_number' => 2 + $iDay,
-                            'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                            'period' => $stringTanggal,
                             'bank_id' => $this->bank_id,
-                        ])
-                        ->first();
-                        if ($qRptCashFlow){
-                            $qRptCashFlow = Tx_cash_flow::where([
-                                'report_code' => $randomString,
-                                'row_number' => $rowInXls,
-                                'col_number' => 2 + $iDay,
-                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                                'bank_id' => $this->bank_id,
-                            ])
-                            ->update([
-                                'cell_values' => number_format($qRptCashFlow->cell_values+$kreditGJ+$debitGJ, 0, "", ""),
-                                'f_color' => '#000000',
-                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
-                                'font_size' => '12',
-                                'font_weight' => '300',
-                                'font_style' => 'normal',
-                                'text_align' => 'right',
-                            ]);
-                        }else{
-                            $insRptCashFlow = Tx_cash_flow::create([
-                                'report_code' => $randomString,
-                                'row_number' => $rowInXls,
-                                'col_number' => 2 + $iDay,
-                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                                'bank_id' => $this->bank_id,
-                                'cell_values' => number_format($kreditGJ+$debitGJ, 0, "", ""),
-                                'f_color' => '#000000',
-                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
-                                'font_size' => '12',
-                                'font_weight' => '300',
-                                'font_style' => 'normal',
-                                'text_align' => 'right',
-                            ]);
-                        }
+                            'cell_values' => number_format($kreditGJ+$debitGJ, 0, "", ""),
+                            'f_color' => '#000000',
+                            'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                            'font_size' => '12',
+                            'font_weight' => '300',
+                            'font_style' => 'normal',
+                            'text_align' => 'right',
+                        ];
                     }
 
                     $totalPerRow += ($kreditGJ+$debitGJ);
                     $lastCol = 2 + $iDay;
-
-                    // // amount
-                    // $insRptCashFlow = Tx_cash_flow::create([
-                    //     'report_code' => $randomString,
-                    //     'row_number' => $rowInXls,
-                    //     'col_number' => 2 + $iDay,
-                    //     'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                    //     'bank_id' => $this->bank_id,
-                    //     'cell_values' => number_format($kreditGJ-$debitGJ, 0, "", ""),
-                    //     'f_color' => '#000000',
-                    //     'b_color' => ($kreditGJ-$debitGJ)!=0?'#8ea9db':'#ffffff',
-                    //     'font_size' => '12',
-                    //     'font_weight' => '300',
-                    //     'font_style' => 'normal',
-                    //     'text_align' => 'right',
-                    // ]);
-
-                    // $totalPerRow += ($kreditGJ-$debitGJ);
-                    // $lastCol = 2 + $iDay;
                 }
 
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($totalPerRow, 0, "", ""),
                     'f_color' => '#000000',
@@ -605,29 +562,21 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'right',
-                ]);
+                ];
 
                 if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
-
-                    $rowInXls--;
+                    $delRows[] = $rowInXls;
                 }
             }
             // cash flow GJ+LJ (COA Bank 112x, COA Petty Cash 111x, COA Capital 31xx )
 
             // empty row
             $rowInXls++;    //5
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -636,7 +585,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
 
             // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
@@ -724,11 +673,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 $rowInXls++;
 
                 // journal desc
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => strtoupper($j01->coa_code_complete.' - '.$j01->coa_name),
                     'f_color' => '#000000',
@@ -737,7 +686,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'left',
-                ]);
+                ];
 
                 $totalPerRow = 0;
                 $lastCol = 0;
@@ -770,7 +719,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         ->where('tx_gjd_1.coa_id', $this->bank_id)
                         ->where('tx_gjd_1.active', 'Y');
                     })
-                    ->whereRaw('DATE_FORMAT(tx_gj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('tx_gj.general_journal_date', $dayToValidate)
                     ->where('msc.coa_code_complete', $j01->coa_code_complete)
                     ->where('tx_gjd.active', '=', 'Y');
 
@@ -797,7 +746,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         ->where('tx_ljd_1.coa_id', '=', $this->bank_id)
                         ->where('tx_ljd_1.active', 'Y');
                     })
-                    ->whereRaw('DATE_FORMAT(tx_lj.general_journal_date, "%Y-%m-%d")=\''.$dayToValidate.'\'')
+                    ->where('tx_lj.general_journal_date', $dayToValidate)
                     ->where('msc.coa_code_complete', $j01->coa_code_complete)
                     ->where('tx_ljd.active', '=', 'Y');
 
@@ -813,58 +762,31 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
 
                     // amount
                     if (($kreditGJ+$debitGJ)!=0){
-                        $qRptCashFlow = Tx_cash_flow::where([
+                        $cashFlowRecords[] = [
                             'report_code' => $randomString,
                             'row_number' => $rowInXls,
                             'col_number' => 2 + $iDay,
-                            'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                            'period' => $stringTanggal,
                             'bank_id' => $this->bank_id,
-                        ])
-                        ->first();
-                        if ($qRptCashFlow){
-                            $qRptCashFlow = Tx_cash_flow::where([
-                                'report_code' => $randomString,
-                                'row_number' => $rowInXls,
-                                'col_number' => 2 + $iDay,
-                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                                'bank_id' => $this->bank_id,
-                            ])
-                            ->update([
-                                'cell_values' => number_format($qRptCashFlow->cell_values+$kreditGJ+$debitGJ, 0, "", ""),
-                                'f_color' => '#000000',
-                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
-                                'font_size' => '12',
-                                'font_weight' => '300',
-                                'font_style' => 'normal',
-                                'text_align' => 'right',
-                            ]);
-                        }else{
-                            $insRptCashFlow = Tx_cash_flow::create([
-                                'report_code' => $randomString,
-                                'row_number' => $rowInXls,
-                                'col_number' => 2 + $iDay,
-                                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
-                                'bank_id' => $this->bank_id,
-                                'cell_values' => number_format($kreditGJ+$debitGJ, 0, "", ""),
-                                'f_color' => '#000000',
-                                'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
-                                'font_size' => '12',
-                                'font_weight' => '300',
-                                'font_style' => 'normal',
-                                'text_align' => 'right',
-                            ]);
-                        }
+                            'cell_values' => number_format($kreditGJ+$debitGJ, 0, "", ""),
+                            'f_color' => '#000000',
+                            'b_color' => ($kreditGJ+$debitGJ)!=0?'#8ea9db':'#ffffff',
+                            'font_size' => '12',
+                            'font_weight' => '300',
+                            'font_style' => 'normal',
+                            'text_align' => 'right',
+                        ];
                     }
 
                     $totalPerRow += ($kreditGJ+$debitGJ);
                     $lastCol = 2 + $iDay;
                 }
 
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($totalPerRow, 0, "", ""),
                     'f_color' => '#000000',
@@ -873,29 +795,21 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'right',
-                ]);
+                ];
 
                 if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
-
-                    $rowInXls--;
+                    $delRows[] = $rowInXls;
                 }
             }
             // cash flow GJ+LJ (COA Expense 6x, COA Loans 32x, COA Other Expense 9x, COA Hutang 2x (kecuali 211x))
 
             // empty row
             $rowInXls++;    //5
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -904,13 +818,23 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
+
+            // foreach (array_chunk($cashFlowRecords, 500) as $chunk) {
+            //     Tx_cash_flow::insert($chunk);
+            // }
 
             // suppliers - x
             // Ekstrak format tanggal di luar query agar lebih rapi
             $startDate = $dateObjectNow->format('Y-m-d');
             $endDate   = $dateObjectNext->format('Y-m-d');
+
+            // Ambil semua data sekaligus
+            $allSupplierPayments = Tx_payment_plan_per_rc_order::where('payment_plan_id', $qPaymentPlan->id)
+                ->where('active', 'Y')
+                ->get()
+                ->groupBy('supplier_id');
 
             $qSuppliers = Mst_supplier::where('active', 'Y')
                 ->whereExists(function($q) use($qPaymentPlan, $startDate, $endDate) {
@@ -936,11 +860,11 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 $rowInXls++;    //x
 
                 // supplier name
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 2,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => strtoupper($qS->supplier_code.' - '.$qS->entity_type->title_ind.' '.$qS->name),
                     'f_color' => '#000000',
@@ -949,7 +873,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'left',
-                ]);
+                ];
                 $dayToValidateMonth = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]);
 
                 $totalPerRow = 0;
@@ -957,33 +881,19 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
                     $dayToValidate = $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-'.(strlen($iDay)==1?'0'.$iDay:$iDay);
 
-                    $totalPlanPayment = Tx_payment_plan_per_rc_order::where('payment_plan_id', $qPaymentPlan->id)
-                    ->where('supplier_id', $qS->id)
-                    ->where('plan_date', $dayToValidate)
-                    ->where(function($q) {
-                        $q->where(function($q1) {
-                            $q1->whereNull('payment_voucher_no')
-                               ->orWhere('payment_voucher_no', '');
-                        })->orWhere(function($q2) {
-                            $q2->whereNotNull('payment_voucher_no')
-                               ->where('is_pv_approved', 'N');
-                        });
-                    })
-                    ->where('active', 'Y')
-                    ->sum('plan_pay');
-                    $totalActualPayment = Tx_payment_plan_per_rc_order::where('payment_plan_id', $qPaymentPlan->id)
-                    ->where('supplier_id', $qS->id)
-                    ->where('actual_date', $dayToValidate)
-                    ->whereNotNull('payment_voucher_no')
-                    ->where('is_pv_approved', 'Y')
-                    ->where('active', 'Y')
-                    ->sum('actual_payment');
+                    $supplierPayments = $allSupplierPayments->get($qS->id) ?? collect();
+                    $totalPlanPayment = $supplierPayments->where('plan_date', $dayToValidate)
+                        ->where('is_pv_approved', 'N')
+                        ->sum('plan_pay');
+                    $totalActualPayment = $supplierPayments->where('actual_date', $dayToValidate)
+                        ->where('is_pv_approved', 'Y')
+                        ->sum('actual_payment');
 
-                    $insRptCashFlow = Tx_cash_flow::create([
+                    $cashFlowRecords[] = [
                         'report_code' => $randomString,
                         'row_number' => $rowInXls,
                         'col_number' => 2 + $iDay,
-                        'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                        'period' => $stringTanggal,
                         'bank_id' => $this->bank_id,
                         'cell_values' => $totalActualPayment>0?number_format($totalActualPayment*-1, 0, "", ""):number_format($totalPlanPayment*-1, 0, "", ""),
                         'f_color' => '#000000',
@@ -992,17 +902,17 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                         'font_weight' => '300',
                         'font_style' => 'normal',
                         'text_align' => 'right',
-                    ]);
+                    ];
 
                     $totalPerRow += $totalActualPayment>0?($totalActualPayment*-1):($totalPlanPayment*-1);
                     $lastCol = 2 + $iDay;
                 }
 
-                $insRptCashFlow = Tx_cash_flow::create([
+                $cashFlowRecords[] = [
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => $lastCol+1,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($totalPerRow, 0, "", ""),
                     'f_color' => '#000000',
@@ -1011,29 +921,21 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'font_weight' => '300',
                     'font_style' => 'normal',
                     'text_align' => 'right',
-                ]);
+                ];
 
                 if ($totalPerRow==0){
-                    // hapus yg total nya 0
-                    $updCashFlow = Tx_cash_flow::where([
-                        'report_code' => $randomString,
-                        'row_number' => $rowInXls,
-                    ])
-                    ->delete();
-                    // hapus yg total nya 0
-
-                    $rowInXls--;
+                    $delRows[] = $rowInXls;
                 }
             }
             // suppliers - x
 
             // empty row
             $rowInXls++;    //x
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -1042,16 +944,16 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
 
             // empty row
             $rowInXls++;    //x
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 1,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => null,
                 'f_color' => '#000000',
@@ -1060,16 +962,16 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
             // empty row
 
             // total row
             $rowInXls++;    //x
-            $insRptCashFlow = Tx_cash_flow::create([
+            $cashFlowRecords[] = [
                 'report_code' => $randomString,
                 'row_number' => $rowInXls,
                 'col_number' => 2,
-                'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                'period' => $stringTanggal,
                 'bank_id' => $this->bank_id,
                 'cell_values' => 'T O T A L',
                 'f_color' => '#000000',
@@ -1078,7 +980,12 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 'font_weight' => '700',
                 'font_style' => 'normal',
                 'text_align' => 'center',
-            ]);
+            ];
+
+            // insert semua data
+            foreach (array_chunk($cashFlowRecords, 500) as $chunk) {
+                Tx_cash_flow::insert($chunk);
+            }
 
             $lastTotPerDay = 0;
             for ($iDay=1;$iDay<=$this->monthDays;$iDay++){
@@ -1096,7 +1003,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 2 + $iDay,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($totSumPerDay+$lastTotPerDay, 0, "", ""),
                     'f_color' => '#000000',
@@ -1119,7 +1026,7 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                     'report_code' => $randomString,
                     'row_number' => $rowInXls,
                     'col_number' => 3+$this->monthDays,
-                    'period' => $period[1].'-'.(strlen($period[0])==1?'0'.$period[0]:$period[0]).'-01',
+                    'period' => $stringTanggal,
                     'bank_id' => $this->bank_id,
                     'cell_values' => number_format($lastTotPerDay, 0, "", ""),
                     'f_color' => '#000000',
@@ -1131,6 +1038,16 @@ class ReportCashFlowExport implements FromView, ShouldAutoSize, WithStyles, With
                 ]);
             }
             // total row - end
+
+            // Log::debug($delRows);
+            $collection_delRows = collect($delRows);
+            if ($collection_delRows->isNotEmpty()) {
+                // hapus yg total nya 0
+                $delCashFlow = Tx_cash_flow::where('report_code', $randomString)
+                ->whereIn('row_number', $collection_delRows)
+                ->delete();
+                // hapus yg total nya 0
+            }
 
             // update report opener
             $updCashFlow = Tx_cash_flow::where([
