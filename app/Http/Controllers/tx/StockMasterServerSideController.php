@@ -7,9 +7,8 @@ use App\Models\Mst_branch;
 use App\Models\Mst_brand_type;
 use App\Models\Mst_global;
 use App\Models\Tx_qty_part;
-use App\Models\Tx_receipt_order_part;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 // use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -27,20 +26,28 @@ class StockMasterServerSideController extends Controller
      */
     public function index(Request $request,$param=null)
     {
-        $queryBranch = Mst_branch::where('active', '=','Y')
+        $queryBranch = Mst_branch::select('id', 'name')
+        ->where('active', '=','Y')
         ->orderBy('name','ASC')
         ->get();
-        $queryBrand = Mst_global::where('data_cat', 'brand')
+        $queryBrand = Cache::remember('stock_master_brand', 3600, function () {
+            return Mst_global::select('id', 'title_ind', 'string_val')
+            ->where('data_cat', 'brand')
+            ->where('active', 'Y')
+            ->orderBy('string_val','ASC')
+            ->get();
+        });
+        $queryBrandType = Mst_brand_type::select('id', 'brand_type')
         ->where('active', 'Y')
-        ->orderBy('string_val','ASC')
-        ->get();
-        $queryBrandType = Mst_brand_type::where('active', 'Y')
         ->orderBy('brand_type','ASC')
         ->get();
-        $queryPartType = Mst_global::where('data_cat', 'part-type')
-        ->where('active', 'Y')
-        ->orderBy('string_val','ASC')
-        ->get();
+        $queryPartType = Cache::remember('stock_master_part_type', 3600, function () {
+            return Mst_global::select('id', 'title_ind', 'string_val')
+            ->where('data_cat', 'part-type')
+            ->where('active', 'Y')
+            ->orderBy('string_val','ASC')
+            ->get();
+        });
 
         $paramTemp = str_replace("\\", "/", urldecode($param));
         $parameter = explode('::', $paramTemp);
@@ -48,148 +55,28 @@ class StockMasterServerSideController extends Controller
             return redirect(route('stockmaster.index').'/'.urlencode('::::::::::::::'));
         }
         if ($request->ajax()) {
-            $sqlMstParts = DB::table('mst_parts')
-            ->select(
-                'id AS part_idx',
-                'slug',
-                'part_number',
-                'part_name',
-                'part_type_id',
-                'quantity_type_id',
-                'brand_id',
-                'final_price',
-                'price_list',
-                'avg_cost',
-                'final_cost',
-                'active AS part_active',
-            )
-            ->where('active', 'Y')
-            ->orderBy('part_number', 'ASC');
-            $sqlMstGlobals01 = DB::table('mst_globals')
-            ->select(
-                'id',
-                'title_ind'
-            )
-            ->where('active', 'Y')
-            ->where('data_cat', 'part-type');
-            $sqlMstGlobals02 = DB::table('mst_globals')
-            ->select(
-                'id',
-                'title_ind'
-            )
-            ->where('active', 'Y')
-            ->where('data_cat', 'quantity-type');
-            $sqlMstGlobals03 = DB::table('mst_globals')
-            ->select(
-                'id',
-                'title_ind'
-            )
-            ->where('active', 'Y')
-            ->where('data_cat', 'brand');
-
-            $sql = DB::table('tx_qty_parts')
-            ->joinSub($sqlMstParts, 'mst_parts', function($join) {
-                $join->on('tx_qty_parts.part_id', '=', 'mst_parts.part_idx');
+            $base = DB::table('tx_qty_parts')
+            ->join('mst_parts AS mst_parts', function($join) {
+                $join->on('tx_qty_parts.part_id', '=', 'mst_parts.id')
+                ->where('mst_parts.active', 'Y');
             })
-            ->leftJoinSub($sqlMstGlobals01, 'mg_01', function($join) {
-                $join->on('mst_parts.part_type_id', '=', 'mg_01.id');
+            ->leftJoin('mst_globals AS mg_01', function($join) {
+                $join->on('mst_parts.part_type_id', '=', 'mg_01.id')
+                ->where('mg_01.active', 'Y')
+                ->where('mg_01.data_cat', 'part-type');
             })
-            ->leftJoinSub($sqlMstGlobals02, 'mg_02', function($join) {
-                $join->on('mst_parts.quantity_type_id', '=', 'mg_02.id');
+            ->leftJoin('mst_globals AS mg_02', function($join) {
+                $join->on('mst_parts.quantity_type_id', '=', 'mg_02.id')
+                ->where('mg_02.active', 'Y')
+                ->where('mg_02.data_cat', 'quantity-type');
             })
-            ->leftJoinSub($sqlMstGlobals03, 'mg_03', function($join) {
-                $join->on('mst_parts.brand_id', '=', 'mg_03.id');
+            ->leftJoin('mst_globals AS mg_03', function($join) {
+                $join->on('mst_parts.brand_id', '=', 'mg_03.id')
+                ->where('mg_03.active', 'Y')
+                ->where('mg_03.data_cat', 'brand');
             })
-            ->select(
-                'mst_parts.part_idx',
-                'mst_parts.slug',
-                'mst_parts.part_number',
-                'mst_parts.part_name',
-                'mst_parts.final_price',
-                'mst_parts.price_list',
-                'mst_parts.avg_cost',
-                'mst_parts.final_cost',
-                'mst_parts.part_active',
-                'tx_qty_parts.qty',
-                'tx_qty_parts.branch_id AS branch_id_tmp',
-                'tx_qty_parts.id as rank',
-                'mg_01.title_ind as part_type_name',
-                'mg_02.title_ind as unit_name',
-                'mg_03.title_ind as brand_name',
-            )
-            ->addSelect([
-                'has_tx' => DB::raw('
-                    (SELECT 
-                        (CASE 
-                            WHEN EXISTS(
-                                SELECT 1 
-                                    FROM tx_delivery_order_parts AS tx_do_parts
-                                    WHERE tx_do_parts.part_id = mst_parts.part_idx
-                                    AND tx_do_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_nota_retur_parts AS tx_nr_parts
-                                    WHERE tx_nr_parts.part_id = mst_parts.part_idx
-                                    AND tx_nr_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_purchase_memo_parts AS tx_pm_parts
-                                    WHERE tx_pm_parts.part_id = mst_parts.part_idx
-                                    AND tx_pm_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_purchase_order_parts AS tx_po_parts
-                                    WHERE tx_po_parts.part_id = mst_parts.part_idx
-                                    AND tx_po_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_purchase_quotation_parts AS tx_pq_parts
-                                    WHERE tx_pq_parts.part_id = mst_parts.part_idx
-                                    AND tx_pq_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_purchase_retur_parts AS tx_pr_parts
-                                    WHERE tx_pr_parts.part_id = mst_parts.part_idx
-                                    AND tx_pr_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_receipt_order_parts AS tx_ro_parts
-                                    WHERE tx_ro_parts.part_id = mst_parts.part_idx
-                                    AND tx_ro_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_sales_order_parts AS tx_so_parts
-                                    WHERE tx_so_parts.part_id = mst_parts.part_idx
-                                    AND tx_so_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_sales_quotation_parts AS tx_sq_parts
-                                    WHERE tx_sq_parts.part_id = mst_parts.part_idx
-                                    AND tx_sq_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_stock_assembly_parts AS tx_sa_parts
-                                    WHERE tx_sa_parts.part_id = mst_parts.part_idx
-                                    AND tx_sa_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_stock_disassembly_parts AS tx_sd_parts
-                                    WHERE tx_sd_parts.part_id = mst_parts.part_idx
-                                    AND tx_sd_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_stock_transfer_parts AS tx_st_parts
-                                    WHERE tx_st_parts.part_id = mst_parts.part_idx
-                                    AND tx_st_parts.active = "Y"
-                                UNION ALL
-                                SELECT 1 
-                                    FROM tx_surat_jalan_parts AS tx_sj_parts
-                                    WHERE tx_sj_parts.part_id = mst_parts.part_idx
-                                    AND tx_sj_parts.active = "Y") THEN "Y" 
-                        ELSE "N" 
-                        END)) AS has_tx')
-            ])
-            ->selectRaw('mst_parts.part_name as part_name_wd')
+            // ---- Filter parameter dipindah ke query dasar (base) agar
+            //      query COUNT yang ringan ikut terfilter sama ----
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', '%'.$parameter[0].'%');
             })
@@ -200,7 +87,14 @@ class StockMasterServerSideController extends Controller
                 $q->where('mst_parts.brand_id', '=', $parameter[2]);
             })
             ->when($parameter[3]<>'', function($q) use($parameter) {
-                $q->where('mst_parts.brand_id', '=', $parameter[3]);
+                // Fix: filter brand type via tabel pivot mst_part_brand_types
+                $q->whereExists(function ($q1) use ($parameter) {
+                    $q1->selectRaw(1)
+                    ->from('mst_part_brand_types')
+                    ->whereColumn('mst_part_brand_types.part_id', 'mst_parts.id')
+                    ->where('mst_part_brand_types.brand_type_id', '=', $parameter[3])
+                    ->where('mst_part_brand_types.active', 'Y');
+                });
             })
             ->when($parameter[4]<>'', function($q) use($parameter) {
                 $q->where('mg_01.id', '=', $parameter[4]);
@@ -211,17 +105,128 @@ class StockMasterServerSideController extends Controller
             ->when($parameter[7]=='Y', function($q) use($parameter) {
                 $q->whereRaw('tx_qty_parts.qty>0');
             })
-            ->orderBy('mst_parts.part_number', 'ASC');
+            // ---- Kolom dasar dipindah ke $base (query INNER yang ringan).
+            //      Subquery berat dipindah ke OUTER agar hanya dieksekusi
+            //      untuk baris yang sudah di-paginate (≤length). ----
+            ->select(
+                'mst_parts.id AS part_idx',
+                'mst_parts.slug',
+                'mst_parts.part_number',
+                'mst_parts.part_name',
+                'mst_parts.final_price',
+                'mst_parts.price_list',
+                'mst_parts.avg_cost',
+                'mst_parts.final_cost',
+                'mst_parts.active AS part_active',
+                'tx_qty_parts.qty',
+                'tx_qty_parts.branch_id AS branch_id_tmp',
+                'tx_qty_parts.id AS rank',
+                'mg_01.title_ind AS part_type_name',
+                'mg_02.title_ind AS unit_name',
+                'mg_03.title_ind AS brand_name',
+            )
+            ->selectRaw('mst_parts.part_name AS part_name_wd')
+            // Nama cabang (tanpa N+1 query)
+            ->selectRaw("(SELECT b.name FROM mst_branches b WHERE b.id = tx_qty_parts.branch_id) AS branch_name_temp");
 
-            // Cache jumlah total data selama 1 jam (3600 detik)
-            // $totalRecords = Cache::remember('data_count', 3600, function () use ($sql) {
-            //     return $sql->count();
-            // });
+            // ====== 1. COUNT ringan (recordsTotal & recordsFiltered) ======
+            $totalRecords = (clone $base)->count();
 
-            return DataTables::of($sql)
-            // ->setTotalRecords($totalRecords)
-            // opsional: untuk menghindari penghitungan ulang recordsFiltered jika tidak ada pencarian
-            // ->skipTotalRecords()
+            $filteredRecords = $totalRecords;
+            $searchValue = trim((string) $request->input('search.value', ''));
+            if ($searchValue !== '') {
+                $countFiltered = clone $base;
+                $countFiltered->where(function ($q) use ($searchValue) {
+                    // multi-term: keyword dipecah per kata, antar kata di-AND
+                    foreach (preg_split('/\s+/', $searchValue) as $term) {
+                        if ($term === '') {
+                            continue;
+                        }
+                        $like = '%'.$term.'%';
+                        $q->where(function ($q2) use ($like) {
+                            $q2->where('mst_parts.part_number', 'LIKE', $like)
+                            ->orWhere('mst_parts.part_name', 'LIKE', $like)
+                            ->orWhere('mg_01.title_ind', 'LIKE', $like)
+                            ->orWhere('mg_03.title_ind', 'LIKE', $like)
+                            ->orWhereRaw('(SELECT name FROM mst_branches WHERE id = tx_qty_parts.branch_id) LIKE ?', [$like]);
+                        });
+                    }
+                });
+                $filteredRecords = $countFiltered->count();
+            }
+
+            // ====== 2. QUERY 1 (ringan, tanpa subquery berat):
+            //      dapatkan id urut (ORDER BY + pagination) ======
+            $orderByMap = [
+                0 => 'mst_parts.part_number',
+                1 => 'mst_parts.part_name',
+                2 => 'mg_01.title_ind',
+                3 => 'mg_03.title_ind',
+                4 => 'branch_name_temp',
+            ];
+            $orderIndex = (int) $request->input('order.0.column', 0);
+            $orderDir = strtolower((string) $request->input('order.0.dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+            $orderCol = $orderByMap[$orderIndex] ?? 'mst_parts.part_number';
+
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+
+            $rankQuery = clone $base;
+            if ($searchValue !== '') {
+                $rankQuery->where(function ($q) use ($searchValue) {
+                    foreach (preg_split('/\s+/', $searchValue) as $term) {
+                        if ($term === '') {
+                            continue;
+                        }
+                        $like = '%'.$term.'%';
+                        $q->where(function ($q2) use ($like) {
+                            $q2->where('mst_parts.part_number', 'LIKE', $like)
+                            ->orWhere('mst_parts.part_name', 'LIKE', $like)
+                            ->orWhere('mg_01.title_ind', 'LIKE', $like)
+                            ->orWhere('mg_03.title_ind', 'LIKE', $like)
+                            ->orWhereRaw('(SELECT name FROM mst_branches WHERE id = tx_qty_parts.branch_id) LIKE ?', [$like]);
+                        });
+                    }
+                });
+            }
+            $rankQuery->orderBy($orderCol, $orderDir)
+            ->select('tx_qty_parts.id AS rank');
+            if ($length > 0) {
+                $rankQuery->skip($start)->take($length);
+            }
+            $ranks = $rankQuery->pluck('rank');
+
+            // Tidak ada data (mis. hasil search kosong)
+            if ($ranks->isEmpty()) {
+                return response()->json([
+                    'draw' => (int) $request->input('draw'),
+                    'recordsTotal' => $totalRecords,
+                    'recordsFiltered' => $filteredRecords,
+                    'data' => [],
+                ]);
+            }
+
+            // ====== 3. QUERY 2 (dasar, TANPA subquery di SELECT):
+            //      ambil baris untuk id hasil QUERY 1 (≤length).
+            //      Kompatibel MySQL 5.7: tidak ada correlated subquery
+            //      di SELECT, tidak ada derived table. ======
+            $data = (clone $base)
+            ->whereIn('tx_qty_parts.id', $ranks->all())
+            ->orderByRaw('FIELD(tx_qty_parts.id, '.implode(',', $ranks->all()).')')
+            ->get();
+
+            // ====== 4. Hitung nilai berat (has_tx, SO, OO, IT, harga) via
+            //      query batch per part_id DI PHP — menghindari correlated
+            //      subquery di SELECT yang bermasalah di MySQL 5.7 ======
+            $data = $this->enrichStockRows($data);
+
+            // ====== 5. Yajra: DataTables dari hasil enrich ======
+            return DataTables::of($data)
+            ->setTotalRecords($totalRecords)
+            ->setFilteredRecords($filteredRecords)
+            ->skipPaging()     // pagination sudah diterapkan di QUERY 1
+            ->skipAutoFilter() // search sudah diterapkan di QUERY 1
+            ->order(function ($q) {}) // order sudah diterapkan di QUERY 1
             ->addColumn('part_number_with_delimiter', function ($sql) {
                 $partNumber = $sql->part_number;
                 if(strlen($partNumber)<11){
@@ -235,176 +240,34 @@ class StockMasterServerSideController extends Controller
                 return $sql->part_name_wd;
             })
             ->editColumn('branch_name_temp', function ($sql) {
-                $q = Mst_branch::where('id', $sql->branch_id_tmp)->first();
-                return $q->name ?? '';
+                return $sql->branch_name_temp ?? '';
             })
-            ->filterColumn('branch_name_temp', function($query, $keyword) {
-                $query->whereRaw('(SELECT name FROM mst_branches WHERE id = tx_qty_parts.branch_id) LIKE ?', ["%{$keyword}%"]);
-            })
-            ->addColumn('SOqty', function ($sql) {
-                // sales order
-                $qtySO = DB::table('tx_sales_order_parts AS txsop')
-                ->leftJoin('tx_sales_orders AS txso', function($join) {
-                    $join->on('txsop.order_id', '=', 'txso.id')
-                    ->where('txso.active', 'Y')
-                    ->where('txso.is_draft', 'N')
-                    ->where('txso.need_approval', 'N');
-                })
-                ->where('txsop.part_id', $sql->part_idx)
-                ->where('txsop.active', 'Y')
-                ->where('txso.branch_id', $sql->branch_id_tmp)
-                ->whereNotExists(function (Builder $q1) {
-                    $q1->selectRaw(1)
-                    ->from('tx_delivery_order_parts as tx_do_parts')
-                    ->leftJoin('tx_delivery_orders as tx_do', function($join) {
-                        $join->on('tx_do_parts.delivery_order_id', '=', 'tx_do.id')
-                        ->where('tx_do.is_draft', 'N')
-                        ->where('tx_do.active', 'Y');
-                    })
-                    ->whereColumn('tx_do_parts.sales_order_id', 'txso.id')
-                    ->where('tx_do_parts.active', 'Y');
-                })
-                ->sum('txsop.qty') ?? 0;
-
-                // surat jalan
-                $qtySJ = DB::table('tx_surat_jalan_parts AS txsjp')
-                ->leftJoin('tx_surat_jalans AS txsj', function($join) {
-                    $join->on('txsjp.surat_jalan_id', '=', 'txsj.id')
-                    ->where('txsj.active', 'Y')
-                    ->where('txsj.need_approval', 'N')
-                    ->where('txsj.is_draft', 'N');
-                })
-                ->where('txsjp.part_id', $sql->part_idx)
-                ->where('txsjp.active', 'Y')
-                ->where('txsj.branch_id', $sql->branch_id_tmp)
-                ->whereNotExists(function (Builder $q1) {
-                    $q1->selectRaw(1)
-                    ->from('tx_delivery_order_non_tax_parts as tx_do_parts')
-                    ->leftJoin('tx_delivery_order_non_taxes as tx_do', function($join) {
-                        $join->on('tx_do_parts.delivery_order_id', '=', 'tx_do.id')
-                        ->where('tx_do.is_draft', 'N')
-                        ->where('tx_do.active', 'Y');
-                    })
-                    ->whereColumn('tx_do_parts.sales_order_id', 'txsj.id')
-                    ->where('tx_do_parts.active', 'Y');
-                })
-                ->sum('txsjp.qty') ?? 0;
-
-                if(($qtySJ+$qtySO)>0){
-                    return '<a href="#" onclick="dispSalesOrderInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.($qtySO+$qtySJ).'</a>';
-                }else{
-                    return ($qtySJ+$qtySO);
+            ->editColumn('SOqty', function ($sql) {
+                $qty = (int)($sql->so_qty ?? 0) + (int)($sql->sj_qty ?? 0);
+                if ($qty > 0) {
+                    return '<a href="#" onclick="dispSalesOrderInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$qty.'</a>';
                 }
+                return $qty;
             })
-            ->addColumn('OOqty', function ($sql) {
-                // on order
-                $purchase_memo_qty = DB::table('tx_purchase_memo_parts AS tx_mop')
-                ->leftJoin('tx_purchase_memos as tx_mo', function($join) {
-                    $join->on('tx_mop.memo_id', '=', 'tx_mo.id')
-                    ->where('tx_mo.is_draft', 'N')
-                    ->where('tx_mo.active', 'Y');
-                })
-                ->where('tx_mop.part_id', $sql->part_idx)
-                ->where('tx_mop.active', 'Y')
-                ->where('tx_mo.branch_id', $sql->branch_id_tmp)
-                ->sum('tx_mop.qty') ?? 0;
-
-                $purchase_order_qty = DB::table('tx_purchase_order_parts AS tx_pop')
-                ->leftJoin('tx_purchase_orders as tx_po', function($join) {
-                    $join->on('tx_pop.order_id', '=', 'tx_po.id')
-                    ->where('tx_po.is_draft', 'N')
-                    ->where('tx_po.active', 'Y')
-                    ->whereNotNull('tx_po.approved_by');
-                })
-                ->where('tx_pop.part_id', $sql->part_idx)
-                ->where('tx_pop.active', 'Y')
-                ->where('tx_po.branch_id', $sql->branch_id_tmp)
-                ->sum('tx_pop.qty') ?? 0;
-
-                $purchase_ro_qty = DB::table('tx_receipt_order_parts AS tx_ro_parts')
-                ->leftJoin('tx_receipt_orders as tx_ro', function($join) {
-                    $join->on('tx_ro_parts.receipt_order_id', '=', 'tx_ro.id')
-                    ->where('tx_ro.is_draft', 'N')
-                    ->where('tx_ro.active', 'Y');
-                })
-                ->where('tx_ro_parts.part_id', $sql->part_idx)
-                ->where('tx_ro.branch_id', $sql->branch_id_tmp)
-                ->where('tx_ro_parts.active', 'Y')
-                ->sum('tx_ro_parts.qty') ?? 0;
-
-                $oo = $purchase_memo_qty + $purchase_order_qty - $purchase_ro_qty;
-                if($oo>0){
+            ->editColumn('OOqty', function ($sql) {
+                $oo = (int)($sql->oo_memo_qty ?? 0) + (int)($sql->oo_po_qty ?? 0) - (int)($sql->oo_ro_qty ?? 0);
+                if ($oo > 0) {
                     return '<a href="#" onclick="dispOnOrderInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$oo.'</a>';
-                }else{
-                    return $oo;
                 }
+                return $oo;
             })
-            ->addColumn('ITqty', function ($sql) {
-                $in_transit_qty = DB::table('tx_stock_transfer_parts AS tx_stockp')
-                ->leftJoin('tx_stock_transfers as tx_stock', function($join) {
-                    $join->on('tx_stockp.stock_transfer_id', '=', 'tx_stock.id')
-                    ->where('tx_stock.approved_by', '!=', null)
-                    ->where('tx_stock.received_by', null)
-                    ->where('tx_stock.active', 'Y');
-                })
-                ->where('tx_stockp.active', 'Y')
-                ->where('tx_stockp.part_id', $sql->part_idx)
-                ->where('tx_stock.branch_to_id', $sql->branch_id_tmp)
-                ->sum('tx_stockp.qty') ?? 0;
-
-                if($in_transit_qty>0){
-                    return '<a href="#" onclick="dispInTransitInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$in_transit_qty.'</a>';
-                }else{
-                    return $in_transit_qty;
+            ->editColumn('ITqty', function ($sql) {
+                $qty = (int)($sql->it_qty ?? 0);
+                if ($qty > 0) {
+                    return '<a href="#" onclick="dispInTransitInfo('.$sql->part_idx.','.$sql->branch_id_tmp.');">'.$qty.'</a>';
                 }
+                return $qty;
             })
-            ->addColumn('final_cost_val', function ($sql) {
-                $qRO_final_cost = Tx_receipt_order_part::select('tx_receipt_order_parts.final_cost')
-                ->leftJoin('tx_receipt_orders as tx_ro', function($join) {
-                    $join->on('tx_receipt_order_parts.receipt_order_id', '=', 'tx_ro.id')
-                    ->where('tx_ro.is_draft', 'N')
-                    ->where('tx_ro.active', 'Y');
-                })
-                ->where('tx_receipt_order_parts.part_id', $sql->part_idx)
-                ->where('tx_receipt_order_parts.final_cost', '>', 0)
-                ->where('tx_receipt_order_parts.active', '=', 'Y')
-                ->where('tx_ro.branch_id', $sql->branch_id_tmp)
-                ->orderBy('tx_ro.created_at','DESC')
-                ->take(1);
-
-                return ($qRO_final_cost->first()->final_cost ?? 0);
+            ->editColumn('final_cost_val', function ($sql) {
+                return (int)($sql->final_cost_val ?? 0);
             })
-            ->addColumn('last_final_price_val', function ($sql) {
-                // 1. Query untuk mengambil data dari Sales Order (Sudah difilter per ID & Cabang)
-                $salesOrderQuery = DB::table('tx_sales_order_parts AS tx_sop')
-                ->leftJoin('tx_sales_orders AS tx_so', function($join) {
-                    $join->on('tx_sop.order_id', '=', 'tx_so.id')
-                    ->where('tx_so.active', 'Y')
-                    ->where('tx_so.is_draft', 'N')
-                    ->where('tx_so.need_approval', 'N');
-                })
-                ->select('tx_sop.price AS price', 'tx_sop.created_at AS created_at')
-                ->where('tx_sop.part_id', $sql->part_idx)
-                ->where('tx_sop.active', 'Y')
-                ->where('tx_so.branch_id', $sql->branch_id_tmp);
-
-                // 2. Query dari Surat Jalan, lalu UNION ALL dengan Sales Order, lalu urutkan yang terbaru
-                $latestPrice = DB::table('tx_surat_jalan_parts AS tx_sjp')
-                ->leftJoin('tx_surat_jalans AS tx_sj', function($join) {
-                    $join->on('tx_sjp.surat_jalan_id', '=', 'tx_sj.id')
-                    ->where('tx_sj.active', 'Y')
-                    ->where('tx_sj.need_approval', 'N')
-                    ->where('tx_sj.is_draft', 'N');
-                })
-                ->select('tx_sjp.price AS price', 'tx_sjp.created_at AS created_at')
-                ->where('tx_sjp.part_id', $sql->part_idx)
-                ->where('tx_sjp.active', 'Y')
-                ->where('tx_sj.branch_id', $sql->branch_id_tmp)
-                ->unionAll($salesOrderQuery) // Gabungkan di sini
-                ->orderBy('created_at', 'DESC') // Sort hasil gabungan yang sudah sedikit
-                ->first(); // Mengambil 1 data teratas (LIMIT 1)
-
-                return $latestPrice ? ($latestPrice->price ?? 0) : 0;
+            ->editColumn('last_final_price_val', function ($sql) {
+                return (int)($sql->last_final_price_val ?? 0);
             })
             ->addColumn('action', function ($sql) {
                 $txt = '<a style="text-decoration: underline;" href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/stock-master-part/'.urlencode($sql->slug)).'?br_id='.$sql->branch_id_tmp.'">View</a> |
@@ -439,6 +302,204 @@ class StockMasterServerSideController extends Controller
         ];
 
         return view('tx.'.$this->folder.'.index-stock-master-serverside', $data);
+    }
+
+    /**
+     * Hitung kolom "berat" (has_tx, SOqty, OOqty, ITqty, final_cost,
+     * harga terakhir) untuk baris stock yang sudah di-paginate.
+     *
+     * Menggunakan query batch per part_id (dikerjakan di PHP) — TANPA
+     * correlated subquery di SELECT, sehingga kompatibel MySQL 5.7
+     * (menghindari error "Unknown column ... in 'where clause'").
+     *
+     * @param  \Illuminate\Support\Collection  $rows  baris hasil QUERY 2
+     * @return \Illuminate\Support\Collection
+     */
+    private function enrichStockRows($rows)
+    {
+        if ($rows->isEmpty()) {
+            return $rows;
+        }
+
+        $partIds = $rows->pluck('part_idx')->unique()->values()->all();
+        $idList = implode(',', $partIds);
+
+        // helper: memetakan hasil agregat part_id:branch_id => record
+        $toMap = function ($result) {
+            $m = [];
+            foreach ($result as $r) {
+                $m[$r->part_id.':'.$r->branch_id] = $r;
+            }
+
+            return $m;
+        };
+
+        // ===== has_tx: part pernah dipakai transaksi =====
+        $hasTxSql = 'SELECT part_id FROM tx_delivery_order_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_nota_retur_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_purchase_memo_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_purchase_order_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_purchase_quotation_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_purchase_retur_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_receipt_order_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_sales_order_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_sales_quotation_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_stock_assembly_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_stock_disassembly_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_stock_transfer_parts WHERE part_id IN ('.$idList.') AND active=\'Y\''
+            .' UNION SELECT part_id FROM tx_surat_jalan_parts WHERE part_id IN ('.$idList.') AND active=\'Y\'';
+        $hasTx = collect(DB::select($hasTxSql))->pluck('part_id')->flip();
+
+        // ===== SOqty - Sales Order =====
+        $soRows = DB::table('tx_sales_order_parts AS txsop')
+            ->join('tx_sales_orders AS txso', function ($j) {
+                $j->on('txsop.order_id', '=', 'txso.id')
+                  ->where('txso.active', 'Y')->where('txso.is_draft', 'N')->where('txso.need_approval', 'N');
+            })
+            ->whereIn('txsop.part_id', $partIds)
+            ->where('txsop.active', 'Y')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw(1)
+                  ->from('tx_delivery_order_parts as tx_do_parts')
+                  ->join('tx_delivery_orders as tx_do', function ($j) {
+                      $j->on('tx_do_parts.delivery_order_id', '=', 'tx_do.id')
+                        ->where('tx_do.is_draft', 'N')->where('tx_do.active', 'Y');
+                  })
+                  ->whereColumn('tx_do_parts.sales_order_id', 'txso.id')
+                  ->where('tx_do_parts.active', 'Y');
+            })
+            ->select('txsop.part_id', 'txso.branch_id', DB::raw('SUM(txsop.qty) AS total'))
+            ->groupBy('txsop.part_id', 'txso.branch_id')
+            ->get();
+        $soMap = $toMap($soRows);
+
+        // ===== SOqty - Surat Jalan =====
+        $sjRows = DB::table('tx_surat_jalan_parts AS txsjp')
+            ->join('tx_surat_jalans AS txsj', function ($j) {
+                $j->on('txsjp.surat_jalan_id', '=', 'txsj.id')
+                  ->where('txsj.active', 'Y')->where('txsj.need_approval', 'N')->where('txsj.is_draft', 'N');
+            })
+            ->whereIn('txsjp.part_id', $partIds)
+            ->where('txsjp.active', 'Y')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw(1)
+                  ->from('tx_delivery_order_non_tax_parts as tx_do_parts')
+                  ->join('tx_delivery_order_non_taxes as tx_do', function ($j) {
+                      $j->on('tx_do_parts.delivery_order_id', '=', 'tx_do.id')
+                        ->where('tx_do.is_draft', 'N')->where('tx_do.active', 'Y');
+                  })
+                  ->whereColumn('tx_do_parts.sales_order_id', 'txsj.id')
+                  ->where('tx_do_parts.active', 'Y');
+            })
+            ->select('txsjp.part_id', 'txsj.branch_id', DB::raw('SUM(txsjp.qty) AS total'))
+            ->groupBy('txsjp.part_id', 'txsj.branch_id')
+            ->get();
+        $sjMap = $toMap($sjRows);
+
+        // ===== OOqty - Purchase Memo =====
+        $memoRows = DB::table('tx_purchase_memo_parts AS m')
+            ->join('tx_purchase_memos AS h', function ($j) {
+                $j->on('m.memo_id', '=', 'h.id')->where('h.is_draft', 'N')->where('h.active', 'Y');
+            })
+            ->whereIn('m.part_id', $partIds)->where('m.active', 'Y')
+            ->select('m.part_id', 'h.branch_id', DB::raw('SUM(m.qty) AS total'))
+            ->groupBy('m.part_id', 'h.branch_id')
+            ->get();
+        $memoMap = $toMap($memoRows);
+
+        // ===== OOqty - Purchase Order =====
+        $poRows = DB::table('tx_purchase_order_parts AS m')
+            ->join('tx_purchase_orders AS h', function ($j) {
+                $j->on('m.order_id', '=', 'h.id')
+                  ->where('h.is_draft', 'N')->where('h.active', 'Y')->whereNotNull('h.approved_by');
+            })
+            ->whereIn('m.part_id', $partIds)->where('m.active', 'Y')
+            ->select('m.part_id', 'h.branch_id', DB::raw('SUM(m.qty) AS total'))
+            ->groupBy('m.part_id', 'h.branch_id')
+            ->get();
+        $poMap = $toMap($poRows);
+
+        // ===== OOqty - Receipt Order =====
+        $roRows = DB::table('tx_receipt_order_parts AS m')
+            ->join('tx_receipt_orders AS h', function ($j) {
+                $j->on('m.receipt_order_id', '=', 'h.id')->where('h.is_draft', 'N')->where('h.active', 'Y');
+            })
+            ->whereIn('m.part_id', $partIds)->where('m.active', 'Y')
+            ->select('m.part_id', 'h.branch_id', DB::raw('SUM(m.qty) AS total'))
+            ->groupBy('m.part_id', 'h.branch_id')
+            ->get();
+        $roMap = $toMap($roRows);
+
+        // ===== ITqty - In Transit (Stock Transfer) =====
+        $itRows = DB::table('tx_stock_transfer_parts AS m')
+            ->join('tx_stock_transfers AS h', function ($j) {
+                $j->on('m.stock_transfer_id', '=', 'h.id')
+                  ->whereNotNull('h.approved_by')->whereNull('h.received_by')->where('h.active', 'Y');
+            })
+            ->whereIn('m.part_id', $partIds)->where('m.active', 'Y')
+            ->select('m.part_id', 'h.branch_to_id AS branch_id', DB::raw('SUM(m.qty) AS total'))
+            ->groupBy('m.part_id', 'h.branch_to_id')
+            ->get();
+        $itMap = $toMap($itRows);
+
+        // ===== Final Cost (final_cost terakhir per part+branch) =====
+        $fcRows = DB::table('tx_receipt_order_parts AS a')
+            ->join('tx_receipt_orders AS h', function ($j) {
+                $j->on('a.receipt_order_id', '=', 'h.id')->where('h.is_draft', 'N')->where('h.active', 'Y');
+            })
+            ->whereIn('a.part_id', $partIds)->where('a.final_cost', '>', 0)->where('a.active', 'Y')
+            ->select('a.part_id', 'h.branch_id', 'a.final_cost', 'h.created_at')
+            ->orderBy('h.created_at', 'DESC')
+            ->get();
+        $fcMap = [];
+        foreach ($fcRows as $r) {
+            $k = $r->part_id.':'.$r->branch_id;
+            if (! isset($fcMap[$k])) {
+                $fcMap[$k] = (int) $r->final_cost; // pertama = terbaru (sudah DESC)
+            }
+        }
+
+        // ===== Last Final Price (SO UNION SJ, terbaru per part+branch) =====
+        $soPrice = DB::table('tx_sales_order_parts AS p')
+            ->join('tx_sales_orders AS h', function ($j) {
+                $j->on('p.order_id', '=', 'h.id')
+                  ->where('h.active', 'Y')->where('h.is_draft', 'N')->where('h.need_approval', 'N');
+            })
+            ->whereIn('p.part_id', $partIds)->where('p.active', 'Y')
+            ->select('p.part_id', 'h.branch_id', 'p.price', 'p.created_at');
+        $priceRows = DB::table('tx_surat_jalan_parts AS p')
+            ->join('tx_surat_jalans AS h', function ($j) {
+                $j->on('p.surat_jalan_id', '=', 'h.id')
+                  ->where('h.active', 'Y')->where('h.need_approval', 'N')->where('h.is_draft', 'N');
+            })
+            ->whereIn('p.part_id', $partIds)->where('p.active', 'Y')
+            ->select('p.part_id', 'h.branch_id', 'p.price', 'p.created_at')
+            ->unionAll($soPrice)
+            ->orderBy('created_at', 'DESC')
+            ->get();
+        $lfpMap = [];
+        foreach ($priceRows as $r) {
+            $k = $r->part_id.':'.$r->branch_id;
+            if (! isset($lfpMap[$k])) {
+                $lfpMap[$k] = (int) $r->price; // pertama = terbaru (sudah DESC)
+            }
+        }
+
+        // ===== Attach nilai ke setiap baris =====
+        foreach ($rows as $row) {
+            $k = $row->part_idx.':'.$row->branch_id_tmp;
+            $row->has_tx = isset($hasTx[$row->part_idx]) ? 'Y' : 'N';
+            $row->so_qty = (int) ($soMap[$k]->total ?? 0);
+            $row->sj_qty = (int) ($sjMap[$k]->total ?? 0);
+            $row->oo_memo_qty = (int) ($memoMap[$k]->total ?? 0);
+            $row->oo_po_qty = (int) ($poMap[$k]->total ?? 0);
+            $row->oo_ro_qty = (int) ($roMap[$k]->total ?? 0);
+            $row->it_qty = (int) ($itMap[$k]->total ?? 0);
+            $row->final_cost_val = (int) ($fcMap[$k] ?? 0);
+            $row->last_final_price_val = (int) ($lfpMap[$k] ?? 0);
+        }
+
+        return $rows;
     }
 
     /**

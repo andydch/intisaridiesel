@@ -434,6 +434,10 @@
             },
         });
     }
+
+    // Ubah angka 5 sesuai dengan jumlah tombol halaman yang ingin ditampilkan
+    $.fn.DataTable.ext.pager.numbers_length = 7;
+
     $(document).ready(function() {
         $('#brand_id').change(function() {
             $("#brandtype_id").empty();
@@ -455,8 +459,11 @@
                     let o = res[0].brand_type;
                     let totBrandType = o.length;
                     for (let i = 0; i < totBrandType; i++) {
-                        optionText = o[i].brand_type;
-                        optionValue = o[i].brand_id;
+                        // value harus id brand type (bukan brand_id), agar
+                        // sesuai dengan value opsi yang dirender server & tersimpan
+                        // di parameter[3] setelah Search.
+                        let optionText = o[i].brand_type;
+                        let optionValue = o[i].id;
                         $("#brandtype_id").append(
                             `<option value="${optionValue}">${optionText}</option>`
                         );
@@ -466,64 +473,50 @@
         });
 
         let table = $('#stock-master-list').DataTable({
+            pagingType: 'full_numbers',     // simple, simple_numbers, full, full_numbers
             processing: true,
-            ordering: false,
-            // scroller: true,
-            // scrollY: 500,
+            ordering: true,                 // aktifkan sorting (Yajra)
             searching: true,
             serverSide: true,
             searchDelay: 800, // Tunggu user selesai mengetik (800ms) baru kirim query
-            initComplete: function() {
-                var $searchInput = $('div.dataTables_filter input');
-                $searchInput.unbind();
-                $searchInput.bind('keyup', function(e) {
-                    if(this.value.length >= 3 || e.keyCode == 13) {
-                        // Hanya cari jika minimal 3 huruf atau tekan Enter
-                        table.search(this.value).draw();
-                    }
-                    if(this.value == "") {
-                        table.search("").draw();
-                    }
-                });
-            },
-            order: [], // Mematikan pengurutan default saat pertama kali dimuat
+            order: [[0, 'asc']], // Default: urutkan Part Number (kolom 0) ascending
             ajax: {
                 url: '{!! url()->current() !!}'
             },
             columns: [{ // mengambil & menampilkan kolom sesuai tabel database
-                    // 0
+                    // 0 - Part Number (bisa di-sort)
                     data: 'part_number_with_delimiter',
                     name: 'mst_parts.part_number',
                     searchable: true,
-                    orderable: false,
+                    orderable: true,
                 },
                 {
-                    // 1
+                    // 1 - Part Name (bisa di-sort)
                     data: 'parts_name',
                     name: 'mst_parts.part_name',
                     searchable: true,
-                    orderable: false,
+                    orderable: true,
                 },
                 {
-                    // 2
+                    // 2 - Part Type (bisa di-sort)
                     data: 'part_type_name',
                     name: 'mg_01.title_ind',
                     searchable: true,
-                    orderable: false,
+                    orderable: true,
                 },
                 {
-                    // 3
+                    // 3 - Brand Name (bisa di-sort)
                     data: 'brand_name',
                     name: 'mg_03.title_ind',
                     searchable: true,
-                    orderable: false,
+                    orderable: true,
                 },
                 {
-                    // 4
+                    // 4 - Branch (bisa di-sort)
                     data: 'branch_name_temp',
                     name: 'branch_name_temp',
                     searchable: true,
-                    orderable: false,
+                    orderable: true,
                 },
                 {
                     // 5
@@ -624,39 +617,35 @@
             ],
         });
 
-        $("#part_no").keyup(function() {
-            let part_no = $("#part_no").val();
-            $("#part_no").val(part_no.toUpperCase());
-        });
-        $("#part_name").keyup(function() {
-            let part_name = $("#part_name").val();
-            $("#part_name").val(part_name.toUpperCase());
+        // Uppercase otomatis pada input filter
+        $('#part_no, #part_name').on('keyup', function() {
+            $(this).val($(this).val().toUpperCase());
         });
 
-        $("#btn-del-row").click(function() {
+        $("#btn-del-row").click(function(e) {
             let rowNo = '';
-            for (i = 0; i < {{ $rowCount }}; i++) {
-                if ($("#delRow" + i).is(':checked')) {
-                    rowNo += '- '+$("#title_caption" + i).val()+'\n';
+            let aId = '';
+            // Iterasi checkbox yang benar-benar dirender (id = delRow{tx_qty_parts.id})
+            $('input[id^="delRow"]:checked').each(function() {
+                let id = this.id.replace('delRow', '');
+                let caption = $("#title_caption" + id).val() || '';
+                let partId = $("#part_id" + id).val() || '';
+                if (caption) {
+                    rowNo += '- ' + caption + '\n';
                 }
-            }
-            if(rowNo!=''){
-                let msg = 'The following Part Name will be deleted.\n'+rowNo+'\nProcess cannot be undone. Continue?';
-                if(!confirm(msg)){
-                    event.preventDefault();
-                }else{
-                    let aId = '';
-                    for (i = 0; i < {{ $rowCount }}; i++) {
-                        if ($("#delRow" + i).is(':checked')) {
-                            aId += $("#part_id" + i).val()+',';
-                        }
-                    }
-                    if(aId!==''){
-                        $("#all_ids").val(aId);
-                        $("#form_submit").attr("action", "{{ url('/del_mstock') }}");
-                        $("#form_submit").attr("method", "POST");
-                        $("#form_submit").submit();
-                    }
+                if (partId) {
+                    aId += partId + ',';
+                }
+            });
+            if (rowNo !== '') {
+                let msg = 'The following Part Name will be deleted.\n' + rowNo + '\nProcess cannot be undone. Continue?';
+                if (!confirm(msg)) {
+                    e.preventDefault();
+                } else if (aId !== '') {
+                    $("#all_ids").val(aId);
+                    $("#form_submit").attr("action", "{{ url('/del_mstock') }}");
+                    $("#form_submit").attr("method", "POST");
+                    $("#form_submit").submit();
                 }
             }
         });
