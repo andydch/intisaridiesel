@@ -3,28 +3,15 @@
 namespace App\Http\Controllers\tx;
 
 use App\Http\Controllers\Controller;
-// use App\Models\Mst_part;
 use App\Models\Mst_branch;
 use App\Models\Mst_brand_type;
 use App\Models\Mst_global;
-use App\Models\Tx_delivery_order_part;
-use App\Models\Tx_nota_retur_part;
-use App\Models\Tx_purchase_memo_part;
-use App\Models\Tx_purchase_order_part;
-use App\Models\Tx_purchase_quotation_part;
-use App\Models\Tx_purchase_retur_part;
 use App\Models\Tx_qty_part;
 use App\Models\Tx_receipt_order_part;
-use App\Models\Tx_sales_order_part;
-use App\Models\Tx_sales_quotation_part;
-use App\Models\Tx_stock_assembly_part;
-use App\Models\Tx_stock_disassembly_part;
-use App\Models\Tx_stock_transfer_part;
-use App\Models\Tx_surat_jalan_part;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
-// use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class StockMasterServerSideController extends Controller
@@ -130,6 +117,78 @@ class StockMasterServerSideController extends Controller
                 'mg_02.title_ind as unit_name',
                 'mg_03.title_ind as brand_name',
             )
+            ->addSelect([
+                'has_tx' => DB::raw('
+                    (SELECT 
+                        (CASE 
+                            WHEN EXISTS(
+                                SELECT 1 
+                                    FROM tx_delivery_order_parts AS tx_do_parts
+                                    WHERE tx_do_parts.part_id = mst_parts.part_idx
+                                    AND tx_do_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_nota_retur_parts AS tx_nr_parts
+                                    WHERE tx_nr_parts.part_id = mst_parts.part_idx
+                                    AND tx_nr_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_purchase_memo_parts AS tx_pm_parts
+                                    WHERE tx_pm_parts.part_id = mst_parts.part_idx
+                                    AND tx_pm_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_purchase_order_parts AS tx_po_parts
+                                    WHERE tx_po_parts.part_id = mst_parts.part_idx
+                                    AND tx_po_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_purchase_quotation_parts AS tx_pq_parts
+                                    WHERE tx_pq_parts.part_id = mst_parts.part_idx
+                                    AND tx_pq_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_purchase_retur_parts AS tx_pr_parts
+                                    WHERE tx_pr_parts.part_id = mst_parts.part_idx
+                                    AND tx_pr_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_receipt_order_parts AS tx_ro_parts
+                                    WHERE tx_ro_parts.part_id = mst_parts.part_idx
+                                    AND tx_ro_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_sales_order_parts AS tx_so_parts
+                                    WHERE tx_so_parts.part_id = mst_parts.part_idx
+                                    AND tx_so_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_sales_quotation_parts AS tx_sq_parts
+                                    WHERE tx_sq_parts.part_id = mst_parts.part_idx
+                                    AND tx_sq_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_stock_assembly_parts AS tx_sa_parts
+                                    WHERE tx_sa_parts.part_id = mst_parts.part_idx
+                                    AND tx_sa_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_stock_disassembly_parts AS tx_sd_parts
+                                    WHERE tx_sd_parts.part_id = mst_parts.part_idx
+                                    AND tx_sd_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_stock_transfer_parts AS tx_st_parts
+                                    WHERE tx_st_parts.part_id = mst_parts.part_idx
+                                    AND tx_st_parts.active = "Y"
+                                UNION ALL
+                                SELECT 1 
+                                    FROM tx_surat_jalan_parts AS tx_sj_parts
+                                    WHERE tx_sj_parts.part_id = mst_parts.part_idx
+                                    AND tx_sj_parts.active = "Y") THEN "Y" 
+                        ELSE "N" 
+                        END)) AS has_tx')
+            ])
             ->selectRaw('mst_parts.part_name as part_name_wd')
             ->when($parameter[0]<>'', function($q) use($parameter) {
                 $q->where('mst_parts.part_number', 'LIKE', '%'.$parameter[0].'%');
@@ -356,86 +415,7 @@ class StockMasterServerSideController extends Controller
                 return $txt;
             })
             ->addColumn('del_checkbox', function ($sql) {
-                $isTx = false;
-                $tx01 = Tx_delivery_order_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx01){$isTx = true;}
-
-                $tx02 = Tx_nota_retur_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx02 && !$isTx){$isTx = true;}
-
-                $tx03 = Tx_purchase_memo_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx03 && !$isTx){$isTx = true;}
-
-                $tx04 = Tx_purchase_order_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx04 && !$isTx){$isTx = true;}
-
-                $tx05 = Tx_purchase_quotation_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx05 && !$isTx){$isTx = true;}
-
-                $tx06 = Tx_purchase_retur_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx06 && !$isTx){$isTx = true;}
-
-                $tx07 = Tx_receipt_order_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx07 && !$isTx){$isTx = true;}
-
-                $tx08 = Tx_sales_order_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx08 && !$isTx){$isTx = true;}
-
-                $tx09 = Tx_sales_quotation_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx09 && !$isTx){$isTx = true;}
-
-                $tx10 = Tx_stock_assembly_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx10 && !$isTx){$isTx = true;}
-
-                $tx11 = Tx_stock_disassembly_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx11 && !$isTx){$isTx = true;}
-
-                $tx12 = Tx_stock_transfer_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx12 && !$isTx){$isTx = true;}
-
-                $tx13 = Tx_surat_jalan_part::where([
-                    'part_id' => $sql->part_idx,
-                ])
-                ->first();
-                if($tx13 && !$isTx){$isTx = true;}
-
-                if($sql->part_active=='Y' && !$isTx){
+                if ($sql->has_tx=='N'){
                     return '<input type="checkbox" name="delRow'.$sql->rank.'" id="delRow'.$sql->rank.'">';
                 }else{
                     return '<input type="hidden" name="delRow'.$sql->rank.'" id="delRow'.$sql->rank.'">';
@@ -453,7 +433,6 @@ class StockMasterServerSideController extends Controller
             'uri_folder' => $this->uri_folder,
             'queryBranch' => $queryBranch,
             'queryBrand' => $queryBrand,
-            // 'queryBrandType' => $queryBrandType,
             'queryPartType' => $queryPartType,
             'param' => $param,
             'parameter' => $parameter,
