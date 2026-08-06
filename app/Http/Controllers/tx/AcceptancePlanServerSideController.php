@@ -10,8 +10,8 @@ use App\Models\Tx_acceptance_plan_per_invoice;
 use App\Models\Tx_acceptance_plan;
 use App\Models\Tx_invoice;
 use App\Models\Tx_kwitansi;
-use App\Models\Tx_payment_receipt;
 use App\Models\Tx_payment_receipt_invoice;
+use App\Models\Tx_payment_receipt;
 use App\Models\V_invoice;
 use App\Rules\AcceptancePlanPeriodDupCheck;
 use Exception;
@@ -437,7 +437,17 @@ class AcceptancePlanServerSideController extends Controller
                     }
                     return $paid_num_str;
                 })
-                ->addColumn('payment_receipt_no', function ($q) {
+                ->filterColumn('payment_receipt_no', function($q, $keyword) {
+                    $q->whereIn('sub.invoice_no', function($query) use($keyword) {
+                        $query->select('invoice_no')
+                        ->from('tx_acceptance_plan_per_invoices')
+                        ->whereColumn('invoice_no', 'sub.invoice_no')
+                        ->where('payment_receipt_no', 'LIKE', "%{$keyword}%")
+                        ->whereNotNull('payment_receipt_no')
+                        ->where('active', 'Y');
+                    });
+                })
+                ->editColumn('payment_receipt_no', function ($q) {
                     $payment_receipt_no = '';
                     $qPayPerInv = Tx_acceptance_plan_per_invoice::where([
                         'invoice_no' => $q->invoice_no,
@@ -455,10 +465,6 @@ class AcceptancePlanServerSideController extends Controller
                 ->addColumn('action', function ($q) use($query, $id) {
                     $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
                         urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
-                    // $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'/edit?am='.
-                    //     urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">Edit</a>
-                    //     | <a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/'.$this->folder_per_inv.'/'.urlencode($q->invoice_no).'?am='.
-                    //     urlencode(date_format(date_create($query->acceptance_month),"n-Y")).'&ap='.$id.'&b_id='.$query->bank_id).'" style="text-decoration: underline;">View</a>';
                     return $links;
                 })
                 ->rawColumns(['invoice_no_tmp', 'tagihan', 'plan_date', 'customer_identity', 'paid_date', 'bayar_tagihan', 'rencana_bayar_tagihan', 'payment_receipt_no', 'action'])

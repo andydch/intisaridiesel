@@ -148,7 +148,7 @@
                     data: 'payment_receipt_no',
                     name: 'payment_receipt_no',
                     orderable: false,
-                    searchable: false,
+                    searchable: true,
                 },
                 {
                     data: 'action',
