@@ -27,7 +27,7 @@
                     $totCols = 8;
                     $monthNm = '';
 
-                    date_add($date, date_interval_create_from_date_string("-1 months"));
+                    date_add($date, date_interval_create_from_date_string("0 months"));
                     $thismonth = date_format($date,"m");
                     $thismonthYear = date_format($date,"Y");
                     date_add($date, date_interval_create_from_date_string("-1 months"));
@@ -39,13 +39,6 @@
                     date_add($date, date_interval_create_from_date_string("-1 months"));
                     $next3month = date_format($date,"m");
                     $next3monthYear = date_format($date,"Y");
-
-                    // Log::debug([
-                    //     '$thismonth' => $thismonth,
-                    //     '$next1month' => $next1month,
-                    //     '$next2month' => $next2month,
-                    //     '$next3month' => $next3month,
-                    // ]);
                 @endphp
                 <thead>
                     <tr>
@@ -91,7 +84,7 @@
                         $totGrandLastThan3Month = 0;
                         $totGrandAll = 0;
 
-                        $sumPenerimaanCustomerTotTmp = 0;
+                        $sumPenerimaanCustomerTotTestTmp = 0;
                         $totLastThan3MonthsTmp = 0;
                         $totLast3MonthsTmp = 0;
                         $totLast2MonthsTmp = 0;
@@ -146,7 +139,7 @@
                                 ->where('is_draft', '=', 'N')
                                 ->where('active', '=', 'Y')
                                 ->value('grand_total');
-                                $sumPenerimaanCustomerTotTmp = $sumPenerimaanCustomerTot;
+                                $sumPenerimaanCustomerTotTestTmp = $sumPenerimaanCustomerTot;
                                 // hitung total transaksi penerimaan customer mulai hari ini hingga ke belakang
 
                                 // less than 3 months ago onwards
@@ -478,6 +471,7 @@
                                     <td>{{ $totLastThan3Months>0?number_format($totLastThan3Months,0,'.',''):0 }}</td>
                                     <td>{{ $totalAll>0?number_format($totalAll,0,'.',''):0 }}</td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($totPayment,0,'.','') }}</td>
+                                    {{-- <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($sumPenerimaanCustomerTotTestTmp,0,'.','') }}</td> --}}
                                 </tr>
                                 {{-- <tr>
                                     <td style="border-left:1px solid black;">&nbsp;</td>
@@ -487,7 +481,7 @@
                                     <td>{{ $totLast3Months>0?number_format($totLast3MonthsTmp,0,'.',''):0 }}</td>
                                     <td>{{ $totLastThan3Months>0?number_format($totLastThan3MonthsTmp,0,'.',''):0 }}</td>
                                     <td>{{ $totalAll>0?number_format($totalAll,0,'.',''):0 }}</td>
-                                    <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($sumPenerimaanCustomerTotTmp,0,'.','') }}</td>
+                                    <td style="border-left: 1px solid black;border-right: 1px solid black;">{{ number_format($sumPenerimaanCustomerTotTestTmp,0,'.','') }}</td>
                                 </tr> --}}
                             @endif
                         @endforeach

@@ -103,28 +103,8 @@
                                 ->whereRaw('approved_by IS NOT NULL')
                                 ->where('active', 'Y')
                         ])
-                        ->addSelect([
-                            'all_kw_no' => \App\Models\Tx_delivery_order_non_tax::selectRaw('GROUP_CONCAT(delivery_order_no SEPARATOR ",") AS all_kw_no')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_kwid.np_id')
-                                    ->from('tx_kwitansi_details AS tx_kwid')
-                                    ->whereColumn('tx_kwid.kwitansi_id', 'tx_kwitansis.id')
-                                    ->where('tx_kwid.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
-                        ->addSelect([
-                            'all_kw_date' => \App\Models\Tx_delivery_order_non_tax::selectRaw('GROUP_CONCAT(DATE_FORMAT(delivery_order_date, "%d-%m-%Y") SEPARATOR ",") AS all_kw_date')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_kwid.np_id')
-                                    ->from('tx_kwitansi_details AS tx_kwid')
-                                    ->whereColumn('tx_kwid.kwitansi_id', 'tx_kwitansis.id')
-                                    ->where('tx_kwid.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
+                        // FIX: GROUP_CONCAT all_kw_no dihapus
+                        // FIX: GROUP_CONCAT all_kw_date dihapus
                         ->whereIn('tx_kwitansis.id', function($q) use($dt_s, $dt_e) {
                             $q->select('kwitansi_id')
                             ->from('tx_kwitansi_details')
@@ -152,13 +132,35 @@
                         ->orderBy('tx_kwitansis.kwitansi_no', 'DESC')
                         ->get();
 
+                        // FIX: ambil NP per kwitansi tanpa GROUP_CONCAT (hindari limit 1024/256)
+                        $kwMap = [];
+                        if ($qKwitansis->isNotEmpty()) {
+                            $ids = $qKwitansis->pluck('tx_id')->all();
+                            $rows = \DB::table('tx_delivery_order_non_taxes as d')
+                                ->join('tx_kwitansi_details as kwd', 'kwd.np_id', '=', 'd.id')
+                                ->whereIn('kwd.kwitansi_id', $ids)
+                                ->where('kwd.active', 'Y')
+                                ->where('d.active', 'Y')
+                                ->select('kwd.kwitansi_id', 'd.delivery_order_no', 'd.delivery_order_date')
+                                ->orderBy('kwd.kwitansi_id')
+                                ->orderBy('d.delivery_order_no', 'asc')
+                                ->get();
+                            foreach ($rows as $r) {
+                                $kwMap[$r->kwitansi_id][] = [
+                                    'no'   => $r->delivery_order_no,
+                                    'date' => \Carbon\Carbon::parse($r->delivery_order_date)->format('d-m-Y'),
+                                ];
+                            }
+                        }
+
                         $custNm = '';
                         $custNmTmp = '';
                     @endphp
                     @foreach ($qKwitansis as $qKwi)
                         @php
-                            $kwNoArr = explode(',', $qKwi->all_kw_no);
-                            $kwDateArr = explode(',', $qKwi->all_kw_date);
+                            $kwRows = $kwMap[$qKwi->tx_id] ?? [];
+                            $kwNoArr = array_column($kwRows, 'no');
+                            $kwDateArr = array_column($kwRows, 'date');
                             $custNm = $qKwi->customer_unique_code.' - '.$qKwi->ety_type_name.' '.$qKwi->cust_name;
                         @endphp
                         <tr>

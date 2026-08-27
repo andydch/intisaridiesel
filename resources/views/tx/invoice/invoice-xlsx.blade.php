@@ -105,28 +105,8 @@
                                 ->whereRaw('approved_by IS NOT NULL')
                                 ->where('active', 'Y')
                         ])
-                        ->addSelect([
-                            'all_fk_no' => \App\Models\Tx_delivery_order::selectRaw('GROUP_CONCAT(delivery_order_no SEPARATOR ",") AS all_fk_no')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_invd.fk_id')
-                                    ->from('tx_invoice_details AS tx_invd')
-                                    ->whereColumn('tx_invd.invoice_id', 'tx_invoices.id')
-                                    ->where('tx_invd.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
-                        ->addSelect([
-                            'all_fk_date' => \App\Models\Tx_delivery_order::selectRaw('GROUP_CONCAT(DATE_FORMAT(tx_delivery_orders.delivery_order_date, "%d-%m-%Y") SEPARATOR ",") AS all_fk_date')
-                                ->whereIn('id', function($q) {
-                                    $q->select('tx_invd.fk_id')
-                                    ->from('tx_invoice_details AS tx_invd')
-                                    ->whereColumn('tx_invd.invoice_id', 'tx_invoices.id')
-                                    ->where('tx_invd.active', 'Y');
-                                })
-                                ->where('active', 'Y')
-                                ->orderBy('delivery_order_no', 'asc')
-                        ])
+                        // FIX: GROUP_CONCAT all_fk_no dihapus
+                        // FIX: GROUP_CONCAT all_fk_date dihapus
                         ->whereIn('tx_invoices.id', function($q) use($dt_s, $dt_e) {
                             $q->select('invoice_id')
                             ->from('tx_invoice_details')
@@ -154,13 +134,35 @@
                         ->orderBy('tx_invoices.invoice_no', 'DESC')
                         ->get();
 
+                        // FIX: ambil faktur per invoice tanpa GROUP_CONCAT (hindari limit 1024/256)
+                        $fkMap = [];
+                        if ($qInvoices->isNotEmpty()) {
+                            $ids = $qInvoices->pluck('tx_id')->all();
+                            $rows = \DB::table('tx_delivery_orders as d')
+                                ->join('tx_invoice_details as invd', 'invd.fk_id', '=', 'd.id')
+                                ->whereIn('invd.invoice_id', $ids)
+                                ->where('invd.active', 'Y')
+                                ->where('d.active', 'Y')
+                                ->select('invd.invoice_id', 'd.delivery_order_no', 'd.delivery_order_date')
+                                ->orderBy('invd.invoice_id')
+                                ->orderBy('d.delivery_order_no', 'asc')
+                                ->get();
+                            foreach ($rows as $r) {
+                                $fkMap[$r->invoice_id][] = [
+                                    'no'   => $r->delivery_order_no,
+                                    'date' => \Carbon\Carbon::parse($r->delivery_order_date)->format('d-m-Y'),
+                                ];
+                            }
+                        }
+
                         $custNm = '';
                         $custNmTmp = '';
                     @endphp
                     @foreach ($qInvoices as $qInv)
                         @php
-                            $fkNoArr = explode(',', $qInv->all_fk_no);
-                            $fkDateArr = explode(',', $qInv->all_fk_date);
+                            $fkRows = $fkMap[$qInv->tx_id] ?? [];
+                            $fkNoArr = array_column($fkRows, 'no');
+                            $fkDateArr = array_column($fkRows, 'date');
                             $custNm = $qInv->customer_unique_code.' - '.$qInv->ety_type_name.' '.$qInv->cust_name;
                         @endphp
                         <tr>

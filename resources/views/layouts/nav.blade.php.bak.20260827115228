@@ -2146,9 +2146,6 @@
                     <li class="{{ strpos(url()->current(),"/user-management/")>0?'mm-active':'' }}">
                         <a href="https://docs.google.com/spreadsheets/d/1VrkQxO7ttRY1iUukPauL2ajpziaa2i29C8IzCpEoN34/edit?usp=sharing" target="_new"><i class="bx bx-right-arrow-alt"></i>Problem Solver</a>
                     </li>
-                    <li class="{{ strpos(url()->current(),"/import_payment")>0?'mm-active':'' }}">
-                        <a href="{{ url('/import_payment') }}"><i class="bx bx-right-arrow-alt"></i>Import Payment (Supplier & Customer)</a>
-                    </li>
                 </ul>
             </li>
         @endif

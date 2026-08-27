@@ -401,7 +401,6 @@ use App\Http\Controllers\tx\SuratJalanPrintController;
 use App\Http\Controllers\tx\SuratJalanServerSideController;
 use App\Http\Controllers\tx\TagihanSupplierServerSideController;
 use App\Http\Controllers\tx\UploadFakturPajakController;
-use App\Http\Controllers\ImportPaymentController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Maatwebsite\Excel\Facades\Excel;
@@ -1548,67 +1547,3 @@ Route::group(
         });
     }
 );
-
-// ===== Import Payment (Supplier & Customer) - khusus andydch@koidigital.co.id (gate email di controller) =====
-// Route::middleware(['web', 'auth'])
-Route::group(
-    [
-        // 'prefix' => 'adch',
-        'middleware' => ['forceHttps', 'web', 'auth']
-    ],
-    function () {
-        Route::get('/import_payment', [ImportPaymentController::class, 'page'])->name('import-payment.page');
-        Route::post('/import_payment', [ImportPaymentController::class, 'process'])->name('import-payment.process');
-        Route::get('/import_payment/report/{filename}', [ImportPaymentController::class, 'report'])->name('import-payment.report');
-        Route::get('/import_payment/template', [ImportPaymentController::class, 'template'])->name('import-payment.template');
-    }
-);
-
-# ===== SYS: Clear Cache permanen - khusus andydch@koidigital.co.id =====
-# Dipakai setelah deploy untuk membuka route baru tanpa SSH.
-# Akses: https://intimotor.com/_sys/clear-cache (harus login sebagai andydch@koidigital.co.id)
-Route::group(
-    ['middleware' => ['forceHttps', 'web', 'auth']],
-    function () {
-        Route::get('/_sys/clear-cache', function (\Illuminate\Http\Request $request) {
-            abort_unless(\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
-            $logs = [];
-            $files = [
-                base_path('bootstrap/cache/routes-v7.php'),
-                base_path('bootstrap/cache/routes.php'),
-                base_path('bootstrap/cache/config.php'),
-                base_path('bootstrap/cache/packages.php'),
-                base_path('bootstrap/cache/services.php'),
-            ];
-            foreach ($files as $f) {
-                if (file_exists($f)) {
-                    $logs[] = (@unlink($f) ? '✓ Dihapus: ' : '✗ Gagal hapus: ') . basename($f);
-                } else {
-                    $logs[] = '- Tidak ada: ' . basename($f) . ' (sudah bersih)';
-                }
-            }
-            $cmds = ['route:clear', 'config:clear', 'cache:clear', 'view:clear', 'optimize:clear'];
-            foreach ($cmds as $cmd) {
-                try {
-                    \Illuminate\Support\Facades\Artisan::call($cmd);
-                    $out = trim(\Illuminate\Support\Facades\Artisan::output());
-                    $logs[] = '✓ artisan ' . $cmd . ' : OK' . ($out ? ' - ' . substr($out, 0, 200) : '');
-                } catch (\Throwable $e) {
-                    $logs[] = '✗ artisan ' . $cmd . ' : ' . $e->getMessage();
-                }
-            }
-            if (function_exists('opcache_reset')) {
-                $logs[] = (@opcache_reset() ? '✓ OPcache direset' : '- OPcache reset gagal');
-            }
-            $logs[] = '';
-            $logs[] = '✅ SELESAI! Silakan buka /import_payment';
-            if ($request->query('json') == '1' || $request->wantsJson()) {
-                return response()->json(['status' => 'ok', 'logs' => $logs]);
-            }
-            return response('<h2>MNI Clear Cache</h2><pre style="background:#111;color:#0f0;padding:16px;border-radius:8px;overflow:auto">'
-                . implode(chr(10), array_map('htmlspecialchars', $logs))
-                . '</pre><p><a href="/import_payment" style="background:#0d6efd;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Buka /import_payment</a></p>', 200, ['Content-Type' => 'text/html; charset=UTF-8']);
-        })->name('sys.clear-cache');
-    }
-);
-
