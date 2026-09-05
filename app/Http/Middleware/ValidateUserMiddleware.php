@@ -25,6 +25,15 @@ class ValidateUserMiddleware
             return $next($request);
         }
 
+        // single-device login: tendang sesi ini jika ada login baru dari device/browser lain
+        // (user dgn token NULL = belum pernah login ulang sejak fitur rilis -> diloloskan)
+        $tokenNow = session('login_session_token');
+        $tokenDb = User::where('id', Auth::user()->id)->value('session_token');
+        if (!is_null($tokenDb) && $tokenNow !== $tokenDb) {
+            session()->flash('status-error', 'Akun Anda login dari perangkat lain. Sesi ini telah diakhiri.');
+            return redirect()->to(url('sign-out?e=3'));
+        }
+
         $user = User::where('id', '=', Auth::user()->id)
         ->first();
         if ($user){

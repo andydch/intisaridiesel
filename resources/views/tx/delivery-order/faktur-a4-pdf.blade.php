@@ -126,7 +126,7 @@
             <table id="kop" style="width: 100%;background-color: white;margin-bottom: 20px;border:1px solid white;">
                 <tr>
                     <td style="width: 100%;text-align: left;vertical-align: top;border:1px solid white !important;">
-                        <img src="{{ $_SERVER['DOCUMENT_ROOT'].'/assets/images/logo_UID.png' }}" style="width: 115px;height: 40px;" alt="">
+                        <img src="{{ $_SERVER['DOCUMENT_ROOT'].'/assets/images/logo_UID.png' }}" style="width: 200px;" alt="">
                     </td>
                 </tr>
                 {{-- <tr>
@@ -219,13 +219,12 @@
                                                 $cust_doc_noStr = '';
                                                 $cust_doc_noArr = explode(",",substr(substr($cust_doc_no,0,strlen($cust_doc_no)),0,strlen(substr($cust_doc_no,0,strlen($cust_doc_no)))));
                                                 for($i=0;$i<count($cust_doc_noArr);$i++){
-                                                    $cust_doc_noStr .= ($cust_doc_noArr[$i]!=''?
-                                                        ($cust_doc_noArr[$i].(($i+1)%5==0?
-                                                            '<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;':
-                                                            ','))
-                                                        :'');
+                                                    if($cust_doc_noArr[$i]=='') continue;
+                                                    $isLast = ($i == count($cust_doc_noArr)-1);
+                                                    $sep = $isLast ? '' : (($i+1)%5==0 ? '<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : ',');
+                                                    $cust_doc_noStr .= $cust_doc_noArr[$i].$sep;
                                                 }
-                                                $cust_doc_no = substr($cust_doc_noStr,0,strlen($cust_doc_noStr)-1);
+                                                $cust_doc_no = $cust_doc_noStr;
                                             @endphp
                                         @endif
                                         <tr>
@@ -233,16 +232,19 @@
                                                 PO No
                                             </td>
                                             <td class="top-section" style="text-align: left;width: 92%;vertical-align: top;">
-                                                : {{ $cust_doc_no }}
+                                                : {!! $cust_doc_no !!}
                                             </td>
                                         </tr>
                                         @php
                                             $soStr = '';
                                             $soArr = explode(",",substr($fakturs->sales_order_no_all,1,strlen($fakturs->sales_order_no_all)));
                                             for($i=0;$i<count($soArr);$i++){
-                                                $soStr .= $soArr[$i].(($i+1)%5==0?'<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;':',');
+                                                if($soArr[$i]=='') continue;
+                                                $isLast = ($i == count($soArr)-1);
+                                                $sep = $isLast ? '' : (($i+1)%5==0 ? '<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : ',');
+                                                $soStr .= $soArr[$i].$sep;
                                             }
-                                            $soStr = substr($soStr,0,strlen($soStr)-1);
+                                            $soStr = $soStr;
                                         @endphp
                                         <tr>
                                             <td class="top-section" style="text-align: left;width: 8%;vertical-align: top;">

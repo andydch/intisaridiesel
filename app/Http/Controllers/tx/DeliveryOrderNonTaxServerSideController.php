@@ -115,10 +115,12 @@ class DeliveryOrderNonTaxServerSideController extends Controller
                 $links = '';
                 $sj_arr = explode(",", $query->sales_order_no_all);
                 foreach($sj_arr as $sj){
-                    $qSJ = Tx_surat_jalan::where('surat_jalan_no','=',$sj)
-                    ->first();
-                    if($qSJ){
-                        $links = '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/surat-jalan/'.$qSJ->id).'" target="_new" style="text-decoration: underline;">'.$sj.'</a>';
+                    if($sj!=''){
+                        $qSJ = Tx_surat_jalan::where('surat_jalan_no','=',$sj)
+                        ->first();
+                        if($qSJ){
+                            $links .= '<a href="'.url(ENV('TRANSACTION_FOLDER_NAME').'/surat-jalan/'.$qSJ->id).'" target="_new" style="text-decoration: underline;">'.$sj.'</a><br/>';
+                        }
                     }
                 }
                 return $links;

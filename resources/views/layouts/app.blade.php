@@ -97,8 +97,10 @@
         <script src="{{ asset('assets/plugins/metismenu/js/metisMenu.min.js') }}"></script>
         <script src="{{ asset('assets/plugins/perfect-scrollbar/js/perfect-scrollbar.js') }}"></script>
         <!--app JS-->
+        <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
         <script src="{{ asset('assets/js/app.js') }}"></script>
         @yield('script')
+        @stack('scripts')
     </body>
 
 </html>

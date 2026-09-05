@@ -23,7 +23,8 @@ class User extends Authenticatable
         'email',
         'password',
         'slug',
-        'email_verified_at'
+        'email_verified_at',
+        'session_token'
     ];
 
     /**

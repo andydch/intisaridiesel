@@ -64,6 +64,12 @@ class SignInController extends Controller
                 'ip_address' => $ip_address
             ]);
 
+            // single-device login: terbitkan token sesi baru (menendang sesi device lain)
+            $sessionToken = \Illuminate\Support\Str::random(60);
+            Auth::user()->forceFill(['session_token' => $sessionToken, 'remember_token' => \Illuminate\Support\Str::random(60)])->save();
+            $request->session()->regenerate();
+            session(['login_session_token' => $sessionToken]);
+
             return redirect('/dashboard');
         } else {
             // echo 'ga ok brother';

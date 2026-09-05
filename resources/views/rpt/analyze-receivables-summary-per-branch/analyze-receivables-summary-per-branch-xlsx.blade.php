@@ -83,6 +83,7 @@
                         $totGrandLast3Month = 0;
                         $totGrandLastThan3Month = 0;
                         $totGrandAll = 0;
+                        $totGrandPayment = 0; // FIX: untuk TOTAL kolom H
 
                         $sumPenerimaanCustomerTotTestTmp = 0;
                         $totLastThan3MonthsTmp = 0;
@@ -459,6 +460,8 @@
                                 ->where('is_draft','=','N')
                                 ->where('active','=','Y')
                                 ->value('grand_total');
+                                // FIX: akumulasi grand total H
+                                $totGrandPayment += ($totPayment ?? 0);
                                 // this month's payment
                             @endphp
                             @if ($totalAll>0 || $totPayment>0)                                    
@@ -506,7 +509,7 @@
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;text-align: right;font-weight: 700;">{{ number_format($totGrandLast3Month,0,'.','') }}</td>
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;text-align: right;font-weight: 700;">{{ number_format($totGrandLastThan3Month,0,'.','') }}</td>
                         <td style="border-top: 1px solid black;border-bottom: 1px solid black;text-align: right;font-weight: 700;">{{ number_format($totGrandAll,0,'.','') }}</td>
-                        <td style="border-left: 1px solid black;border-top: 1px solid black;border-bottom: 1px solid black;text-align: right;font-weight: 700;border-right: 1px solid black;"></td>
+                        <td style="border-left: 1px solid black;border-top: 1px solid black;border-bottom: 1px solid black;text-align: right;font-weight: 700;border-right: 1px solid black;">{{ number_format($totGrandPayment,0,'.','') }}</td>
                     </tr>
                 </tfoot>
             </table>

@@ -44,9 +44,11 @@ class UserManagementController extends Controller
             ->leftJoin('mst_globals','userdetails.section_id','=','mst_globals.id')
             ->leftJoin('mst_branches','userdetails.branch_id','=','mst_branches.id')
             ->select(
+                'users.id as user_id',
                 'users.name',
                 'users.slug',
                 'users.email',
+                'users.session_token',
                 'userdetails.initial',
                 'userdetails.phone1',
                 'userdetails.branch_id',
@@ -319,6 +321,31 @@ class UserManagementController extends Controller
         }else{
             return redirect('err-notif');
         }
+    }
+
+    /**
+     * Paksa akhiri semua sesi login user (single-device login).
+     * Mengisi session_token dengan nilai acak baru sehingga SEMUA sesi aktif user tsb mismatch dan terpental (e=3).
+     * PENTING: jangan set NULL — guard migrasi NULL justru meloloskan sesi lama.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function kick($id)
+    {
+        // super user & pak sulian only (gate sama seperti method lain di project ini)
+        if (Auth::user()->id != 1 &&
+            Auth::user()->email!='sulian@intimotor.com') {
+            return redirect('err-notif');
+        }
+
+        $user = User::findOrFail($id);
+        if ($user->id == 1) {
+            return back()->withErrors(['msg' => 'Akun super-user tidak boleh ditendang.']);
+        }
+        $user->forceFill(['session_token' => \Illuminate\Support\Str::random(60), 'remember_token' => \Illuminate\Support\Str::random(60)])->save();
+        \DB::table('sessions')->where('user_id', $user->id)->delete();
+        return back()->with('status', 'User '.$user->email.' sudah dipaksa LOGOUT.');
     }
 
     /**

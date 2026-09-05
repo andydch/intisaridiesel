@@ -119,7 +119,6 @@ use App\Http\Controllers\auth\SignInController;
 use App\Http\Controllers\auth\SignOutController;
 use App\Http\Controllers\auth\SignUpController;
 use App\Http\Controllers\auth\UserProfileController;
-// use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\dbg\AuthController;
 use App\Http\Controllers\dbg\BeginningBalancePerMonthDbgController;
 use App\Http\Controllers\dbg\CreateWordController;
@@ -341,7 +340,6 @@ use App\Http\Controllers\tx\DeliveryOrderNonTaxServerSideController;
 use App\Http\Controllers\tx\DeliveryOrderServerSideController;
 use App\Http\Controllers\tx\DownloadFakturPajakController;
 use App\Http\Controllers\tx\FakturPrintController;
-use App\Http\Controllers\tx\GeneralJournalApprovalServerSideController;
 use App\Http\Controllers\tx\GeneralJournalServerSideController;
 use App\Http\Controllers\tx\InvoiceApprovalController;
 use App\Http\Controllers\tx\InvoicePrintController;
@@ -350,7 +348,6 @@ use App\Http\Controllers\tx\InvoiceTaxInvController;
 use App\Http\Controllers\tx\KwitansiApprovalController;
 use App\Http\Controllers\tx\KwitansiPrintController;
 use App\Http\Controllers\tx\KwitansiServerSideController;
-use App\Http\Controllers\tx\LokalJournalApprovalServerSideController;
 use App\Http\Controllers\tx\LokalJournalServerSideController;
 use App\Http\Controllers\tx\MemoPrintController;
 use App\Http\Controllers\tx\MemoServerSideController;
@@ -363,9 +360,12 @@ use App\Http\Controllers\tx\OrderPrintController;
 use App\Http\Controllers\tx\OrderServerSideController;
 use App\Http\Controllers\tx\PaymentPlanPerRCServerSideController;
 use App\Http\Controllers\tx\PaymentPlanServerSideController;
+use App\Http\Controllers\ImportPaymentController;
 use App\Http\Controllers\tx\PaymentReceiptServerSideController;
+use App\Http\Controllers\tx\PaymentReceiptTempServerSideController;
 use App\Http\Controllers\tx\PaymentVoucherApprovalServerSideController;
 use App\Http\Controllers\tx\PaymentVoucherServerSideController;
+use App\Http\Controllers\tx\PaymentVoucherTempServerSideController;
 use App\Http\Controllers\tx\PurchaseInquiryPrintController;
 use App\Http\Controllers\tx\PurchaseInquiryServerSideController;
 use App\Http\Controllers\tx\PurchaseReturApprovalServerSideController;
@@ -401,8 +401,8 @@ use App\Http\Controllers\tx\SuratJalanPrintController;
 use App\Http\Controllers\tx\SuratJalanServerSideController;
 use App\Http\Controllers\tx\TagihanSupplierServerSideController;
 use App\Http\Controllers\tx\UploadFakturPajakController;
-use App\Http\Controllers\ImportPaymentController;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Maatwebsite\Excel\Facades\Excel;
 use Rap2hpoutre\LaravelLogViewer\LogViewerController;
@@ -434,7 +434,7 @@ Route::group(
         // registrasi & login
         Route::get('/login', function () {
             return view('main.authentication-signin');
-        })->name('login');
+        })->name('login')->middleware('guest');
         Route::get('/authentication-signin', function () {
             return view('main.authentication-signin');
         });
@@ -448,8 +448,7 @@ Route::group(
             'index', 'create', 'show', 'edit', 'update', 'destroy'
         ]);
 
-        // Route::get('email/verify', 'Auth\VerificationController@show')->name('verification.verify');
-        // Route::get('email/verify', [VerificationController::class, 'show'])->name('verification.notice');
+        Route::get('email/verify', 'Auth\VerificationController@show')->name('verification.verify');
 
         // registrasi & login
         Route::get('/err-notif', function () {
@@ -605,8 +604,8 @@ Route::group(
         Route::post('/disp_payment_ref', DispPaymentRefController::class);
         Route::post('/disp_bankaccno', DispBankAccNoController::class);
         Route::post('/disp_bankaccnoforcust', DispBankAccNoForCustomerController::class);
-        Route::post('/disp_custperfk', DispCustPerFKController::class);
         Route::post('/disp_bankaccno_forcashflow', DispBankAccNoForCashFlowController::class);
+        Route::post('/disp_custperfk', DispCustPerFKController::class);
         Route::post('/disp_bankaccno_foracceptanceplan', DispBankAccNoForAcceptancePlanController::class);
         Route::post('/disp_coa_for_gnledger_rpt', DispCoaForGnLedgerRptController::class);
 
@@ -620,7 +619,7 @@ Route::group(
         'middleware' => ['forceHttps', 'auth', 'valdUser']
     ],
     function () {
-        $date_xls=date_create(now());
+        $date_xls = date_create(now());
 
         // memo
         Route::resource('/memo', MemoServerSideController::class)->except(['destroy']);
@@ -667,11 +666,11 @@ Route::group(
         Route::resource('/purchase-retur', PurchaseReturServerSideController::class)->except(['destroy']);
         Route::resource('/print-purchase-retur', PurchaseReturPrintController::class)->except(['index', 'create', 'store', 'edit', 'update', 'destroy']);
         // purchase retur approval
-        Route::resource('/purchase-retur-approval', PurchaseReturApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/purchase-retur-approval', PurchaseReturApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // faktur, formerly delivery order
         Route::resource('/faktur', DeliveryOrderServerSideController::class)->except(['destroy']);
-        Route::resource('/faktur-fp', DeliveryOrderFPController::class)->except(['index','create','store','show','destroy']);
+        Route::resource('/faktur-fp', DeliveryOrderFPController::class)->except(['index','create', 'store','show', 'destroy']);
         Route::get('/print-faktur', FakturPrintController::class);
         Route::resource('/delivery-order-adjustment', DeliveryOrderAdjustmentController::class)->except(['destroy']);
 
@@ -689,29 +688,29 @@ Route::group(
         Route::resource('/nota-retur', NotaReturServerSideController::class)->except(['destroy']);
         Route::resource('/print-nota-retur', NotaReturPrintController::class)->except(['destroy']);
         // nota retur approval
-        Route::resource('/nota-retur-approval', NotaReturApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/nota-retur-approval', NotaReturApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // retur
         Route::resource('/retur', ReturServerSideController::class)->except(['destroy']);
         Route::resource('/print-retur', ReturPrintController::class)->except(['destroy']);
         // retur approval
-        Route::resource('/retur-approval', NotaReturNonTaxApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/retur-approval', NotaReturNonTaxApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // stock master
         Route::get('/stock-master/{param?}', [StockMasterServerSideController::class, 'index'])->name('stockmaster.index');
         Route::post('/stock-master-post', [StockMasterServerSideController::class, 'store'])->name('stockmaster.store');
 
         Route::resource('/stock-master-stock-card', StockMasterStockCardController::class)->except(['destroy']);
-        Route::resource('/stock-master-part', StockMasterPartController::class)->except(['index','destroy']);
+        Route::resource('/stock-master-part', StockMasterPartController::class)->except(['index', 'destroy']);
         Route::post('/stock-master-import-part', PartImportController::class);
 
         // stock transfer
         Route::resource('/stock-transfer', StockTransferServerSideController::class)->except(['destroy']);
         Route::resource('/stock-transfer-print', StockTransferPrintController::class)->except(['destroy']);
         // stock transfer approval
-        Route::resource('/stock-transfer-approval', StockTransferApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/stock-transfer-approval', StockTransferApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
         // stock transfer received
-        Route::resource('/stock-transfer-received', StockTransferReceivedServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/stock-transfer-received', StockTransferReceivedServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // stock assembly
         Route::resource('/stock-assembly', StockAssemblyServerSideController::class)->except(['destroy']);
@@ -725,8 +724,8 @@ Route::group(
         Route::get('/tagihan-supplier/rm', [TagihanSupplierServerSideController::class, 'rmTagihanSupplier']);
         Route::resource('/tagihan-supplier', TagihanSupplierServerSideController::class)->except(['destroy']);
         Route::post('/tagihan-supplier/download-rpt', [TagihanSupplierServerSideController::class, 'downloadRpt']);
-        Route::get('/tagihan-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id, string $date_start, string $date_end) use($date_xls){
-            return Excel::download(new TagihanSupplierAllExport($branch_id, $date_start, $date_end), 'tagihan-supplier-'.date_format($date_xls, "YmdHis").'.xlsx');
+        Route::get('/tagihan-supplier-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id, string $date_start, string $date_end) use($date_xls) {
+            return Excel::download(new TagihanSupplierAllExport($branch_id, $date_start, $date_end), 'tagihan-supplier-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // payment voucher
@@ -734,12 +733,19 @@ Route::group(
         Route::get('/payment-voucher-npd/{payment_voucher_no}', [PaymentVoucherServerSideController::class, 'edit_next_plan_date']);
         Route::put('/payment-voucher-npd-upd/{payment_voucher_no}', [PaymentVoucherServerSideController::class, 'update_next_plan_date']);
         // payment voucher approval
-        Route::resource('/payment-voucher-approval', PaymentVoucherApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/payment-voucher-approval', PaymentVoucherApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
+
+        // payment voucher temp (Pembayaran Supplier Temp dari tx_hutang_tmp - khusus andydch & maeger)
+        Route::get('/payment-voucher-temp', [PaymentVoucherTempServerSideController::class, 'create'])->name('payment-voucher-temp.create');
+        Route::post('/payment-voucher-temp', [PaymentVoucherTempServerSideController::class, 'store'])->name('payment-voucher-temp.store');
 
         // payment receipt
         Route::resource('/payment-receipt', PaymentReceiptServerSideController::class)->except(['destroy']);
         Route::get('/payment-receipt-npd/{payment_receipt_no}', [PaymentReceiptServerSideController::class, 'edit_next_plan_date']);
         Route::put('/payment-receipt-npd-upd/{payment_receipt_no}', [PaymentReceiptServerSideController::class, 'update_next_plan_date']);
+        // payment receipt temp (Penerimaan Customer Temp dari tx_piutang_tmp)
+        Route::get('/payment-receipt-temp', [PaymentReceiptTempServerSideController::class, 'create'])->name('payment-receipt-temp.create');
+        Route::post('/payment-receipt-temp', [PaymentReceiptTempServerSideController::class, 'store'])->name('payment-receipt-temp.store');
         // Route::resource('/payment-receipt', PaymentReceiptServerSideControllerGJ::class)->except(['destroy']);
 
         // invoice
@@ -750,38 +756,43 @@ Route::group(
             string $end_date) use($date_xls){
             return Excel::download(new InvoiceAllExport($branch_id, $start_date, $end_date), 'billing-process-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
-        
-        Route::resource('/invoice/tax-inv', InvoiceTaxInvController::class)->except(['index','create','store','destroy']);
+        // Route::get('/invoice-print-to-xlsx/{inv_id}', function (
+        //     string $inv_id) {
+        //         info($inv_id);
+        //     return Excel::download(new Invoice2Export($inv_id), 'invoice2.xlsx');
+        // });
+
+        Route::resource('/invoice/tax-inv', InvoiceTaxInvController::class)->except(['index','create', 'store', 'destroy']);
         Route::resource('/invoice', InvoiceServerSideController::class)->except(['destroy']);
         Route::put('/invoice-hefo/{id}', [InvoiceServerSideController::class, 'update_hefo']);
         Route::get('/invoice-print', InvoicePrintController::class);
         // invoice
 
         // invoice approval
-        Route::resource('/invoice-approval', InvoiceApprovalController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/invoice-approval', InvoiceApprovalController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // general journal
         Route::post('/general-journal/gj-dt', [GeneralJournalServerSideController::class, 'index']);
         Route::get('/general-journal/view-doc', [GeneralJournalServerSideController::class, 'view_doc']);
         Route::resource('/general-journal', GeneralJournalServerSideController::class)->except(['destroy']);
-        Route::resource('/general-journal-approval', GeneralJournalApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        // Route::resource('/general-journal-approval', GeneralJournalApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // lokal journal
         Route::post('/lokal-journal/lk-dt', [LokalJournalServerSideController::class, 'index']);
         Route::get('/lokal-journal/view-doc', [LokalJournalServerSideController::class, 'view_doc']);
         Route::resource('/lokal-journal', LokalJournalServerSideController::class)->except(['destroy']);
-        Route::resource('/lokal-journal-approval', LokalJournalApprovalServerSideController::class)->except(['create','store','edit','destroy']);
+        // Route::resource('/lokal-journal-approval', LokalJournalApprovalServerSideController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // payment plan
         Route::resource('/payment-plan', PaymentPlanServerSideController::class)->except(['destroy']);
         Route::get('/payment-plan/sync/{id}/{date}/{bank_id}', [PaymentPlanServerSideController::class, 'sync_doc']);
         Route::get('/payment-plan/vcts/{tagihan_supplier_no}', [PaymentPlanServerSideController::class, 'show_tagihan_supplier']);
-        Route::resource('/payment-plan-ro', PaymentPlanPerRCServerSideController::class)->except(['index','create','store','destroy']);
+        Route::resource('/payment-plan-ro', PaymentPlanPerRCServerSideController::class)->except(['index','create', 'store', 'destroy']);
 
         // acceptance plan
         Route::resource('/acceptance-plan', AcceptancePlanServerSideController::class)->except(['destroy']);
         Route::get('/acceptance-plan/sync/{id}/{date}/{bank_id}', [AcceptancePlanServerSideController::class, 'sync_doc']);
-        Route::resource('/acceptance-plan-inv', AcceptancePlanPerInvServerSideController::class)->except(['index','create','store','destroy']);
+        Route::resource('/acceptance-plan-inv', AcceptancePlanPerInvServerSideController::class)->except(['index','create', 'store', 'destroy']);
 
         // purchase inquiry
         Route::resource('/purchase-inquiry', PurchaseInquiryServerSideController::class)->except(['destroy']);
@@ -795,14 +806,14 @@ Route::group(
             string $end_date) use($date_xls){
             return Excel::download(new KwitansiAllExport($branch_id, $start_date, $end_date), 'proses-tagihan-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
-        
+
         Route::resource('/kwitansi', KwitansiServerSideController::class)->except(['destroy']);
         Route::put('/kwitansi-hefo/{id}', [KwitansiServerSideController::class, 'update_hefo']);
         Route::get('/kwitansi-print', KwitansiPrintController::class);
         // kwitansi
 
         // kwitansi approval
-        Route::resource('/kwitansi-approval', KwitansiApprovalController::class)->except(['create','store','edit','destroy']);
+        Route::resource('/kwitansi-approval', KwitansiApprovalController::class)->except(['create', 'store', 'edit', 'destroy']);
 
         // stock-adjustment
         Route::resource('/stock-adjustment', StockAdjustmentServerSideController::class)->except(['destroy']);
@@ -819,49 +830,49 @@ Route::group(
         $date_xls = date_create(now());
 
         // master inventory
-        Route::resource('/master-inventory', ReportMasterInventoryController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/master-inventory', ReportMasterInventoryController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/master-inventory-xlsx/{branch_id}/{brand_id}/{oh_is_zero}', function (string $branch_id,string $brand_id,string $oh_is_zero) use($date_xls) {
             return Excel::download(new MasterInventoryExport($branch_id,$brand_id,$oh_is_zero),'master-inventory-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // inventory over stock / under stock
-        Route::resource('/inventory-over-stock-under-stock', ReportInventoryOverStockUnderStockController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/inventory-over-stock-under-stock', ReportInventoryOverStockUnderStockController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/inventory-over-stock-under-stock-xlsx/{branch_id}', function (string $branch_id) use($date_xls) {
             return Excel::download(new InventoryOverStockUnderStockExport($branch_id), 'inventory-over-stock-under-stock-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // summary stock per gudang per merk
-        Route::resource('/summary-stock-per-gudang-per-merk', ReportSummaryStockPerGudangPerMerkController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-stock-per-gudang-per-merk', ReportSummaryStockPerGudangPerMerkController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-stock-per-gudang-per-merk-xlsx/{branch_id}/{brand_id}/{date}', function (string $branch_id,string $brand_id,string $date) use($date_xls) {
             return Excel::download(new SummaryStockPerGudangPerMerkExport($branch_id,$brand_id,$date), 'summary-stock-per-gudang-per-merk-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // pergerakan barang
-        Route::resource('/pergerakan-barang', ReportMovementOfPartsController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/pergerakan-barang', ReportMovementOfPartsController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/pergerakan-barang-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportMovementOfPartsExport($branch_id,$date_start,$date_end), 'pergerakan-barang-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // perubahan cost rata-rata
-        Route::resource('/perubahan-cost-rata-rata', ReportChangeInAvgCostController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/perubahan-cost-rata-rata', ReportChangeInAvgCostController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/perubahan-cost-rata-rata-xlsx/{date_start}/{date_end}', function (string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportChangeInAvgCostExport($date_start,$date_end), 'perubahan-cost-rata-rata-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // outstanding purchase order
-        Route::resource('/outstanding-purchase-order-per-pn', ReportOutstandingPurchaseOrderController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/outstanding-purchase-order-per-pn', ReportOutstandingPurchaseOrderController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/outstanding-purchase-order-per-pn-xlsx/{branch_id}/{year_id}', function (string $branch_id,string $year_id) use($date_xls) {
             return Excel::download(new OutstandingPurchaseOrderExport($branch_id,$year_id), 'outstanding-purchase-order-per-pn-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // stock inventory accuration per branch
-        Route::resource('/stock-inventory-accuration-per-branch', ReportStockInventoryAccPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/stock-inventory-accuration-per-branch', ReportStockInventoryAccPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/stock-inventory-accuration-per-branch-xlsx/{branch_id}/{year_id}', function (string $branch_id,string $year_id) use($date_xls) {
             return Excel::download(new StockInventoryAccPerBranchExport($branch_id,$year_id), 'stock-inventory-accuration-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // sales per branch per customer
-        Route::resource('/sales-per-branch-per-customer', ReportSalesPerBranchPerCustomerController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-per-branch-per-customer', ReportSalesPerBranchPerCustomerController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-per-branch-per-customer-xlsx/{branch_id}/{date_start}/{date_end}/{lokal_input}/{customer_id}', function (
             string $branch_id,
             string $date_start,
@@ -873,7 +884,7 @@ Route::group(
         });
 
         // customer payment status
-        Route::resource('/customer-payment-status', CustomerPaymentStatusController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/customer-payment-status', CustomerPaymentStatusController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/customer-payment-status-xlsx/{branch_id}/{date_start}/{date_end}/{lokal_input}', function (
             string $branch_id,
             string $date_start,
@@ -884,7 +895,7 @@ Route::group(
         });
 
         // overdue receivables per branch
-        Route::resource('/overdue-receivables-per-branch', ReportOverdueReceivablesPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/overdue-receivables-per-branch', ReportOverdueReceivablesPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/overdue-receivables-per-branch-xlsx/{branch_id}/{lokal_input}', function (
             string $branch_id,
             string $lokal_input) use($date_xls) {
@@ -893,7 +904,7 @@ Route::group(
         });
 
         // summary analisa piutang per cabang
-        Route::resource('/analyze-receivables-summary-per-branch', ReportAlzReceivablesSummPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/analyze-receivables-summary-per-branch', ReportAlzReceivablesSummPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/analyze-receivables-summary-per-branch-xlsx/{branch_id}', function (
             string $branch_id) use($date_xls) {
             return Excel::download(new AlzReceivablesSummPerBranchExport($branch_id),
@@ -901,7 +912,7 @@ Route::group(
         });
 
         // sales per faktur per sales order
-        Route::resource('/sales-per-faktur-per-sales-order', ReportSalesPerFakturPerSalesOrderController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-per-faktur-per-sales-order', ReportSalesPerFakturPerSalesOrderController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-per-faktur-per-sales-order-xlsx/{date_start}/{date_end}/{lokal_input}', function (
             string $date_start,
             string $date_end,
@@ -911,10 +922,10 @@ Route::group(
         });
 
         // penjualan per customer per tahun - pending
-        Route::resource('/penjualan-per-customer-per-tahun', ReportPenjualanPerCustomerPerTahunController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/penjualan-per-customer-per-tahun', ReportPenjualanPerCustomerPerTahunController::class)->except(['show', 'edit','update', 'destroy']);
 
         // penjualan per customer per parts no (fk & np)
-        Route::resource('/penjualan-per-customer-per-parts-no', ReportPenjualanPerCustomerPerPartsNoController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/penjualan-per-customer-per-parts-no', ReportPenjualanPerCustomerPerPartsNoController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/penjualan-per-customer-per-parts-no-xlsx/{customer_id}/{date_start}/{date_end}/{lokal_input}', function (
             string $customer_id,
             string $date_start,
@@ -925,7 +936,7 @@ Route::group(
         });
 
         // summary sales per branch per customer
-        Route::resource('/summary-sales-per-branch-per-customer', ReportSummarySalesPerBranchPerCustomerController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-sales-per-branch-per-customer', ReportSummarySalesPerBranchPerCustomerController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-sales-per-branch-per-customer-xlsx/{customer_id}/{date_start}/{date_end}/{lokal_input}', function (
             string $customer_id,
             string $date_start,
@@ -936,7 +947,7 @@ Route::group(
         });
 
         // penjualan per customer per parts no (so & sj)
-        Route::resource('/penjualan-per-customer-per-parts-no-so-sj', ReportPenjualanPerCustomerPerPartsNoSoSjController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/penjualan-per-customer-per-parts-no-so-sj', ReportPenjualanPerCustomerPerPartsNoSoSjController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/penjualan-per-customer-per-parts-no-so-sj-xlsx/{customer_id}/{date_start}/{date_end}/{lokal_input}', function (
             string $customer_id,
             string $date_start,
@@ -947,7 +958,7 @@ Route::group(
         });
 
         // summary sales per branch per salesman
-        Route::resource('/summary-sales-per-branch-per-salesman', ReportSummarySalesPerBranchPerSalesmanController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-sales-per-branch-per-salesman', ReportSummarySalesPerBranchPerSalesmanController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-sales-per-branch-per-salesman-xlsx/{date_start}/{date_end}/{lokal_input}', function (
             string $date_start,
             string $date_end,
@@ -957,7 +968,7 @@ Route::group(
         });
 
         // summary penjualan per branch per brand
-        Route::resource('/summary-penjualan-per-branch-per-brand', ReportSummaryPenjualanPerBranchPerBrandController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-penjualan-per-branch-per-brand', ReportSummaryPenjualanPerBranchPerBrandController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-penjualan-per-branch-per-brand-xlsx/{date_start}/{date_end}/{lokal_input}', function (
             string $date_start,
             string $date_end,
@@ -967,63 +978,63 @@ Route::group(
         });
 
         // sales actual vs target per branch
-        Route::resource('/sales-actual-vs-target-per-branch', ReportSalesActualVsTargetPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-actual-vs-target-per-branch', ReportSalesActualVsTargetPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-actual-vs-target-per-branch-xlsx/{period_year}', function (string $period_year) use($date_xls) {
             return Excel::download(new ReportSalesActualVsTargetPerBranchExport($period_year),
                 'sales-actual-vs-target-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // sales target per branch
-        Route::resource('/sales-target-per-branch', ReportSalesTargetPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-target-per-branch', ReportSalesTargetPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-target-per-branch-xlsx/{period_year}', function (string $period_year) use($date_xls) {
             return Excel::download(new ReportSalesTargetPerBranchExport($period_year),
                 'sales-target-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // sales target customer per branch
-        Route::resource('/sales-target-customer-per-branch', ReportSalesTargetCustomerPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-target-customer-per-branch', ReportSalesTargetCustomerPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-target-customer-per-branch-xlsx/{period_year}', function (string $period_year) use($date_xls) {
             return Excel::download(new ReportSalesTargetCustomerPerBranchExport($period_year),
                 'sales-target-customer-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // sales per customer per year
-        Route::resource('/sales-per-cust-per-year', ReportSalesPerCustomerPerYearController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/sales-per-cust-per-year', ReportSalesPerCustomerPerYearController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/sales-per-cust-per-year-xlsx/{period_year}/{lokal_input}', function (string $period_year,string $lokal_input) use($date_xls) {
             return Excel::download(new ReportSalesPerCustomerPerYearExport($period_year,$lokal_input),
                 'sales-per-cust-per-year-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // sales per customer detail faktur
-        Route::resource('/penjualan-per-customer-detail-faktur', ReportPenjualanPerCustomerDetailFakturController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/penjualan-per-customer-detail-faktur', ReportPenjualanPerCustomerDetailFakturController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/penjualan-per-customer-detail-faktur-xlsx/{cust_id}/{date_start}/{date_end}', function (string $cust_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportPenjualanPerCustomerDetailFakturExport($cust_id,$date_start,$date_end),
                 'penjualan-per-customer-detail-faktur-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // retur penjualan detail
-        Route::resource('/retur-penjualan-detail', ReportReturPenjualanDetailController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/retur-penjualan-detail', ReportReturPenjualanDetailController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/retur-penjualan-detail-xlsx/{lokal_input}/{date_start}/{date_end}', function (string $lokal_input,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportReturPenjualanDetailExport($lokal_input,$date_start,$date_end),
                 'retur-penjualan-detail-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // summary retur penjualan
-        Route::resource('/summary-retur-penjualan', ReportSummaryReturPenjualanController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-retur-penjualan', ReportSummaryReturPenjualanController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-retur-penjualan-xlsx/{lokal_input}/{date_start}/{date_end}', function (string $lokal_input,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportSummaryReturPenjualanExport($lokal_input,$date_start,$date_end),
                 'summary-retur-penjualan-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // purchase retur
-        Route::resource('/purchase-retur-rpt', ReportPurchaseReturController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-retur-rpt', ReportPurchaseReturController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-retur-rpt-xlsx/{date_start}/{date_end}', function (string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportPurchaseReturExport($date_start,$date_end),
                 'purchase-retur-rpt-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // purchase per supplier per branch
-        Route::resource('/purchase-per-supplier-per-cabang', ReportPurchasePerSupplierPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-per-supplier-per-cabang', ReportPurchasePerSupplierPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-per-supplier-per-cabang-xlsx/{branch_id}/{date_start}/{date_end}/{supplier_id}/{lokal_input}', 
             function (
                 string $branch_id, 
@@ -1037,14 +1048,14 @@ Route::group(
         });
 
         // purchase per supplier per year
-        Route::resource('/purchase-per-supplier-per-year', ReportPurchasePerSupplierPerYearController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-per-supplier-per-year', ReportPurchasePerSupplierPerYearController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-per-supplier-per-year-xlsx/{period_year}', function (string $period_year) use($date_xls) {
             return Excel::download(new ReportPurchasePerSupplierPerYearExport($period_year),
                 'purchase-per-supplier-per-year-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // purchase per supplier per parts-no
-        Route::resource('/purchase-per-supplier-per-parts-no', ReportPurchasePerSupplierPerPartsNoController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-per-supplier-per-parts-no', ReportPurchasePerSupplierPerPartsNoController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-per-supplier-per-parts-no-xlsx/{branch_id}/{date_start}/{date_end}/{supplier_id}', 
             function (string $branch_id, string $date_start, string $date_end, string $supplier_id) use($date_xls) {
             return Excel::download(new ReportPurchasePerSupplierPerPartsNoExport($branch_id, $date_start, $date_end, $supplier_id),
@@ -1052,7 +1063,7 @@ Route::group(
         });
 
         // purchase summary per supplier
-        Route::resource('/purchase-summary-per-supplier', ReportPurchaseSummaryPerSupplierController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-summary-per-supplier', ReportPurchaseSummaryPerSupplierController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-summary-per-supplier-xlsx/{branch_id}/{date_start}/{date_end}/{lokal_input}', 
             function (
                 string $branch_id, 
@@ -1065,49 +1076,49 @@ Route::group(
         });
 
         // purchase summary per branch per brand
-        Route::resource('/purchase-summary-per-branch-per-brand', ReportPurchaseSummaryPerBranchPerBrandController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-summary-per-branch-per-brand', ReportPurchaseSummaryPerBranchPerBrandController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-summary-per-branch-per-brand-xlsx/{date_start}/{date_end}', function (string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportPurchaseSummaryPerBranchPerBrandExport($date_start,$date_end),
                 'purchase-summary-per-branch-per-brand-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // outstanding purchase order
-        Route::resource('/outstanding-purchase-order-ps', ReportOutstandingPurchaseOrderPSController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/outstanding-purchase-order-ps', ReportOutstandingPurchaseOrderPSController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/outstanding-purchase-order-ps-xlsx/{date_start}/{date_end}', function (string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportOutstandingPurchaseOrderPSExport($date_start,$date_end),
                 'outstanding-purchase-order-ps-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // debt overdue per branch
-        Route::resource('/debt-overdue-per-branch', ReportDebtOverduePerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/debt-overdue-per-branch', ReportDebtOverduePerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/debt-overdue-per-branch-xlsx/{branch_id}', function (string $branch_id) use($date_xls) {
             return Excel::download(new ReportDebtOverduePerBranchExport($branch_id),
                 'debt-overdue-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // analyze debt summary per branch
-        Route::resource('/analyze-debt-summary-per-branch', ReportAnalyzeDebtSummaryPerBranchController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/analyze-debt-summary-per-branch', ReportAnalyzeDebtSummaryPerBranchController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/analyze-debt-summary-per-branch-xlsx', function () use($date_xls) {
             return Excel::download(new ReportAnalyzeDebtSummaryPerBranchExport(),
                 'analyze-debt-summary-per-branch-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // report finance transaction per account
-        Route::resource('/rpt-finance-transaction-per-account', ReportFinanceTransactionPerAccountController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-transaction-per-account', ReportFinanceTransactionPerAccountController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-transaction-per-account-xlsx/{coa_id}/{date_start}/{date_end}', function (string $coa_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportFinanceTransactionPerAccountExport($coa_id,$date_start,$date_end),
                 'rpt-finance-transaction-per-account-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // report finance journal
-        Route::resource('/rpt-finance-journal', ReportFinanceJournalController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-journal', ReportFinanceJournalController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-journal-xlsx/{journal_no}', function (string $journal_no) use($date_xls) {
             return Excel::download(new ReportFinanceJournalExport($journal_no),
                 'rpt-finance-journal-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // report finance transaction journal
-        Route::resource('/rpt-finance-transaction-journal', ReportFinanceTransactionJournalController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-transaction-journal', ReportFinanceTransactionJournalController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-transaction-journal-xlsx/{lokal_input}/{branch_id}/{date_start}/{date_end}',
             function (string $lokal_input,string $branch_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportFinanceTransactionJournalExport($lokal_input,$branch_id,$date_start,$date_end),
@@ -1115,7 +1126,7 @@ Route::group(
         });
 
         // report finance general ledger
-        Route::resource('/rpt-finance-general-ledger', ReportFinanceGeneralLedgerController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-general-ledger', ReportFinanceGeneralLedgerController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-general-ledger-xlsx/{coa_id}/{branch_id}/{date_start}/{date_end}',
             function (string $coa_id,string $branch_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportFinanceGeneralLedgerExport($coa_id,$branch_id,$date_start,$date_end),
@@ -1123,7 +1134,7 @@ Route::group(
         });
 
         // report finance operating expenses
-        Route::resource('/rpt-finance-operating-expenses', ReportFinanceOperatingExpensesController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-operating-expenses', ReportFinanceOperatingExpensesController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-operating-expenses-xlsx/{lokal_input}/{branch_id}/{month_id}/{year_id}',
             function (string $lokal_input,string $branch_id,string $month_id,string $year_id) use($date_xls) {
             return Excel::download(new ReportFinanceOperatingExpensesExport($lokal_input,$branch_id,$month_id,$year_id),
@@ -1131,7 +1142,7 @@ Route::group(
         });
 
         // report finance income statement
-        Route::resource('/rpt-finance-income-statement', ReportFinanceIncomeStatementController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-income-statement', ReportFinanceIncomeStatementController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-income-statement-xlsx/{lokal_input}/{branch_id}/{month_id}/{year_id}',
             function (string $lokal_input,string $branch_id,string $month_id,string $year_id) use($date_xls) {
             return Excel::download(new ReportFinanceIncomeStatementExport($lokal_input,$branch_id,$month_id,$year_id),
@@ -1139,40 +1150,40 @@ Route::group(
         });
 
         // balance sheet
-        Route::resource('/rpt-balance-sheet', ReportBalanceSheetController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-balance-sheet', ReportBalanceSheetController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-balance-sheet-xlsx/{period_year}', function (string $period_year) use($date_xls) {
             return Excel::download(new ReportBalanceSheetExport($period_year),
                 'balance-sheet-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // cash flow
-        Route::resource('/rpt-cash-flow', ReportCashFlowController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-cash-flow', ReportCashFlowController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-cash-flow-xlsx/{period}/{bank_id}', function (string $period,string $bank_id) use($date_xls) {
             return Excel::download(new ReportCashFlowExport($period, $bank_id), 'cash-flow-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // cash flow - dbg
-        Route::resource('/rpt-cash-flow-dbg', ReportCashFlowDbgController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-cash-flow-dbg', ReportCashFlowDbgController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-cash-flow-xlsx-dbg/{period}/{bank_id}', function (string $period,string $bank_id) use($date_xls) {
             return Excel::download(new ReportCashFlowDbgExport($period, $bank_id), 'cash-flow-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // supplier payment status (1)
-        Route::resource('/purchase-supplier-payment-status', ReportPurchaseSupplierPaymentStatusController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-supplier-payment-status', ReportPurchaseSupplierPaymentStatusController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-supplier-payment-status-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportPurchaseSupplierPaymentStatusExport($branch_id,$date_start,$date_end),
                 'purchase-supplier-payment-status-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // supplier payment status (2)
-        Route::resource('/purchase-supplier-payment-status-02', ReportPurchaseSupplierPaymentStatus02Controller::class)->except(['show','edit','update','destroy']);
+        Route::resource('/purchase-supplier-payment-status-02', ReportPurchaseSupplierPaymentStatus02Controller::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/purchase-supplier-payment-status-02-xlsx/{branch_id}/{date_start}/{date_end}', function (string $branch_id,string $date_start,string $date_end) use($date_xls) {
             return Excel::download(new ReportPurchaseSupplierPaymentStatus02Export($branch_id,$date_start,$date_end),
                 'purchase-supplier-payment-status-'.date_format($date_xls,"YmdHis").'.xlsx');
         });
 
         // inventory per merk per part no
-        Route::resource('/inventory-per-merk-per-part-no', ReportInventoryPerMerkPerPartNoController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/inventory-per-merk-per-part-no', ReportInventoryPerMerkPerPartNoController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/inventory-per-merk-per-part-no-xlsx/{journal_date}/{part_no}/{part_name}/{brand_id}/{branch_id}', function (
             string $journal_date,
             string $part_no,
@@ -1183,7 +1194,7 @@ Route::group(
         });
 
         // inventory per gudang per part no
-        Route::resource('/inventory-per-gudang-per-part-no', ReportInventoryPerGudangPerPartNoController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/inventory-per-gudang-per-part-no', ReportInventoryPerGudangPerPartNoController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/inventory-per-gudang-per-part-no-xlsx/{journal_date}/{part_no}/{part_name}/{brand_id}/{branch_id}', function (
             string $journal_date,
             string $part_no,
@@ -1194,7 +1205,7 @@ Route::group(
         });
 
         // summary stock per merk per gudang
-        Route::resource('/summary-stock-per-merk-per-gudang', ReportSummaryStockPerMerkPerGudangController::class)->except(['show','edit','update','destroy']);
+        Route::resource('/summary-stock-per-merk-per-gudang', ReportSummaryStockPerMerkPerGudangController::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/summary-stock-per-merk-per-gudang-xlsx/{date_start}/{date_end}', function (
             string $date_start,
             string $date_end) {
@@ -1202,7 +1213,7 @@ Route::group(
         });
 
         // kartu hutang
-        Route::resource('/rpt-finance-kartu-hutang', ReportKartuHutang::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-kartu-hutang', ReportKartuHutang::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-kartu-hutang-xlsx/{supplier_id}/{date_start}/{date_end}/{branch_id}', 
             function (string $supplier_id, string $date_start, string $date_end, string $branch_id) use($date_xls) {
             return Excel::download(new ReportFinanceKartuHutangExport($supplier_id, $date_start, $date_end, $branch_id),
@@ -1210,7 +1221,7 @@ Route::group(
         });
 
         // kartu piutang
-        Route::resource('/rpt-finance-kartu-piutang', ReportKartuPiutang::class)->except(['show','edit','update','destroy']);
+        Route::resource('/rpt-finance-kartu-piutang', ReportKartuPiutang::class)->except(['show', 'edit','update', 'destroy']);
         Route::get('/rpt-finance-kartu-piutang-xlsx/{customer_id}/{date_start}/{date_end}', 
             function (string $customer_id, string $date_start, string $date_end) use($date_xls) {
             return Excel::download(new ReportFinanceKartuPiutangExport($customer_id, $date_start, $date_end),
@@ -1361,6 +1372,7 @@ Route::group(
             'create', 'store', 'edit', 'destroy'
         ]);
         Route::resource('/user-management', UserManagementController::class)->except(['destroy']);
+        Route::post('/user-management/{id}/kick', [UserManagementController::class, 'kick'])->name('user-management.kick');
 
         // master - memo limit
         Route::resource('/memo-limit', MemoLimitController::class)->except(['destroy']);
@@ -1377,7 +1389,7 @@ Route::group(
         Route::resource('/salesman-target', SalesmanTargetController::class)->except(['destroy']);
 
         // master - automatic journal
-        Route::resource('/automatic-journal', AutomaticJournalController::class)->except(['create','store','destroy']);
+        Route::resource('/automatic-journal', AutomaticJournalController::class)->except(['create', 'store', 'destroy']);
     }
 );
 
@@ -1424,19 +1436,23 @@ Route::group(
     ],
     function () {
         Route::get('/migrate', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
             $exitCode = Artisan::call('migrate', ['--force' => true]);
             return 'MIGRATE DONE (code: '.$exitCode.')';
             // return $this->sendResponse('DONE (code: '.$exitCode.')');
         });
         Route::get('/cache-clear', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
             $exitCode = Artisan::call('cache:clear', []);
             return 'CACHE CLEAR DONE (code: '.$exitCode.')';
         });
         Route::get('/config-clear', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
             $exitCode = Artisan::call('config:clear', []);
             return 'CONFIG CLEAR DONE (code: '.$exitCode.')';
         });
         Route::get('/schedule-clear', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
             $exitCode = Artisan::call('schedule:clear-cache', []);
             return 'CLEAR SCHEDULE CACHE DONE (code: '.$exitCode.')';
         });
@@ -1508,14 +1524,14 @@ Route::group(
             'create', 'show', 'edit', 'update', 'destroy'
         ]);
 
-        // Route::get('/dt-now', function () {
-        //     // echo now().'<br/>';
-        //     // $date = now();
-        //     echo base_path('public/assets/fonts/');
+        Route::get('/dt-now', function () {
+            echo now().'<br/>';
+            // $date = now();
+            // echo base_path('public/assets/fonts/');
 
-        //     // date_add($date, date_interval_create_from_date_string("-1 months"));
-        //     // echo date_format($date,"Y-m-d").'<br/>';
-        // });
+            // date_add($date, date_interval_create_from_date_string("-1 months"));
+            // echo date_format($date,"Y-m-d").'<br/>';
+        });
 
         Route::resource('/gen-json', JsonController::class)->except([
             'create', 'show', 'edit', 'update', 'destroy'
@@ -1527,7 +1543,7 @@ Route::group(
         // cash flow
         // $date_xls=date_create(now());
         // Route::resource('/gen-rpt-cash-flows', GenRptCashFlowController::class)->except(['destroy']);
-        // Route::resource('/rpt-cash-flow-2026', ReportCashFlow2026Controller::class)->except(['show','edit','update','destroy']);
+        // Route::resource('/rpt-cash-flow-2026', ReportCashFlow2026Controller::class)->except(['show', 'edit','update', 'destroy']);
         // Route::get('/rpt-cash-flow-2026-xlsx/{period}/{bank_id}', function (string $period,string $bank_id) use($date_xls) {
         //     return Excel::download(new ReportCashFlow2026Export($period, $bank_id), 'cash-flow-'.date_format($date_xls,"YmdHis").'.xlsx');
         // });
@@ -1609,6 +1625,41 @@ Route::group(
                 . implode(chr(10), array_map('htmlspecialchars', $logs))
                 . '</pre><p><a href="/import_payment" style="background:#0d6efd;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Buka /import_payment</a></p>', 200, ['Content-Type' => 'text/html; charset=UTF-8']);
         })->name('sys.clear-cache');
+        Route::get('/_sys/migrate', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
+            $logs = [];
+            $logs[] = '== php artisan migrate --force == (' . date('Y-m-d H:i:s') . ')';
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+                $out = trim(Artisan::output());
+                $logs[] = ($out ? $out : '(tidak ada migrasi baru — semua sudah terbaru)');
+            } catch (Throwable $e) {
+                $logs[] = 'ERROR: ' . $e->getMessage();
+            }
+            $logs[] = '';
+            $logs[] = 'SELESAI!';
+            if (request()->query('json') == '1' || request()->wantsJson()) {
+                return response()->json(['status' => 'ok', 'logs' => $logs]);
+            }
+            return response('<h2>MNI Migrate</h2><pre>' . implode(chr(10), array_map('htmlspecialchars', $logs)) . '</pre>', 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+        })->name('sys.migrate');
+        Route::get('/_sys/optimize-clear', function () {
+            abort_unless(Auth::check() && Auth::user()->email === 'andydch@koidigital.co.id', 403, 'Akses ditolak.');
+            $logs = [];
+            $logs[] = '== php artisan optimize:clear == (' . date('Y-m-d H:i:s') . ')';
+            try {
+                Artisan::call('optimize:clear');
+                $out = trim(Artisan::output());
+                $logs[] = ($out ? $out : 'OK');
+            } catch (Throwable $e) {
+                $logs[] = 'ERROR: ' . $e->getMessage();
+            }
+            $logs[] = '';
+            $logs[] = 'SELESAI!';
+            if (request()->query('json') == '1' || request()->wantsJson()) {
+                return response()->json(['status' => 'ok', 'logs' => $logs]);
+            }
+            return response('<h2>MNI Optimize Clear</h2><pre>' . implode(chr(10), array_map('htmlspecialchars', $logs)) . '</pre>', 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+        })->name('sys.optimize-clear');
     }
 );
-

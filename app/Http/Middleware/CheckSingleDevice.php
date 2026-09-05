@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+/**
+ * Single-device login — penegakan GLOBAL (semua route web, termasuk /dashboard).
+ * Berjalan setelah StartSession; aman untuk tamu (skip jika belum login).
+ * Mismatch token (login baru dari device lain) -> paksa logout via sign-out?e=3.
+ */
+class CheckSingleDevice
+{
+    public function handle(Request $request, Closure $next)
+    {
+        // JANGAN cegat rute logout/login — kalau tidak, redirect sign-out?e=3
+        // akan dipantulkan oleh middleware ini sendiri sebelum Auth::logout() sempat jalan (redirect loop).
+        if ($request->is('sign-out*') || $request->is('login')) {
+            return $next($request);
+        }
+
+        if (Auth::check() && Auth::user()->id != 1) {
+            $tokenNow = session('login_session_token');
+            $tokenDb = User::where('id', Auth::user()->id)->value('session_token');
+            if (!is_null($tokenDb) && $tokenNow !== $tokenDb) {
+                session()->flash('status-error', 'Akun Anda login dari perangkat lain. Sesi ini telah diakhiri.');
+                return redirect()->to(url('sign-out?e=3'));
+            }
+        }
+
+        return $next($request);
+    }
+}

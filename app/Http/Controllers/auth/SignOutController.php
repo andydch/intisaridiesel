@@ -19,6 +19,9 @@ class SignOutController extends Controller
             if ($request->e==1){
                 session()->flash('status-error', 'You have been detected using two different IDs in the same internet browser. Please log in again!');
             }
+            if ($request->e==3){
+                session()->flash('status-error', 'Akun Anda telah login dari perangkat lain. Sesi ini telah diakhiri. Silakan login kembali.');
+            }
         }
 
         // logout

@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Imports\Support\DocNumber;
+use App\Imports\Support\KodeWarisan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -10,135 +11,175 @@ use Illuminate\Validation\ValidationException;
 
 class PiutangSheetImport implements ToCollection
 {
-    /** Judul kolom wajib — pelindung anti salah-posisi kolom */
-    private const HEADER_WAJIB_IDX7 = 'PPN/NON PPN';
-
     public int $invCount = 0;
     public int $kwiCount = 0;
     public int $skipped2026 = 0;
     public ?string $noPertama = null;
     public ?string $noTerakhir = null;
-    /** @var string[] catatan baris yang tidak dapat diproses */
+    /** @var string[] */
     public array $gagal = [];
 
     public function collection(Collection $rows): void
     {
         $rows = $rows->values();
-        if ($rows->isEmpty() || trim((string) ($rows[0][7] ?? '')) !== self::HEADER_WAJIB_IDX7) {
-            throw ValidationException::withMessages(['file' => [
-                'Template tidak sesuai: worksheet kartu-piutang tidak memiliki kolom "PPN/NON PPN" di posisi H. File tidak diproses.']]);
+        // v2 PIUTANG: A1 = Kode Cust
+        if ($rows->isEmpty() || strtolower(trim((string)($rows[0][0] ?? ''))) !== 'kode cust') {
+            throw ValidationException::withMessages(['file' => ['Template PIUTANG v2 tidak sesuai: A1 harus Kode Cust']]);
         }
+        // Waris kolom A (Kode Cust) berantai
+        $rows = KodeWarisan::fill($rows, 0);
+        // Waris M-P (DISC, ADM BANK, PENERIMAAN LAIN, BIAYA KIRIM) jika kosong ambil dari atasnya
+        $lastM=$lastN=$lastO=$lastP=null;
+        $rows = $rows->map(function($row,$idx) use (&$lastM,&$lastN,&$lastO,&$lastP){
+            if($idx===0) return $row;
+            $arr = is_array($row) ? $row : $row->toArray();
+            // M=12 DISC, N=13 ADM BANK, O=14 PENERIMAAN LAIN, P=15 BIAYA KIRIM
+            foreach([12=>&$lastM,13=>&$lastN,14=>&$lastO,15=>&$lastP] as $col=>&$ref){
+                $v = trim((string)($arr[$col] ?? ''));
+                if($v !== '') $ref = $v;
+                elseif($ref !== null && !self::isRowEmpty($arr)) $arr[$col] = $ref;
+            }
+            return $arr;
+        });
 
         $terurai = [];
         $errors = [];
-
         foreach ($rows as $i => $row) {
-            if ($i < 1) continue;                                    // baris 1 = header diabaikan (file asli: data mulai baris 2)
-            $v = PiutangRowValidator::validate(is_array($row) ? $row : $row->toArray(), $i + 1);
+            if ($i < 1) continue;
+            $arr = is_array($row) ? $row : $row->toArray();
+            $v = PiutangRowValidator::validate($arr, $i+1);
             if ($v->skip) continue;
-            if (! $v->ok) { $errors[] = $v->error; continue; }       // format salah -> catatan gagal
-            if ($v->data->tanggal->year >= 2026) { $this->skipped2026++; continue; }   // ATURAN: hanya < 2026
-            $terurai[] = ['d' => $v->data, 'n' => $i + 1];
+            if (! $v->ok) { $errors[] = $v->error; continue; }
+            $terurai[] = ['d'=>$v->data,'n'=>$i+1,'raw'=>$arr];
         }
-        foreach ($errors as $e) { $this->gagal[] = 'Sheet #2 - ' . $e; }
+        foreach ($errors as $e) $this->gagal[] = 'Sheet #2 - '.$e;
         if (! $terurai) return;
 
-        // ---- PRE-FLIGHT resolusi referensi (fitur #1): customer wajib ADA & AKTIF ----
+        // Pre-flight: customer, branch, coa, metode, bayar via
         $layak = [];
+        $customerSums = [];
         foreach ($terurai as $item) {
-            $d = $item['d'];
-            $n = $item['n'];
-
-            $cust = DB::table('mst_customers')->where(['customer_unique_code' => $d->customerCode, 'active' => 'Y'])->first();
-            if (! $cust) {
-                $this->gagal[] = "Sheet #2 - Baris {$n}: Customer '{$d->customerCode}' tidak ditemukan atau tidak aktif";
-                continue;
+            $d=$item['d']; $n=$item['n']; $raw=$item['raw'];
+            $cust = DB::table('mst_customers')->where(['customer_unique_code'=>$d->customerCode,'active'=>'Y'])->first();
+            if(!$cust){ $this->gagal[]="Sheet #2 - Baris {$n}: Customer '{$d->customerCode}' tidak ditemukan/aktif"; continue; }
+            $br = DB::table('mst_branches')->where('initial',$d->branchName)->orWhere('name','LIKE',"%{$d->branchName}%")->where('active','Y')->first();
+            if(!$br) $br = DB::table('mst_branches')->where('initial',$d->branchName)->where('active','Y')->first();
+            if(!$br){ $this->gagal[]="Sheet #2 - Baris {$n}: Branch '{$d->branchName}' tidak ditemukan/aktif"; continue; }
+            $coa = DB::table('mst_coas')->where(['coa_code_complete'=>$d->coaCode,'active'=>'Y'])->first();
+            if(!$coa){ $this->gagal[]="Sheet #2 - Baris {$n}: COA '{$d->coaCode}' tidak ditemukan/aktif"; continue; }
+            $metodeName = trim((string)($raw[7] ?? ''));
+            $allowedNames = array_map('trim', explode('|', (string)env('METHOD_BAYAR_SUPPLIER_NAME','Cash|Bank|Advance Payment')));
+            $allowedIds = array_map('trim', explode('|', (string)env('METHOD_BAYAR_SUPPLIER_ID','1|2|3')));
+            // case-insensitive
+            $metodeIdx = array_search(strtolower($metodeName), array_map('strtolower', $allowedNames), true);
+            if($metodeIdx===false){ $this->gagal[]="Sheet #2 - Baris {$n}: Metode Bayar '{$metodeName}' tidak sesuai env"; continue; }
+            $metodeId = (int)($allowedIds[$metodeIdx] ?? 0);
+            $bayarViaName = trim((string)($raw[8] ?? ''));
+            $bayarVia = null;
+            if($bayarViaName!==''){
+                $bayarVia = DB::table('mst_globals')->where(['data_cat'=>'payment-ref','active'=>'Y'])->where('title_ind','LIKE',"%{$bayarViaName}%")->first();
+                if(!$bayarVia) $bayarVia = DB::table('mst_globals')->where(['data_cat'=>'payment-ref','active'=>'Y'])->where('title_ind',$bayarViaName)->first();
             }
-
-            $br = DB::table('mst_branches')->where('name', 'LIKE', '%' . $d->branchName . '%')->where('active', 'Y')->first();
-            if (! $br) {
-                $this->gagal[] = "Sheet #2 - Baris {$n}: Branch '{$d->branchName}' tidak ditemukan atau tidak aktif";
-                continue;
-            }
-
-            $coa = DB::table('mst_coas')->where(['coa_code_complete' => $d->coaCode, 'active' => 'Y'])->first();
-            if (! $coa) {
-                $this->gagal[] = "Sheet #2 - Baris {$n}: CoA '{$d->coaCode}' tidak ditemukan atau tidak aktif";
-                continue;
-            }
-
-            $layak[] = (object) ['d' => $d, 'n' => $n, 'cust' => $cust, 'br' => $br, 'coa' => $coa,
-                                 'sortKey' => [$d->tanggal->timestamp, $n]];   // ASC (terlama dulu)
+            $layak[] = (object)['d'=>$d,'n'=>$n,'raw'=>$raw,'cust'=>$cust,'br'=>$br,'coa'=>$coa,'metodeId'=>$metodeId,'bayarVia'=>$bayarVia,'sortKey'=>[$d->tanggal->timestamp,$n]];
+            $customerSums[$d->customerCode] = ($customerSums[$d->customerCode] ?? 0) + $d->totalG;
         }
-        usort($layak, fn ($a, $b) => $a->sortKey <=> $b->sortKey);
-        if (! $layak) return;
+        if(!$layak) return;
+        usort($layak, fn($a,$b)=> $a->sortKey <=> $b->sortKey);
 
-        DB::beginTransaction();
+        // Atomic via outer DB::transaction (controller)
         try {
             foreach ($layak as $item) {
-                $d = $item->d;
-                $cust = $item->cust;
-                $br = $item->br;
-                $coa = $item->coa;
-
-                $top = (int) ($cust->top ?? 0);
+                $d=$item->d; $cust=$item->cust; $br=$item->br; $coa=$item->coa; $raw=$item->raw;
+                $top = (int)($cust->top ?? 0);
                 $expired = $d->tanggal->copy()->addDays($top)->toDateString();
-                $audit = ['created_by' => 1, 'updated_by' => 1, 'created_at' => now(), 'updated_at' => now()];
-                $nonaktif = ['approved_by' => null, 'approved_at' => null, 'canceled_by' => null,
-                             'canceled_at' => null, 'draft_at' => null, 'draft_to_created_at' => null];
-
-                if ($d->jenis === 'P') {
-                    $noInv = DocNumber::nextNo('tx_invoices', 'invoice_no',
-                        (string) env('P_INVOICE') . $d->tanggal->format('y') . '-');
+                $audit=['created_by'=>1,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()];
+                $nonaktif=['approved_by'=>null,'approved_at'=>null,'canceled_by'=>null,'canceled_at'=>null,'draft_at'=>null,'draft_to_created_at'=>null];
+                $isP = $d->jenis==='P';
+                if($isP){
+                    $year2=$d->tanggal->format('y');
+                    $prefix=env('P_INVOICE').$year2.'-'; // INM25-
+                    $noInv = DocNumber::nextNo('tx_invoices','invoice_no',$prefix);
                     DB::table('tx_invoices')->insert(array_merge([
-                        'invoice_no'           => $noInv,
-                        'tax_invoice_no'       => null,
-                        'customer_id'          => $cust->id,
-                        'delivery_order_id'    => null,
-                        'invoice_date'         => $d->tanggal->toDateString(),
-                        'invoice_expired_date' => $expired,
-                        'tax_invoice_date'     => null,
-                        'branch_id'            => $br->id,
-                        'payment_to_id'        => $coa->id,
-                        'do_total'             => $d->dppE,
-                        'do_vat'               => $d->ppnF,
-                        'do_grandtotal_vat'    => $d->totalG,
-                        'remark'               => null,
-                        'header'               => null,
-                        'footer'               => null,
-                        'vat_val'              => $d->dppE > 0 ? $d->ppnF * 100 / $d->dppE : 0,
-                        'is_draft'             => 'N',
-                        'active'               => 'Y',
-                    ], $nonaktif, $audit));
-                    $no = $noInv;
+                        'invoice_no'=>$noInv,
+                        'tax_invoice_no'=>null,
+                        'customer_id'=>$cust->id,
+                        'delivery_order_id'=>null,
+                        'invoice_date'=>$d->tanggal->toDateString(),
+                        'invoice_expired_date'=>$expired,
+                        'tax_invoice_date'=>null,
+                        'branch_id'=>$br->id,
+                        'payment_to_id'=>$coa->id,
+                        'do_total'=>$d->dppE,
+                        'do_vat'=>$d->ppnF,
+                        'do_grandtotal_vat'=>$d->totalG,
+                        'remark'=>null,'header'=>null,'footer'=>null,
+                        'vat_val'=> $d->dppE>0?$d->ppnF*100/$d->dppE:0,
+                        'is_draft'=>'N','active'=>'Y',
+                    ],$nonaktif,$audit));
+                    $newId = (int)DB::getPdo()->lastInsertId();
+                    $tipe='I';
                     $this->invCount++;
+                    $no=$noInv;
                 } else {
-                    $noKwi = DocNumber::nextNo('tx_kwitansis', 'kwitansi_no',
-                        (string) env('P_KWITANSI') . $d->tanggal->format('y') . '-');
+                    $year2=$d->tanggal->format('y');
+                    $prefix=env('P_KWITANSI').$year2.'-'; // KWM25-
+                    $noKwi = DocNumber::nextNo('tx_kwitansis','kwitansi_no',$prefix);
                     DB::table('tx_kwitansis')->insert(array_merge([
-                        'kwitansi_no'           => $noKwi,
-                        'customer_id'           => $cust->id,
-                        'kwitansi_date'         => $d->tanggal->toDateString(),
-                        'kwitansi_expired_date' => $expired,
-                        'branch_id'             => $br->id,
-                        'payment_to_id'         => $coa->id,
-                        'np_total'              => $d->dppE,
-                        'remark'                => null,
-                        'header'                => null,
-                        'footer'                => null,
-                        'is_draft'              => 'N',
-                        'active'                => 'Y',
-                    ], $nonaktif, $audit));
-                    $no = $noKwi;
+                        'kwitansi_no'=>$noKwi,
+                        'customer_id'=>$cust->id,
+                        'kwitansi_date'=>$d->tanggal->toDateString(),
+                        'kwitansi_expired_date'=>$expired,
+                        'branch_id'=>$br->id,
+                        'payment_to_id'=>$coa->id,
+                        'np_total'=>$d->totalG,
+                        'remark'=>null,'header'=>null,'footer'=>null,
+                        'is_draft'=>'N','active'=>'Y',
+                    ],$nonaktif,$audit));
+                    $newId = (int)DB::getPdo()->lastInsertId();
+                    $tipe='K';
                     $this->kwiCount++;
+                    $no=$noKwi;
                 }
-                $this->noPertama ??= $no;
-                $this->noTerakhir = $no;
+                $this->noPertama ??= $no; $this->noTerakhir=$no;
+                // Insert tx_piutang_tmp
+                $jurnalDate = $d->jurnalDate ? $d->jurnalDate->toDateString() : null;
+                if(isset($raw[11]) && trim((string)$raw[11])==='') $jurnalDate=null;
+                DB::table('tx_piutang_tmp')->insert([
+                    'kode_customer'=>$d->customerCode,
+                    'inv_or_kwi_id'=>$newId,
+                    'tipe_invoice'=>$tipe,
+                    'dpp'=>$d->dppE,
+                    'ppn'=>$d->ppnF,
+                    'total'=>$d->totalG,
+                    'journal_type'=>$d->jenis,
+                    'coa_id'=>$coa->id,
+                    'metode_bayar_id'=>$item->metodeId,
+                    'bayar_via_id'=>$item->bayarVia?->id,
+                    'no_giro'=> trim((string)($raw[10] ?? '')) ?: null, // K
+                    'jurnal_date'=>$jurnalDate, // L
+                    'discount'=>$d->discount ?? 0, // M
+                    'admin_bank'=>$d->adminBank ?? 0, // N
+                    'penerimaan_lain'=>$d->penerimaanLain ?? 0, // O
+                    'biaya_kirim'=>$d->biayaKirim ?? 0, // P
+                    'created_at'=>now(),
+                    'updated_at'=>now(),
+                ]);
             }
-            DB::commit();
-        } catch (\Throwable $e) {
-            DB::rollBack();   // error tak terduga = batalkan seluruh penulisan
-            throw ValidationException::withMessages(['file' => ['Kesalahan tak terduga: ' . $e->getMessage()]]);
+            // Update beginning_balance per customer (overwrite ΣF — bukan COALESCE +)
+            foreach ($customerSums as $kode=>$sumF) {
+                $sumF = round((float)$sumF, 2);
+                DB::table('mst_customers')->where('customer_unique_code',$kode)->update([
+                    'beginning_balance'=> DB::raw(number_format($sumF,2,'.',''))
+                ]);
+            }
+        } catch(\Throwable $e){
+            throw ValidationException::withMessages(['file'=>['Kesalahan Piutang: '.$e->getMessage()]]);
         }
+    }
+
+    private static function isRowEmpty($row): bool {
+        $arr = is_array($row) ? $row : $row->toArray();
+        foreach($arr as $v) if($v!==null && trim((string)$v)!=='') return false;
+        return true;
     }
 }

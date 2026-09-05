@@ -43,6 +43,9 @@
                                         <th>Branch</th>
                                         <th>Action</th>
                                         <th>Status</th>
+                                        @if (Auth::user()->email=='andydch@koidigital.co.id')
+                                        <th>Sesi</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -71,6 +74,21 @@
                                                     <input type="Hidden" name="delRow{{ $i }}" id="delRow{{ $i }}">
                                                 @endif
                                             </td>
+                                            @if (Auth::user()->email=='andydch@koidigital.co.id')
+                                            <td>
+                                                <span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;">
+                                                @if (is_null($u->session_token))
+                                                    <span class="badge bg-secondary">Belum login ulang</span>
+                                                @else
+                                                    <i class='bx bxs-key' title="Sesi aktif" style="font-size:20px;color:#DAA520;vertical-align:middle;"></i>
+                                                    @if ($u->active=='Y' && $u->user_id != 1)
+                                                    <button type="submit" form="kickform-{{ $u->user_id }}" formmethod="POST" formaction="{{ url(ENV('ADMIN_FOLDER_NAME').'/'.$folder.'/'.$u->user_id.'/kick') }}" title="Paksa logout user ini" style="border:none;background:none;padding:0;cursor:pointer;" onclick="return confirm('Akhiri SEMUA sesi login user {{ $u->email }}?');"><i class='bx bxs-trash-alt' style="font-size:20px;color:#dc3545;vertical-align:middle;"></i></button>
+                                                    <input type="hidden" name="_token" value="{{ csrf_token() }}" form="kickform-{{ $u->user_id }}">
+                                                    @endif
+                                                @endif
+                                                </span>
+                                            </td>
+                                            @endif
                                         </tr>
                                         @php
                                             $i += 1;
@@ -87,6 +105,9 @@
                                         <th>Branch</th>
                                         <th>Action</th>
                                         <th>Status</th>
+                                        @if (Auth::user()->email=='andydch@koidigital.co.id')
+                                        <th>Sesi</th>
+                                        @endif
                                     </tr>
                                 </tfoot>
                             </table>
@@ -94,6 +115,13 @@
                     </div>
                 </div>
             </form>
+            @if (Auth::user()->email=='andydch@koidigital.co.id')
+            @foreach ($users as $u)
+                @if (!is_null($u->session_token) && $u->active=='Y' && $u->user_id != 1)
+                <form id="kickform-{{ $u->user_id }}"></form>
+                @endif
+            @endforeach
+            @endif
         </div>
     </div>
     <!--end page wrapper -->

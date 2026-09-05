@@ -201,13 +201,6 @@
 <script src="{{ asset('assets/plugins/bootstrap-material-datetimepicker/js/bootstrap-material-datetimepicker.min.js') }}"></script>
 
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
-<script src="https://cdn.tiny.cloud/1/{{ ENV('TINYMCEKEY') }}/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
-<script>
-    tinymce.init({
-        selector: '#header,#footer',
-        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough',
-    });
-</script>
 <script src="{{ asset('assets/js/my-custom.js') }}"></script>
 <script>
     function getCust(){
@@ -266,12 +259,10 @@
     $(document).ready(function() {
         $(function() {
             $('#start_date').bootstrapMaterialDatePicker({
-                // format: 'YYYY-MM-DD HH:mm',
                 format: 'DD/MM/YYYY',
                 time: false
             });
             $('#end_date').bootstrapMaterialDatePicker({
-                // format: 'YYYY-MM-DD HH:mm',
                 format: 'DD/MM/YYYY',
                 time: false
             });

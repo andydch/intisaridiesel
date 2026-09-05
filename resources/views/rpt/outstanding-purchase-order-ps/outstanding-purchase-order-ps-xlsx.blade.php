@@ -74,17 +74,26 @@
                             'userdetails.initial as user_initial',
                         )
                         ->where('tx_purchase_orders.purchase_no','NOT LIKE','%Draft%')
-                        ->whereNotIn('tx_purchase_orders.purchase_no',function($query){
-                            // belum masuk RO valid
-                            $query->select('tx_rop.po_mo_no')
-                            ->from('tx_receipt_order_parts as tx_rop')
-                            ->leftJoin('tx_receipt_orders as tx_ro','tx_rop.receipt_order_id','=','tx_ro.id')
-                            ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
-                            ->where([
-                                'tx_rop.is_partial_received'=>'N',
-                                'tx_rop.active'=>'Y',
-                                'tx_ro.active'=>'Y',
-                            ]);
+                        ->whereExists(function($query){
+                            // tampilkan PO hanya jika ADA sisa part outstanding,
+                            // yaitu ada part PO aktif yang belum ter-link ke RO aktif+valid.
+                            // Cermin logika $isPartial di OrderServerSideController@status.
+                            $query->select(\DB::raw(1))
+                            ->from('tx_purchase_order_parts as tx_pop')
+                            ->whereColumn('tx_pop.order_id','tx_purchase_orders.id')
+                            ->where('tx_pop.active','Y')
+                            ->whereNotIn('tx_pop.id',function($q1){
+                                $q1->select('tx_rop.po_mo_id')
+                                ->from('tx_receipt_order_parts as tx_rop')
+                                ->whereNotNull('tx_rop.po_mo_id')
+                                ->leftJoin('tx_receipt_orders as tx_ro','tx_rop.receipt_order_id','=','tx_ro.id')
+                                ->whereRaw("tx_rop.po_mo_no = tx_purchase_orders.purchase_no")
+                                ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                ->where([
+                                    'tx_rop.active'=>'Y',
+                                    'tx_ro.active'=>'Y',
+                                ]);
+                            });
                         })
                         ->whereRaw('tx_purchase_orders.purchase_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_purchase_orders.purchase_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
@@ -105,6 +114,7 @@
                             $purchase_order_parts = \App\Models\Tx_purchase_order_part::leftJoin('mst_parts as msp','tx_purchase_order_parts.part_id','=','msp.id')
                             ->leftJoin('tx_purchase_orders as tx_po','tx_purchase_order_parts.order_id','=','tx_po.id')
                             ->select(
+                                'tx_purchase_order_parts.id as pop_id',
                                 'tx_purchase_order_parts.qty',
                                 'tx_purchase_order_parts.price',
                                 'msp.part_number',
@@ -120,24 +130,38 @@
                             ->get();
                         @endphp
                         @foreach ($purchase_order_parts as $pop)
+                            @php
+                                $received = \App\Models\Tx_receipt_order_part::leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
+                                ->where('tx_receipt_order_parts.po_mo_id',$pop->pop_id)
+                                ->where('tx_receipt_order_parts.po_mo_no',$po->purchase_no)
+                                ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                ->where([
+                                    'tx_receipt_order_parts.active'=>'Y',
+                                    'tx_ro.active'=>'Y',
+                                ])
+                                ->sum('tx_receipt_order_parts.qty');
+                                $sisa = $pop->qty - $received;
+                            @endphp
+                            @if ($sisa > 0)
                             <tr>
                                 <td>{{ ($supplier_name!=$po->supplier_name)?$po->supplier_code.' - '.$po->supplier_name:'' }}</td>
                                 <td>{{ ($purchase_no!=$po->purchase_no)?$po->purchase_no:'' }}</td>
                                 <td style="text-align: center;">{{ $po->purchase_date }}</td>
                                 <td>{{ $pop->part_number }}</td>
                                 <td>{{ $pop->part_name }}</td>
-                                <td style="text-align: right;">{{ $pop->qty }}</td>
+                                <td style="text-align: right;">{{ $sisa }}</td>
                                 <td style="text-align: right;">{{ number_format($pop->price,0,'.','') }}</td>
-                                <td style="text-align: right;">{{ number_format(($pop->price*$pop->qty),0,'.','') }}</td>
+                                <td style="text-align: right;">{{ number_format(($pop->price*$sisa),0,'.','') }}</td>
                                 <td style="text-align: center;">{{ $po->est_supply_date }}</td>
                                 <td style="text-align: center;">{{ $po->user_initial }}</td>
                             </tr>
                             @php
                                 // $totDppPerPO+=($pop->price*$pop->qty*($pop->supplier_type_id==10?$pop->avg_cost:1));
-                                $totDppPerPO+=($pop->price*$pop->qty);
+                                $totDppPerPO+=($pop->price*$sisa);
                                 $supplier_name=$po->supplier_name;
                                 $purchase_no=$po->purchase_no;
                             @endphp
+                            @endif
                         @endforeach
                         @if ($totDppPerPO>0)
                             <tr>
@@ -184,17 +208,26 @@
                             'userdetails.initial as user_initial',
                         )
                         ->where('tx_purchase_memos.memo_no','NOT LIKE','%Draft%')
-                        ->whereNotIn('tx_purchase_memos.memo_no',function($query){
-                            // belum masuk RO valid
-                            $query->select('tx_rop.po_mo_no')
-                            ->from('tx_receipt_order_parts as tx_rop')
-                            ->leftJoin('tx_receipt_orders as tx_ro','tx_rop.receipt_order_id','=','tx_ro.id')
-                            ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
-                            ->where([
-                                'tx_rop.is_partial_received'=>'N',
-                                'tx_rop.active'=>'Y',
-                                'tx_ro.active'=>'Y',
-                            ]);
+                        ->whereExists(function($query){
+                            // tampilkan memo hanya jika ADA sisa part outstanding,
+                            // yaitu ada part memo aktif yang belum ter-link ke RO aktif+valid.
+                            // Pola sama dengan blok PO di atas.
+                            $query->select(\DB::raw(1))
+                            ->from('tx_purchase_memo_parts as tx_mop')
+                            ->whereColumn('tx_mop.memo_id','tx_purchase_memos.id')
+                            ->where('tx_mop.active','Y')
+                            ->whereNotIn('tx_mop.id',function($q1){
+                                $q1->select('tx_rop.po_mo_id')
+                                ->from('tx_receipt_order_parts as tx_rop')
+                                ->whereNotNull('tx_rop.po_mo_id')
+                                ->leftJoin('tx_receipt_orders as tx_ro','tx_rop.receipt_order_id','=','tx_ro.id')
+                                ->whereRaw("tx_rop.po_mo_no = tx_purchase_memos.memo_no")
+                                ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                ->where([
+                                    'tx_rop.active'=>'Y',
+                                    'tx_ro.active'=>'Y',
+                                ]);
+                            });
                         })
                         ->whereRaw('tx_purchase_memos.memo_date>=\''.$dt_s[2].'-'.$dt_s[1].'-'.$dt_s[0].'\'')
                         ->whereRaw('tx_purchase_memos.memo_date<=\''.$dt_e[2].'-'.$dt_e[1].'-'.$dt_e[0].'\'')
@@ -213,6 +246,7 @@
                             $memo_no='';
                             $purchase_memo_parts = \App\Models\Tx_purchase_memo_part::leftJoin('mst_parts as msp','tx_purchase_memo_parts.part_id','=','msp.id')
                             ->select(
+                                'tx_purchase_memo_parts.id as mop_id',
                                 'tx_purchase_memo_parts.qty',
                                 'tx_purchase_memo_parts.price',
                                 'msp.part_number',
@@ -226,23 +260,37 @@
                             ->get();
                         @endphp
                         @foreach ($purchase_memo_parts as $pop)
+                            @php
+                                $received = \App\Models\Tx_receipt_order_part::leftJoin('tx_receipt_orders as tx_ro','tx_receipt_order_parts.receipt_order_id','=','tx_ro.id')
+                                ->where('tx_receipt_order_parts.po_mo_id',$pop->mop_id)
+                                ->where('tx_receipt_order_parts.po_mo_no',$po->memo_no)
+                                ->where('tx_ro.receipt_no','NOT LIKE','%Draft%')
+                                ->where([
+                                    'tx_receipt_order_parts.active'=>'Y',
+                                    'tx_ro.active'=>'Y',
+                                ])
+                                ->sum('tx_receipt_order_parts.qty');
+                                $sisa = $pop->qty - $received;
+                            @endphp
+                            @if ($sisa > 0)
                             <tr>
                                 <td>{{ ($supplier_name!=$po->supplier_name)?$po->supplier_code.' - '.$po->supplier_name:'' }}</td>
                                 <td>{{ ($memo_no!=$po->memo_no)?$po->memo_no:'' }}</td>
                                 <td style="text-align: center;">{{ $po->memo_date }}</td>
                                 <td>{{ $pop->part_number }}</td>
                                 <td>{{ $pop->part_name }}</td>
-                                <td style="text-align: right;">{{ $pop->qty }}</td>
+                                <td style="text-align: right;">{{ $sisa }}</td>
                                 <td style="text-align: right;">{{ number_format($pop->price,0,'.','') }}</td>
-                                <td style="text-align: right;">{{ number_format(($pop->price*$pop->qty),0,'.','') }}</td>
+                                <td style="text-align: right;">{{ number_format(($pop->price*$sisa),0,'.','') }}</td>
                                 <td style="text-align: center;">&nbsp;</td>
                                 <td style="text-align: center;">{{ $po->user_initial }}</td>
                             </tr>
                             @php
-                                $totDppPerMO+=($pop->price*$pop->qty);
+                                $totDppPerMO+=($pop->price*$sisa);
                                 $supplier_name=$po->supplier_name;
                                 $memo_no=$po->memo_no;
                             @endphp
+                            @endif
                         @endforeach
                         @if ($totDppPerMO>0)
                             <tr>

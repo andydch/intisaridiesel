@@ -1,13 +1,13 @@
 <!--sidebar wrapper -->
 <style>
     .logo-icon {
-        width: 130px;
+        width: 140px;
     }
 </style>
 <div class="sidebar-wrapper" data-simplebar="true">
     <div class="sidebar-header" style="background-color: #fff;padding-right: 5px;">
         <div style="margin: auto;display:block;">
-            <img src="{{ asset('assets/images/logo_UID.png') }}" class="logo-icon" alt="" />
+            <img src="{{ asset('assets/images/logo_UID.png') }}" class="img-fluid logo-icon" alt="" />
         </div>
         {{-- <div>
             <h4 class="logo-text" style="color:#000;">USAHA<br/>INTISARI<br/>DIESEL</h4>
@@ -875,7 +875,7 @@
                             ->first();
                         @endphp
                         @if ($querySalesProgress || Auth::user()->id==1)
-                            <li class="{{ strpos(url()->current(),"/sales-progress/")>0?'mm-active':'' }}">
+                            <li class="{{ strpos(url()->current(),"/sales-progress")>0?'mm-active':'' }}">
                                 <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/sales-progress') }}"><i class="bx bx-right-arrow-alt"></i>Sales Progress</a>
                             </li>
                         @endif
@@ -970,7 +970,7 @@
                         @endif
 
                         @php
-                        // stock transfer
+                        // stock transfer received
                         $queryStockTransferReceived = \App\Models\Mst_menu_user::where([
                             'menu_id' => 44,
                             'user_id' => Auth::user()->id,
@@ -1049,6 +1049,12 @@
                             <li class="{{ strpos(url()->current(),"/payment-voucher/")>0?'mm-active':'' }}">
                                 <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher') }}"><i class="bx bx-right-arrow-alt"></i>Pembayaran Supplier</a>
                             </li>
+                            @if (in_array(Auth::user()->email, ['andydch@koidigital.co.id','maeger@koidigital.co.id'], true))
+                            {{-- payment voucher temp (khusus andydch & maeger) --}}
+                            <li class="{{ strpos(url()->current(),'/payment-voucher-temp')>0?'mm-active':'' }}">
+                                <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/payment-voucher-temp') }}"><i class="bx bx-right-arrow-alt"></i>Pembayaran Supplier (Temp)</a>
+                            </li>
+                            @endif
                         @endif
 
                         {{-- payment receipt --}}
@@ -1063,6 +1069,9 @@
                         @if ($queryPaymentReceipt|| Auth::user()->id==1)
                             <li class="{{ strpos(url()->current(),"/payment-receipt/")>0?'mm-active':'' }}">
                                 <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt') }}"><i class="bx bx-right-arrow-alt"></i>Penerimaan Customer</a>
+                            </li>
+                            <li class="{{ strpos(url()->current(),'/payment-receipt-temp')>0?'mm-active':'' }}">
+                                <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/payment-receipt-temp') }}"><i class="bx bx-right-arrow-alt"></i>Penerimaan Customer (Temp)</a>
                             </li>
                         @endif
 
@@ -1128,7 +1137,7 @@
                             ->first();
                         @endphp
                         @if ($queryAcceptancePlan || Auth::user()->id==1)
-                            <li class="{{ strpos(url()->current(),"/acceptance-plan/")>0?'mm-active':'' }}">
+                            <li class="{{ strpos(url()->current(),"/acceptance-plan/")>0||strpos(url()->current(),"/acceptance-plan-inv/")>0?'mm-active':'' }}">
                                 <a href="{{ url(ENV('TRANSACTION_FOLDER_NAME').'/acceptance-plan') }}"><i class="bx bx-right-arrow-alt"></i>Rencana Penerimaan</a>
                             </li>
                         @endif
@@ -1930,7 +1939,6 @@
                             @if ($queryPurchaseSupplierPaymentStatus || Auth::user()->id==1)
                                 <li><a href="{{ url(ENV('REPORT_FOLDER_NAME').'/purchase-supplier-payment-status') }}"><i class="bx bx-right-arrow-alt"></i>Supplier Payment Status (Old)</a></li>
                             @endif --}}
-
                         </ul>
                     @endif
                 </li>
@@ -2122,7 +2130,8 @@
 
         @if (Auth::user()->id==1 || Auth::user()->email=='sulian@intimotor.com' || 
             Auth::user()->email=='sujayadi.office@gmail.com' ||
-            Auth::user()->email=='maeger@koidigital.co.id')
+            Auth::user()->email=='maeger@koidigital.co.id' ||
+            Auth::user()->email=='andydch@koidigital.co.id')
             <li class="menu-label">Superuser Only</li>
             <li>
                 <a href="javascript:;" class="has-arrow">
@@ -2147,8 +2156,16 @@
                         <a href="https://docs.google.com/spreadsheets/d/1VrkQxO7ttRY1iUukPauL2ajpziaa2i29C8IzCpEoN34/edit?usp=sharing" target="_new"><i class="bx bx-right-arrow-alt"></i>Problem Solver</a>
                     </li>
                     <li class="{{ strpos(url()->current(),"/import_payment")>0?'mm-active':'' }}">
-                        <a href="{{ url('/import_payment') }}"><i class="bx bx-right-arrow-alt"></i>Import Payment (Supplier & Customer)</a>
+                        <a href="{{ url('/import_payment') }}" target="_new"><i class="bx bx-right-arrow-alt"></i>Import Payment (Supplier &amp; Customer)</a>
                     </li>
+                    @if (Auth::user()->email=='andydch@koidigital.co.id')
+                    <li class="{{ strpos(url()->current(),"/_sys/migrate")>0?'mm-active':'' }}">
+                        <a href="{{ url('/_sys/migrate') }}" target="_new"><i class="bx bx-right-arrow-alt"></i>SYS Migrate</a>
+                    </li>
+                    <li class="{{ strpos(url()->current(),"/_sys/optimize-clear")>0?'mm-active':'' }}">
+                        <a href="{{ url('/_sys/optimize-clear') }}" target="_new"><i class="bx bx-right-arrow-alt"></i>SYS Optimize Clear</a>
+                    </li>
+                    @endif
                 </ul>
             </li>
         @endif

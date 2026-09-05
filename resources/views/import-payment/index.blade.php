@@ -25,21 +25,20 @@
   <h1>Import Payment (Supplier &amp; Customer)</h1>
 
   @if (session('status'))
-    <div class="alert ok">{!! session('status') !!}</div>
+    <div class="alert ok">{!! nl2br(e(session('status'))) !!}</div>
   @endif
 
   @if (session('status-error'))
-    <div class="alert err">IMPORT GAGAL:<br>{!! session('status-error') !!}</div>
+    <div class="alert err">IMPORT GAGAL:<br>{!! nl2br(e(session('status-error'))) !!}</div>
   @endif
 
   <ol>
-    <li>Gunakan file <code>format-hutang-piutang.xlsx</code> dengan worksheet
-        <strong>kartu-hutang</strong> (kolom M = Invoice No) dan <strong>kartu-piutang</strong>.</li>
+    <li>Gunakan file <code>format-hutang-piutang-v2.xlsx</code> dengan worksheet
+        <strong>HUTANG</strong> (24 kolom A-X: Kode Supplier s/d DISC, kolom S JOURNAL DATE boleh kosong) dan <strong>PIUTANG</strong> (16 kolom A-P).</li>
     <li>Hanya data dengan RO Date / Invoice Date <strong>sebelum tahun 2026</strong> yang diproses;
         baris lainnya dilewati &amp; dilaporkan.</li>
-    <li>Kode Supplier/Customer wajib <strong>ada &amp; aktif</strong>; baris yang tidak bisa diproses
-        dicatat dalam berkas teks yang dapat diunduh setelah import.</li>
-    <li>Maksimal ukuran file 2 MB (.xlsx).</li>
+    <li>Kode Supplier/Customer wajib <strong>ada &amp; aktif</strong>; INT Branch &amp; COA wajib aktif; Metode Bayar = Cash/Bank/Advance Payment (tidak case-sensitive); baris gagal dicatat dalam berkas teks yang dapat diunduh setelah import.</li>
+    <li>Maksimal ukuran file 2 MB (.xlsx). Kolom NO GIRO, ADM/BIAYA, DISC boleh 0 atau kosong (HUTANG S boleh kosong, PIUTANG L boleh kosong; PIUTANG M-P kosong akan warisi dari atas).</li>
   </ol>
 
   <form method="POST" action="{{ url('/import_payment') }}" enctype="multipart/form-data">

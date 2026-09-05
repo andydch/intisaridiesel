@@ -350,11 +350,29 @@
 <script src="{{ asset('assets/plugins/bootstrap-material-datetimepicker/js/moment.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/bootstrap-material-datetimepicker/js/bootstrap-material-datetimepicker.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
-<script src="https://cdn.tiny.cloud/1/{{ ENV('TINYMCEKEY') }}/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<link href="{{ asset('assets/plugins/summernote-0.9.0-dist/summernote-bs5.min.css') }}" rel="stylesheet">
+<script src="{{ asset('assets/plugins/summernote-0.9.0-dist/summernote-bs5.min.js') }}"></script>
 <script>
-tinymce.init({
-    selector: '#header,#footer',
-    toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough',
+$(function() {
+    const summernoteToolbar = [
+        ['history', ['undo', 'redo']],
+        ['style', ['style']],
+        ['font', ['fontname', 'fontsize', 'bold', 'italic', 'underline', 'strikethrough', 'clear']],
+        ['para', ['ul', 'ol', 'paragraph']],
+        ['view', ['codeview']]
+    ];
+    $('#header, #footer').summernote({
+        height: 180,
+        toolbar: summernoteToolbar,
+        fontNames: ['Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Helvetica', 'Impact', 'Tahoma', 'Times New Roman', 'Verdana'],
+        callbacks: {
+            onChange: function(contents) { $(this).val(contents); }
+        }
+    });
+    $('#submit-form').on('submit', function() {
+        $('#header').val($('#header').summernote('code'));
+        $('#footer').val($('#footer').summernote('code'));
+    });
 });
 </script>
 <script src="{{ asset('assets/js/my-custom.js') }}"></script>
